@@ -22,13 +22,21 @@ class LogStatus;
 class View;
 class ViewFrame;
 
+
+struct BINARYNINJAUIAPI LogTokenList
+{
+	std::vector<std::pair<int, int>> tokens;
+};
+
+
 struct BINARYNINJAUIAPI LogListItem
 {
 	BNLogLevel level;
 	std::string text;
+	LogTokenList tokens;
 	bool selected;
 
-	LogListItem(BNLogLevel level, std::string text, bool selected = false) : level(level), text(text), selected(selected) { };
+	LogListItem(BNLogLevel level, std::string text, bool selected = false);
 };
 
 
