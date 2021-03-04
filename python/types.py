@@ -26,11 +26,13 @@ import ctypes
 # Binary Ninja components
 import binaryninja
 from binaryninja import _binaryninjacore as core
-from binaryninja.enums import SymbolType, SymbolBinding, TypeClass, NamedTypeReferenceClass, InstructionTextTokenType, StructureType, ReferenceType, VariableSourceType, TypeReferenceType
+from binaryninja.enums import SymbolType, SymbolBinding, TypeClass, NamedTypeReferenceClass, StructureType, ReferenceType, VariableSourceType, TypeReferenceType
 
 # 2-3 compatibility
-from binaryninja import range
 from binaryninja import pyNativeStr
+
+from typing import Optional, Union, List
+import builtins
 
 
 class QualifiedName(object):
@@ -151,7 +153,7 @@ class TypeReferenceSource(object):
 		self._name = name
 		self._offset = offset
 		self._ref_type = ref_type
-	
+
 	def __str__(self):
 		if self.ref_type == TypeReferenceType.DirectTypeReferenceType:
 			s = 'direct'
@@ -420,24 +422,24 @@ class Type(object):
 	:py:meth:`parse_types_from_source_file <binaryninja.platform.Platform.parse_types_from_source_file>`
 
 	"""
-	def __init__(self, handle, platform = None, confidence = max_confidence):
+	def __init__(self, handle: ctypes.POINTER(core.BNType), platform: Optional['binaryninja.platform.Platform'] = None, confidence: int = max_confidence) -> None:
 		self._handle = handle
 		self._mutable = isinstance(handle.contents, core.BNTypeBuilder)
 		self._confidence = confidence
 		self._platform = platform
 
-	def __del__(self):
+	def __del__(self) -> None:
 		if self._mutable:
 			core.BNFreeTypeBuilder(self._handle)
 		else:
 			core.BNFreeType(self._handle)
 
-	def __repr__(self):
+	def __repr__(self) -> str:
 		if self._confidence < max_confidence:
 			return "<type: %s, %d%% confidence>" % (str(self), (self._confidence * 100) // max_confidence)
 		return "<type: %s>" % str(self)
 
-	def __str__(self):
+	def __str__(self) -> str:
 		platform = None
 		if self._platform is not None:
 			platform = self._platform.handle
@@ -448,21 +450,21 @@ class Type(object):
 			return self.get_string_before_name() + " " + str(name.name) + self.get_string_after_name()
 		return core.BNGetTypeString(self._handle, platform)
 
-	def __len__(self):
+	def __len__(self) -> int:
 		return self.width
 
-	def __eq__(self, other):
+	def __eq__(self, other: 'Type') -> bool:
 		if not isinstance(other, self.__class__):
 			return NotImplemented
 		return core.BNTypesEqual(self.handle, other.handle)
 
-	def __ne__(self, other):
+	def __ne__(self, other: 'Type') -> bool:
 		if not isinstance(other, self.__class__):
 			return NotImplemented
 		return core.BNTypesNotEqual(self.handle, other.handle)
 
 	@property
-	def handle(self):
+	def handle(self) -> ctypes.POINTER(core.BNType):
 		if self._mutable:
 			# First use of a mutable Type makes it immutable
 			finalized = core.BNFinalizeTypeBuilder(self._handle)
@@ -472,28 +474,28 @@ class Type(object):
 		return self._handle
 
 	@property
-	def type_class(self):
+	def type_class(self) -> TypeClass:
 		"""Type class (read-only)"""
 		if self._mutable:
 			return TypeClass(core.BNGetTypeBuilderClass(self._handle))
 		return TypeClass(core.BNGetTypeClass(self._handle))
 
 	@property
-	def width(self):
+	def width(self) -> int:
 		"""Type width (read-only)"""
 		if self._mutable:
 			return core.BNGetTypeBuilderWidth(self._handle)
 		return core.BNGetTypeWidth(self._handle)
 
 	@property
-	def alignment(self):
+	def alignment(self) -> int:
 		"""Type alignment (read-only)"""
 		if self._mutable:
 			return core.BNGetTypeBuilderAlignment(self._handle)
 		return core.BNGetTypeAlignment(self._handle)
 
 	@property
-	def signed(self):
+	def signed(self) -> 'BoolWithConfidence':
 		"""Whether type is signed (read-only)"""
 		if self._mutable:
 			result = core.BNIsTypeBuilderSigned(self._handle)
@@ -502,7 +504,7 @@ class Type(object):
 		return BoolWithConfidence(result.value, confidence = result.confidence)
 
 	@property
-	def const(self):
+	def const(self) -> 'BoolWithConfidence':
 		"""Whether type is const (read/write)"""
 		if self._mutable:
 			result = core.BNIsTypeBuilderConst(self._handle)
@@ -511,7 +513,7 @@ class Type(object):
 		return BoolWithConfidence(result.value, confidence = result.confidence)
 
 	@const.setter
-	def const(self, value):
+	def const(self, value: Union[bool, 'BoolWithConfidence']) -> None:
 		if not self._mutable:
 			raise AttributeError("Finalized Type object is immutable, use mutable_copy()")
 		bc = core.BNBoolWithConfidence()
@@ -523,7 +525,7 @@ class Type(object):
 		core.BNTypeBuilderSetConst(self._handle, bc)
 
 	@property
-	def volatile(self):
+	def volatile(self) -> 'BoolWithConfidence':
 		"""Whether type is volatile (read/write)"""
 		if self._mutable:
 			result = core.BNIsTypeBuilderVolatile(self._handle)
@@ -532,7 +534,7 @@ class Type(object):
 		return BoolWithConfidence(result.value, confidence = result.confidence)
 
 	@volatile.setter
-	def volatile(self, value):
+	def volatile(self, value: Union[bool, 'BoolWithConfidence']) -> None:
 		if not self._mutable:
 			raise AttributeError("Finalized Type object is immutable, use mutable_copy()")
 		bc = core.BNBoolWithConfidence()
@@ -544,14 +546,14 @@ class Type(object):
 		core.BNTypeBuilderSetVolatile(self._handle, bc)
 
 	@property
-	def floating_point(self):
+	def floating_point(self) -> bool:
 		"""Whether type is floating point (read-only)"""
 		if self._mutable:
 			return core.BNIsTypeBuilderFloatingPoint(self._handle)
 		return core.BNIsTypeFloatingPoint(self._handle)
 
 	@property
-	def target(self):
+	def target(self) -> Optional['Type']:
 		"""Target (read-only)"""
 		if self._mutable:
 			result = core.BNGetTypeBuilderChildType(self._handle)
@@ -562,8 +564,8 @@ class Type(object):
 		return Type(result.type, platform = self._platform, confidence = result.confidence)
 
 	@property
-	def element_type(self):
-		"""Target (read-only)"""
+	def element_type(self) -> Optional['Type']:
+		"""Element Type (read-only)"""
 		if self._mutable:
 			result = core.BNGetTypeBuilderChildType(self._handle)
 		else:
@@ -573,7 +575,7 @@ class Type(object):
 		return Type(result.type, platform = self._platform, confidence = result.confidence)
 
 	@property
-	def return_value(self):
+	def return_value(self) -> Optional['Type']:
 		"""Return value (read-only)"""
 		if self._mutable:
 			result = core.BNGetTypeBuilderChildType(self._handle)
@@ -584,7 +586,7 @@ class Type(object):
 		return Type(result.type, platform = self._platform, confidence = result.confidence)
 
 	@property
-	def calling_convention(self):
+	def calling_convention(self) -> Optional['binaryninja.callingconvention.CallingConvention']:
 		"""Calling convention (read-only)"""
 		if self._mutable:
 			result = core.BNGetTypeBuilderCallingConvention(self._handle)
@@ -592,10 +594,10 @@ class Type(object):
 			result = core.BNGetTypeCallingConvention(self._handle)
 		if not result.convention:
 			return None
-		return binaryninja.callingconvention.CallingConvention(None, handle = result.convention, confidence = result.confidence)
+		return CallingConvention(None, handle = result.convention, confidence = result.confidence)
 
 	@property
-	def parameters(self):
+	def parameters(self) -> List['FunctionParameter']:
 		"""Type parameters list (read-only)"""
 		count = ctypes.c_ulonglong()
 		if self._mutable:
@@ -620,7 +622,7 @@ class Type(object):
 		return result
 
 	@property
-	def has_variable_arguments(self):
+	def has_variable_arguments(self) -> 'BoolWithConfidence':
 		"""Whether type has variable arguments (read-only)"""
 		if self._mutable:
 			result = core.BNTypeBuilderHasVariableArguments(self._handle)
@@ -629,7 +631,7 @@ class Type(object):
 		return BoolWithConfidence(result.value, confidence = result.confidence)
 
 	@property
-	def can_return(self):
+	def can_return(self) -> 'BoolWithConfidence':
 		"""Whether type can return"""
 		if self._mutable:
 			result = core.BNFunctionTypeBuilderCanReturn(self._handle)
@@ -638,7 +640,7 @@ class Type(object):
 		return BoolWithConfidence(result.value, confidence = result.confidence)
 
 	@can_return.setter
-	def can_return(self, value):
+	def can_return(self, value: Union[bool, 'BoolWithConfidence']) -> None:
 		"""Whether type can return (read-only)"""
 		if not self._mutable:
 			raise AttributeError("Finalized Type object is immutable, use mutable_copy()")
@@ -651,7 +653,7 @@ class Type(object):
 		core.BNSetFunctionTypeBuilderCanReturn(self._handle, bc)
 
 	@property
-	def structure(self):
+	def structure(self) -> Optional['Structure']:
 		"""Structure of the type (read-only)"""
 		if self._mutable:
 			result = core.BNGetTypeBuilderStructure(self._handle)
@@ -662,7 +664,7 @@ class Type(object):
 		return Structure(result)
 
 	@property
-	def enumeration(self):
+	def enumeration(self) -> Optional['Enumeration']:
 		"""Type enumeration (read-only)"""
 		if self._mutable:
 			result = core.BNGetTypeBuilderEnumeration(self._handle)
@@ -673,7 +675,7 @@ class Type(object):
 		return Enumeration(result)
 
 	@property
-	def named_type_reference(self):
+	def named_type_reference(self) -> Optional['NamedTypeReference']:
 		"""Reference to a named type (read-only)"""
 		if self._mutable:
 			result = core.BNGetTypeBuilderNamedTypeReference(self._handle)
@@ -684,21 +686,21 @@ class Type(object):
 		return NamedTypeReference(handle = result)
 
 	@property
-	def count(self):
+	def count(self) -> int:
 		"""Type count (read-only)"""
 		if self._mutable:
 			return core.BNGetTypeBuilderElementCount(self._handle)
 		return core.BNGetTypeElementCount(self._handle)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		"""Offset into structure (read-only)"""
 		if self._mutable:
 			return core.BNGetTypeBuilderOffset(self._handle)
 		return core.BNGetTypeOffset(self._handle)
 
 	@property
-	def stack_adjustment(self):
+	def stack_adjustment(self) -> 'SizeWithConfidence':
 		"""Stack adjustment for function (read-only)"""
 		if self._mutable:
 			result = core.BNGetTypeBuilderStackAdjustment(self._handle)
@@ -707,7 +709,7 @@ class Type(object):
 		return SizeWithConfidence(result.value, confidence = result.confidence)
 
 	@property
-	def registered_name(self):
+	def registered_name(self) -> Optional['NamedTypeReference']:
 		"""Name of type registered to binary view, if any (read-only)"""
 		if self._mutable:
 			return None
@@ -716,7 +718,7 @@ class Type(object):
 			return None
 		return NamedTypeReference(handle = name)
 
-	def get_string_before_name(self):
+	def get_string_before_name(self) -> str:
 		platform = None
 		if self._platform is not None:
 			platform = self._platform.handle
@@ -724,7 +726,7 @@ class Type(object):
 			return core.BNGetTypeBuilderStringBeforeName(self._handle, platform)
 		return core.BNGetTypeStringBeforeName(self._handle, platform)
 
-	def get_string_after_name(self):
+	def get_string_after_name(self) -> str:
 		platform = None
 		if self._platform is not None:
 			platform = self._platform.handle
@@ -732,12 +734,14 @@ class Type(object):
 			return core.BNGetTypeBuilderStringAfterName(self._handle, platform)
 		return core.BNGetTypeStringAfterName(self._handle, platform)
 
+	# TODO : Type annotations from here down
+
 	@property
 	def tokens(self):
 		"""Type string as a list of tokens (read-only)"""
 		return self.get_tokens()
 
-	def get_tokens(self, base_confidence = max_confidence):
+	def get_tokens(self, base_confidence: int = max_confidence):
 		count = ctypes.c_ulonglong()
 		platform = None
 		if self._platform is not None:
@@ -750,7 +754,7 @@ class Type(object):
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
-	def get_tokens_before_name(self, base_confidence = max_confidence):
+	def get_tokens_before_name(self, base_confidence: int = max_confidence):
 		count = ctypes.c_ulonglong()
 		platform = None
 		if self._platform is not None:
@@ -763,7 +767,7 @@ class Type(object):
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
-	def get_tokens_after_name(self, base_confidence = max_confidence):
+	def get_tokens_after_name(self, base_confidence: int = max_confidence):
 		count = ctypes.c_ulonglong()
 		platform = None
 		if self._platform is not None:
@@ -789,7 +793,7 @@ class Type(object):
 		return Type.int(1, True)
 
 	@classmethod
-	def int(self, width, sign = None, altname=""):
+	def int(self, width: int, sign: Optional['BoolWithConfidence'] = None, altname: str = ""):
 		"""
 		``int`` class method for creating an int Type.
 
@@ -809,7 +813,7 @@ class Type(object):
 		return Type(core.BNCreateIntegerTypeBuilder(width, sign_conf, altname))
 
 	@classmethod
-	def float(self, width, altname=""):
+	def float(self, width: int, altname: str = ""):
 		"""
 		``float`` class method for creating floating point Types.
 
@@ -829,40 +833,40 @@ class Type(object):
 		return Type(core.BNCreateWideCharTypeBuilder(width, altname))
 
 	@classmethod
-	def structure_type(self, structure_type):
+	def structure_type(self, structure_type: 'Structure'):
 		return Type(core.BNCreateStructureTypeBuilder(structure_type.handle))
 
 	@classmethod
-	def named_type(self, named_type, width = 0, align = 1):
+	def named_type(self, named_type: 'NamedTypeReference', width: int = 0, align: int = 1):
 		return Type(core.BNCreateNamedTypeReferenceBuilder(named_type.handle, width, align))
 
 	@classmethod
-	def named_type_from_type_and_id(self, type_id, name, t):
+	def named_type_from_type_and_id(self, type_id: int, name: str, t: 'Type'):
 		name = QualifiedName(name)._get_core_struct()
 		if t is not None:
 			t = t.handle
 		return Type(core.BNCreateNamedTypeReferenceBuilderFromTypeAndId(type_id, name, t))
 
 	@classmethod
-	def named_type_from_type(self, name, t):
+	def named_type_from_type(self, name: str, t: 'Type'):
 		name = QualifiedName(name)._get_core_struct()
 		if t is not None:
 			t = t.handle
 		return Type(core.BNCreateNamedTypeReferenceBuilderFromTypeAndId("", name, t))
 
 	@classmethod
-	def named_type_from_registered_type(self, view, name):
+	def named_type_from_registered_type(self, view: 'binaryninja.binaryview.BinaryView', name: str):
 		name = QualifiedName(name)._get_core_struct()
 		return Type(core.BNCreateNamedTypeReferenceBuilderFromType(view.handle, name))
 
 	@classmethod
-	def enumeration_type(self, arch, e, width=None, sign=False):
+	def enumeration_type(self, arch: 'binaryninja.architecture.Architecture', e: 'Enumeration', width: Optional[builtins.int] = None, sign: builtins.bool = False):
 		if width is None:
 			width = arch.default_int_size
 		return Type(core.BNCreateEnumerationTypeBuilder(arch.handle, e.handle, width, sign))
 
 	@classmethod
-	def pointer(self, arch, t, const=None, volatile=None, ref_type=None):
+	def pointer(cls, arch: 'binaryninja.architecture.Architecture', t: 'Type', const: Union[builtins.bool, 'BoolWithConfidence', None] = None, volatile: Union[builtins.bool, 'BoolWithConfidence', None] = None, ref_type: Optional[ReferenceType] = None):
 		if const is None:
 			const = BoolWithConfidence(False, confidence = 0)
 		elif not isinstance(const, BoolWithConfidence):
@@ -891,14 +895,14 @@ class Type(object):
 		return Type(core.BNCreatePointerTypeBuilder(arch.handle, type_conf, const_conf, volatile_conf, ref_type))
 
 	@classmethod
-	def array(self, t, count):
+	def array(self, t: 'Type', count: int):
 		type_conf = core.BNTypeWithConfidence()
 		type_conf.type = t.handle
 		type_conf.confidence = t.confidence
 		return Type(core.BNCreateArrayTypeBuilder(type_conf, count))
 
 	@classmethod
-	def function(self, ret, params, calling_convention=None, variable_arguments=None, stack_adjust=None):
+	def function(self, ret: 'Type', params: List['Type'], calling_convention = None, variable_arguments = None, stack_adjust = None):
 		"""
 		``function`` class method for creating an function Type.
 
