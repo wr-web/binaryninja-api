@@ -1918,7 +1918,7 @@ class BinaryView(object):
 			if sym.raw_name in result:
 				result[sym.raw_name] = [result[sym.raw_name], sym]
 			else:
-				result[sym.raw_name] = sym
+				result[sym.raw_name] = [sym]
 		core.BNFreeSymbolList(syms, count.value)
 		return result
 
