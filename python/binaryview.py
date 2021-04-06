@@ -3875,7 +3875,7 @@ class BinaryView(object):
 		:Example:
 
 			>>> bv.get_symbols(0x1000200c, 1)
-			[<ImportAddressSymbol: "KERNEL32!IsProcessorFeaturePresent@IAT" @ 0x1000200c>]
+			[<ImportAddressSymbol: "KERNEL32!IsProcessorFeaturePresent" @ 0x1000200c>]
 			>>>
 		"""
 		count = ctypes.c_ulonglong(0)
@@ -3906,7 +3906,7 @@ class BinaryView(object):
 		:Example:
 
 			>>> bv.get_symbols_of_type(SymbolType.ImportAddressSymbol, 0x10002028, 1)
-			[<ImportAddressSymbol: "KERNEL32!GetCurrentThreadId@IAT" @ 0x10002028>]
+			[<ImportAddressSymbol: "KERNEL32!GetCurrentThreadId" @ 0x10002028>]
 			>>>
 		"""
 		if isinstance(sym_type, str):
