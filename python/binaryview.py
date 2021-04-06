@@ -27,7 +27,7 @@ import numbers
 import json
 import inspect
 
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 
 # Binary Ninja components
 from binaryninja import _binaryninjacore as core
@@ -1912,13 +1912,10 @@ class BinaryView(object):
 		"""Dict of symbols (read-only)"""
 		count = ctypes.c_ulonglong(0)
 		syms = core.BNGetSymbols(self.handle, count, None)
-		result = {}
+		result = defaultdict(list)
 		for i in range(0, count.value):
 			sym = types.Symbol(None, None, None, handle=core.BNNewSymbolReference(syms[i]))
-			if sym.raw_name in result:
-				result[sym.raw_name] = [result[sym.raw_name], sym]
-			else:
-				result[sym.raw_name] = [sym]
+			result[sym.raw_name].append(sym)
 		core.BNFreeSymbolList(syms, count.value)
 		return result
 
