@@ -21,6 +21,10 @@ use std::os::raw;
 
 use crate::rc::*;
 
+pub(crate) fn raw_to_string(ptr: *const raw::c_char) -> String {
+    unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() }
+}
+
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(C)]
 pub struct BnStr {

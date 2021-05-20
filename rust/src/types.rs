@@ -21,7 +21,7 @@ use std::{fmt, mem, ptr, result, slice};
 
 use crate::architecture::{Architecture, CoreArchitecture};
 use crate::callingconvention::CallingConvention;
-use crate::string::{BnStr, BnStrCompatible, BnString};
+use crate::string::{raw_to_string, BnStr, BnStrCompatible, BnString};
 
 use crate::rc::*;
 
@@ -1098,6 +1098,7 @@ impl EnumerationBuilder {
         self
     }
 
+    // todo : remove for loop
     pub fn members(&self) -> Vec<EnumerationMember> {
         unsafe {
             let mut count: usize = mem::zeroed();
@@ -1159,6 +1160,7 @@ impl Enumeration {
         unsafe { Ref::new(Self { handle }) }
     }
 
+    // TODO : remove for loop
     pub fn members(&self) -> Vec<EnumerationMember> {
         unsafe {
             let mut count: usize = mem::zeroed();
@@ -1217,10 +1219,7 @@ impl StructureBuilder {
     //! use binaryninja::types::{Structure, Type};
 
     //! // Define struct, set size (in bytes)
-    //! let mut my_custom_struct = Structure::new();
-    //! my_custom_struct.set_width(17);
-
-    //! // Create some fields for the struct
+    //! let mut my_custom_struct = Structure::new();BnStr::from_raw(raw.name)
     //! let field_1 = Self::named_int(5, false, "my_weird_int_type");
     //! let field_2 = Self::int(4, false);
     //! let field_3 = Self::int(8, false);
@@ -1535,3 +1534,137 @@ unsafe impl<'a> CoreOwnedArrayWrapper<'a> for QualifiedNameAndType {
         mem::transmute(raw)
     }
 }
+
+//////////////////////////
+// QualifiedNameAndType
+
+pub struct NameAndType<S: BnStrCompatible> {
+    pub name: S,
+    t: Conf<Ref<Type>>,
+}
+
+impl NameAndType<String> {
+    pub(crate) fn from_raw(raw: &BNNameAndType) -> Self {
+        Self::new(
+            raw_to_string(raw.name),
+            unsafe { &Type::ref_from_raw(raw.type_) },
+            raw.typeConfidence,
+        )
+    }
+}
+
+impl<S: BnStrCompatible> NameAndType<S> {
+    pub fn new(name: S, t: &Ref<Type>, confidence: u8) -> Self {
+        Self {
+            name: name,
+            t: Conf::new(t.clone(), confidence),
+        }
+    }
+
+    pub fn type_with_confidence(&self) -> Conf<Ref<Type>> {
+        self.t.clone()
+    }
+}
+
+unsafe impl<S: BnStrCompatible> CoreOwnedArrayProvider for NameAndType<S> {
+    type Raw = BNNameAndType;
+    type Context = ();
+
+    unsafe fn free(raw: *mut Self::Raw, count: usize, _context: &Self::Context) {
+        BNFreeNameAndTypeList(raw, count);
+    }
+}
+
+unsafe impl<'a, S: 'a + BnStrCompatible> CoreOwnedArrayWrapper<'a> for NameAndType<S> {
+    type Wrapped = &'a NameAndType<S>;
+
+    unsafe fn wrap_raw(raw: &'a Self::Raw, _context: &'a Self::Context) -> Self::Wrapped {
+        mem::transmute(raw)
+    }
+}
+
+//////////////////
+// DataVariable
+
+pub struct DataVariable {
+    pub address: u64,
+    pub t: Conf<Ref<Type>>,
+    pub auto_discovered: bool,
+}
+
+// impl DataVariable {
+//     pub(crate) fn from_raw(var: &BNDataVariable) -> Self {
+//         Self {
+//             address: var.address,
+//             t: Conf::new(unsafe { Type::ref_from_raw(var.type_) }, var.typeConfidence),
+//             auto_discovered: var.autoDiscovered,
+//         }
+//     }
+// }
+
+impl DataVariable {
+    pub fn type_with_confidence(&self) -> Conf<Ref<Type>> {
+        Conf::new(self.t.contents.clone(), self.t.confidence)
+    }
+}
+
+// unsafe impl CoreOwnedArrayProvider for DataVariable {
+//     type Raw = BNDataVariable;
+//     type Context = ();
+
+//     unsafe fn free(raw: *mut Self::Raw, count: usize, _context: &Self::Context) {
+//         BNFreeDataVariables(raw, count);
+//     }
+// }
+
+// unsafe impl<'a> CoreOwnedArrayWrapper<'a> for DataVariable {
+//     type Wrapped = &'a DataVariable;
+
+//     unsafe fn wrap_raw(raw: &'a Self::Raw, _context: &'a Self::Context) -> Self::Wrapped {
+//         mem::transmute(raw)
+//     }
+// }
+
+/////////////////////////
+// DataVariableAndName
+
+pub struct DataVariableAndName<S: BnStrCompatible> {
+    pub address: u64,
+    pub t: Conf<Ref<Type>>,
+    pub auto_discovered: bool,
+    pub name: S,
+}
+
+impl DataVariableAndName<String> {
+    pub(crate) fn from_raw(var: &BNDataVariableAndName) -> Self {
+        Self {
+            address: var.address,
+            t: Conf::new(unsafe { Type::ref_from_raw(var.type_) }, var.typeConfidence),
+            auto_discovered: var.autoDiscovered,
+            name: raw_to_string(var.name),
+        }
+    }
+}
+
+impl<S: BnStrCompatible> DataVariableAndName<S> {
+    pub fn type_with_confidence(&self) -> Conf<Ref<Type>> {
+        Conf::new(self.t.contents.clone(), self.t.confidence)
+    }
+}
+
+// unsafe impl<S: BnStrCompatible> CoreOwnedArrayProvider for DataVariableAndName<S> {
+//     type Raw = BNDataVariableAndName;
+//     type Context = ();
+
+//     unsafe fn free(raw: *mut Self::Raw, count: usize, _context: &Self::Context) {
+//         BNFreeDataVariablesAndName(raw, count);
+//     }
+// }
+
+// unsafe impl<'a, S: 'a + BnStrCompatible> CoreOwnedArrayWrapper<'a> for DataVariableAndName<S> {
+//     type Wrapped = &'a DataVariableAndName<S>;
+
+//     unsafe fn wrap_raw(raw: &'a Self::Raw, _context: &'a Self::Context) -> Self::Wrapped {
+//         mem::transmute(raw)
+//     }
+// }

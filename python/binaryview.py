@@ -497,6 +497,27 @@ class DataVariable(object):
 		self._view = value
 
 
+class DataVariableAndName(DataVariable):
+	def __init__(self, addr, var_type, var_name, auto_discovered, view=None):
+		self._address = addr
+		self._type = var_type
+		self._name = var_name
+		self._auto_discovered = auto_discovered
+		self._view = view
+
+	def __repr__(self):
+		return "<var 0x%x: %s %s>" % (self._address, str(self._type), self._name)
+
+	@property
+	def name(self):
+		""" """
+		return self._name
+
+	@name.setter
+	def name(self, value):
+		self._name = value
+
+
 class BinaryDataNotificationCallbacks(object):
 	def __init__(self, view, notify):
 		self._view = view
@@ -6054,6 +6075,21 @@ class BinaryView(object):
 
 		"""
 		core.BNSetGlobalCommentForAddress(self.handle, addr, comment)
+
+	@property
+	def debug_info(self):
+		return binaryninja.debuginfo.DebugInfo(core.BNNewDebugInfoReference(core.BNGetDebugInfo(self.handle)))
+
+	@debug_info.setter
+	def debug_info(self, value):
+		if not isinstance(value, binaryninja.debuginfo.DebugInfo):
+			return NotImplemented
+		core.BNSetDebugInfo(self.handle, value.handle)
+
+	def apply_debug_info(self, value):
+		if not isinstance(value, binaryninja.debuginfo.DebugInfo):
+			return NotImplemented
+		core.BNApplyDebugInfo(self.handle, value.handle)
 
 	def query_metadata(self, key):
 		"""

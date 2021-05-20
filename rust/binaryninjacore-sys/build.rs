@@ -66,12 +66,18 @@ fn main() {
         install_path.to_str().unwrap(),
     );
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     println!(
         "cargo:rustc-link-arg=-Wl,-rpath,{},-L{},-lbinaryninjacore",
         install_path.to_str().unwrap(),
         install_path.to_str().unwrap(),
     );
+
+    #[cfg(target_os = "windows")]
+    {
+        println!("cargo:rustc-link-lib=binaryninjacore");
+        println!("cargo:rustc-link-search={}", install_path.to_str().unwrap());
+    }
 
     // TODO : Clean this up even more
     #[warn(unused_assignments)]
