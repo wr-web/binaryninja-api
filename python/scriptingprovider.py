@@ -704,10 +704,67 @@ class PythonScriptingInstance(ScriptingInstance):
 				self.locals["current_llil"] = None
 				self.locals["current_mlil"] = None
 				self.locals["current_hlil"] = None
+				self.locals["current_llil_instruction_index"] = None
+				self.locals["current_mlil_instruction_index"] = None
+				self.locals["current_hlil_instruction_index"] = None
+				self.locals["current_llil_instruction"] = None
+				self.locals["current_mlil_instruction"] = None
+				self.locals["current_hlil_instruction"] = None
 			else:
 				self.locals["current_llil"] = self.active_func.llil
 				self.locals["current_mlil"] = self.active_func.mlil
 				self.locals["current_hlil"] = self.active_func.hlil
+
+				self.locals["current_llil_instruction_index"] = self.active_func.llil.get_instruction_start(self.active_addr)
+				self.locals["current_mlil_instruction_index"] = self.active_func.mlil.get_instruction_start(self.active_addr)
+				# See #2475
+				# self.locals["current_hlil_instruction_index"] = self.active_func.hlil.get_instruction_start(self.active_addr)
+				self.locals["current_hlil_instruction_index"] = None
+
+				if self.active_func.llil.get_instruction_start(self.active_addr) is not None:
+					self.locals["current_llil_instruction"] = self.active_func.llil[self.active_func.llil.get_instruction_start(self.active_addr)]
+				else:
+					self.locals["current_llil_instruction"] = None
+				if self.active_func.mlil.get_instruction_start(self.active_addr) is not None:
+					self.locals["current_mlil_instruction"] = self.active_func.mlil[self.active_func.mlil.get_instruction_start(self.active_addr)]
+				else:
+					self.locals["current_mlil_instruction"] = None
+				# See #2475
+				# if self.active_func.hlil.get_instruction_start(self.active_addr) is not None:
+				# 	self.locals["current_hlil_instruction"] = self.active_func.hlil[self.active_func.hlil.get_instruction_start(self.active_addr)]
+				self.locals["current_hlil_instruction"] = None
+
+			if self.active_view is not None:
+				self.locals["current_data_var"] = self.active_view.get_data_var_at(self.active_addr)
+				self.locals["current_symbol"] = self.active_view.get_symbol_at(self.active_addr)
+				self.locals["current_segment"] = self.active_view.get_segment_at(self.active_addr)
+				self.locals["current_sections"] = self.active_view.get_sections_at(self.active_addr)
+			else:
+				self.locals["current_data_var"] = None
+				self.locals["current_symbol"] = None
+				self.locals["current_segment"] = None
+				self.locals["current_sections"] = None
+
+			if binaryninja.core_ui_enabled():
+				from binaryninjaui import UIContext
+
+				context = UIContext.activeContext()
+
+				self.locals["current_ui_context"] = context
+				self.locals["current_ui_view_frame"] = context.getCurrentViewFrame()
+				self.locals["current_ui_view"] = context.getCurrentView()
+				self.locals["current_ui_action_handler"] = context.getCurrentActionHandler()
+				if context.getCurrentViewFrame() is not None:
+					self.locals["current_ui_view_location"] = context.getCurrentViewFrame().getViewLocation()
+				else:
+					self.locals["current_ui_view_location"] = None
+			else:
+				self.locals["current_ui_context"] = None
+				self.locals["current_ui_view_frame"] = None
+				self.locals["current_ui_view"] = None
+				self.locals["current_ui_action_handler"] = None
+				self.locals["current_ui_view_location"] = None
+
 			self.locals.blacklist_enabled = True
 
 
