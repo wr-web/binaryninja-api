@@ -704,9 +704,9 @@ class PythonScriptingInstance(ScriptingInstance):
 				self.locals["current_llil"] = None
 				self.locals["current_mlil"] = None
 				self.locals["current_hlil"] = None
-				self.locals["current_llil_instruction_index"] = None
-				self.locals["current_mlil_instruction_index"] = None
-				self.locals["current_hlil_instruction_index"] = None
+				self.locals["current_llil_index"] = None
+				self.locals["current_mlil_index"] = None
+				self.locals["current_hlil_index"] = None
 				self.locals["current_llil_instruction"] = None
 				self.locals["current_mlil_instruction"] = None
 				self.locals["current_hlil_instruction"] = None
@@ -715,11 +715,14 @@ class PythonScriptingInstance(ScriptingInstance):
 				self.locals["current_mlil"] = self.active_func.mlil
 				self.locals["current_hlil"] = self.active_func.hlil
 
-				self.locals["current_llil_instruction_index"] = self.active_func.llil.get_instruction_start(self.active_addr)
-				self.locals["current_mlil_instruction_index"] = self.active_func.mlil.get_instruction_start(self.active_addr)
+				# Determine which IL view we're in and propagate the various indices/instructions from there
+				
+
+				self.locals["current_llil_index"] = self.active_func.llil.get_instruction_start(self.active_addr)
+				self.locals["current_mlil_index"] = self.active_func.mlil.get_instruction_start(self.active_addr)
 				# See #2475
-				# self.locals["current_hlil_instruction_index"] = self.active_func.hlil.get_instruction_start(self.active_addr)
-				self.locals["current_hlil_instruction_index"] = None
+				# self.locals["current_hlil_index"] = self.active_func.hlil.get_instruction_start(self.active_addr)
+				self.locals["current_hlil_index"] = None
 
 				if self.active_func.llil.get_instruction_start(self.active_addr) is not None:
 					self.locals["current_llil_instruction"] = self.active_func.llil[self.active_func.llil.get_instruction_start(self.active_addr)]
@@ -737,11 +740,13 @@ class PythonScriptingInstance(ScriptingInstance):
 			if self.active_view is not None:
 				self.locals["current_data_var"] = self.active_view.get_data_var_at(self.active_addr)
 				self.locals["current_symbol"] = self.active_view.get_symbol_at(self.active_addr)
+				self.locals["current_symbols"] = self.active_view.get_symbols_at(self.active_addr)
 				self.locals["current_segment"] = self.active_view.get_segment_at(self.active_addr)
 				self.locals["current_sections"] = self.active_view.get_sections_at(self.active_addr)
 			else:
 				self.locals["current_data_var"] = None
 				self.locals["current_symbol"] = None
+				self.locals["current_symbols"] = []
 				self.locals["current_segment"] = None
 				self.locals["current_sections"] = None
 
