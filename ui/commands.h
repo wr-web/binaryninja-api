@@ -21,6 +21,8 @@ bool BINARYNINJAUIAPI inputNewType(QWidget* parent, BinaryViewRef data, Function
 	uint64_t currentAddr, size_t selectionSize, HighlightTokenState& highlight);
 bool BINARYNINJAUIAPI createInferredMember(QWidget* parent, BinaryViewRef data, HighlightTokenState& highlight,
 	FunctionRef func, BNFunctionGraphType ilType);
+bool BINARYNINJAUIAPI createMemberWithExplicitSize(QWidget* parent, BinaryViewRef data, HighlightTokenState& highlight,
+	FunctionRef func, size_t size);
 bool BINARYNINJAUIAPI createStructMembers(QWidget* parent, BinaryViewRef data,
 	HighlightTokenState& highlight, FunctionRef func);
 
