@@ -336,6 +336,11 @@ private Q_SLOTS:
 	void tagAddressAccepted(TagTypeRef tt);
 	void manageAddressTags();
 
+	void makeInt8();
+	void makeInt16();
+	void makeInt32();
+	void makeInt64();
+
 	void convertToNop();
 	void alwaysBranch();
 	void invertBranch();
