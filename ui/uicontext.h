@@ -18,6 +18,8 @@ class ViewFrame;
 class UIActionHandler;
 class FileContext;
 class ViewLocation;
+class Sidebar;
+class SidebarWidgetContainer;
 
 /*!
     Interface used to receive notifications related to files and contexts. Many notifications include the ability
@@ -256,6 +258,8 @@ public:
 
 	UIActionHandler* globalActions() { return &m_globalActions; }
 	virtual UIActionHandler* contentActionHandler() = 0;
+
+	virtual Sidebar* sidebar() = 0;
 
 	/*!
 	    Register an object to receive notifications of UIContext events
