@@ -417,6 +417,8 @@ public:
 	void nextCrossReference();
 	void prevCrossReference();
 
+	void updateVariableList();
+
 	void showTags();
 	void editTag(TagRef tag);
 	void nextTag();
