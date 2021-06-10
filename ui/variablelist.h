@@ -9,6 +9,7 @@
 
 enum class VariableListItemType {
     LocalVariable,
+    DataVariable
 };
 
 class VariableListItem {
@@ -16,11 +17,13 @@ class VariableListItem {
     VariableListItemType m_type;
 
     BinaryNinja::Variable m_var;
+    BinaryNinja::DataVariable m_dataVar;
     BinaryNinja::VariableNameAndType m_nat;
 
 public:
     VariableListItem(FunctionRef func, BinaryNinja::Variable var,
         BinaryNinja::VariableNameAndType nat);
+    VariableListItem(FunctionRef func, BinaryNinja::DataVariable dataVar);
 
     QString label() const;
 };
