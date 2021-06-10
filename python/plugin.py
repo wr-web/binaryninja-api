@@ -24,15 +24,11 @@ import threading
 
 # Binary Ninja components
 import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import PluginCommandType
-from binaryninja import filemetadata
-from binaryninja import binaryview
-from binaryninja import function
-
-# 2-3 compatibility
-from binaryninja import range
-from binaryninja import with_metaclass
+from . import _binaryninjacore as core
+from .enums import PluginCommandType
+from . import filemetadata
+from . import binaryview
+from . import function
 
 
 class PluginCommandContext(object):
@@ -121,7 +117,7 @@ class _PluginCommandMetaClass(type):
 			raise AttributeError("attribute '%s' is read only" % name)
 
 
-class PluginCommand(with_metaclass(_PluginCommandMetaClass, object)):
+class PluginCommand(metaclass=_PluginCommandMetaClass):
 	_registered_commands = []
 
 	def __init__(self, cmd):
@@ -674,7 +670,7 @@ class _BackgroundTaskMetaclass(type):
 			core.BNFreeBackgroundTaskList(tasks, count.value)
 
 
-class BackgroundTask(with_metaclass(_BackgroundTaskMetaclass, object)):
+class BackgroundTask(metaclass=_BackgroundTaskMetaclass):
 	def __init__(self, initial_progress_text = "", can_cancel = False, handle = None):
 		if handle is None:
 			self.handle = core.BNBeginBackgroundTask(initial_progress_text, can_cancel)

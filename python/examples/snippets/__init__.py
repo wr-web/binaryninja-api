@@ -104,7 +104,7 @@ def executeSnippet(code, context):
         snippetGlobals['current_basic_block'] = None
     snippetGlobals['current_address'] = context.address
     snippetGlobals['here'] = context.address
-    if context.address is not None and isinstance(context.length, numbers.Integral):
+    if context.address is not None and isinstance(context.length, int):
         snippetGlobals['current_selection'] = (context.address, context.address+context.length)
     else:
         snippetGlobals['current_selection'] = None

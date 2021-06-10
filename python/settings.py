@@ -21,12 +21,10 @@
 import ctypes
 
 # Binary Ninja components
-from binaryninja import _binaryninjacore as core
+from . import _binaryninjacore as core
 
-# 2-3 compatibility
-from binaryninja import range
-from binaryninja import pyNativeStr
-from binaryninja.enums import SettingsScope
+from . import pyNativeStr
+from .enums import SettingsScope
 
 
 class Settings(object):

@@ -24,15 +24,10 @@ import abc
 
 # Binary Ninja components
 import binaryninja
-from binaryninja import log
-from binaryninja import databuffer
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import TransformType
-
-# 2-3 compatibility
-import numbers
-from binaryninja import range
-from binaryninja import with_metaclass
+from . import log
+from . import databuffer
+from . import _binaryninjacore as core
+from .enums import TransformType
 
 
 class _TransformMetaClass(type):
@@ -115,7 +110,7 @@ class TransformParameter(object):
 		return self._fixed_length
 
 
-class Transform(with_metaclass(_TransformMetaClass, object)):
+class Transform(metaclass=_TransformMetaClass):
 	"""
 	``class Transform`` is an implementation of the TransformMetaClass that implements custom transformations. New 
 	transformations may be added at runtime, so an instance of a transform is created like::
@@ -262,7 +257,7 @@ class Transform(with_metaclass(_TransformMetaClass, object)):
 		return None
 
 	def decode(self, input_buf, params = {}):
-		if isinstance(input_buf, int) or isinstance(input_buf, numbers.Integral):
+		if isinstance(input_buf, int) or isinstance(input_buf, int):
 			return None
 		input_buf = databuffer.DataBuffer(input_buf)
 		output_buf = databuffer.DataBuffer()
@@ -278,7 +273,7 @@ class Transform(with_metaclass(_TransformMetaClass, object)):
 		return bytes(output_buf)
 
 	def encode(self, input_buf, params = {}):
-		if isinstance(input_buf, int) or isinstance(input_buf, numbers.Integral):
+		if isinstance(input_buf, int) or isinstance(input_buf, int):
 			return None
 		input_buf = databuffer.DataBuffer(input_buf)
 		output_buf = databuffer.DataBuffer()

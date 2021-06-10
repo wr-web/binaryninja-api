@@ -23,12 +23,11 @@ import ctypes
 
 # Binary Ninja components
 import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja import log
-from binaryninja.enums import VariableSourceType
-
-# 2-3 compatibility
-from binaryninja import range
+from . import _binaryninjacore as core
+from .enums import VariableSourceType
+from . import log
+from . import variable
+from . import function
 
 
 class CallingConvention(object):
@@ -50,7 +49,7 @@ class CallingConvention(object):
 
 	_registered_calling_conventions = []
 
-	def __init__(self, arch=None, name=None, handle=None, confidence=binaryninja.types.max_confidence):
+	def __init__(self, arch=None, name=None, handle=None, confidence=core.max_confidence):
 		if handle is None:
 			if arch is None or name is None:
 				self.handle = None
@@ -344,7 +343,7 @@ class CallingConvention(object):
 			api_obj = self.perform_get_incoming_reg_value(reg_name, func_obj)._to_api_object()
 		except:
 			log.log_error(traceback.format_exc())
-			api_obj = binaryninja.function.RegisterValue()._to_api_object()
+			api_obj = variable.RegisterValue()._to_api_object()
 		result[0].state = api_obj.state
 		result[0].value = api_obj.value
 
@@ -355,7 +354,7 @@ class CallingConvention(object):
 			api_obj = self.perform_get_incoming_flag_value(reg_name, func_obj)._to_api_object()
 		except:
 			log.log_error(traceback.format_exc())
-			api_obj = binaryninja.function.RegisterValue()._to_api_object()
+			api_obj = variable.RegisterValue()._to_api_object()
 		result[0].state = api_obj.state
 		result[0].value = api_obj.value
 
@@ -364,8 +363,8 @@ class CallingConvention(object):
 			if func is None:
 				func_obj = None
 			else:
-				func_obj = binaryninja.function.Function(handle = core.BNNewFunctionReference(func))
-			in_var_obj = binaryninja.function.Variable(func_obj, in_var[0].type, in_var[0].index, in_var[0].storage)
+				func_obj = function.Function(handle = core.BNNewFunctionReference(func))
+			in_var_obj = variable.Variable(func_obj, in_var[0].type, in_var[0].index, in_var[0].storage)
 			out_var = self.perform_get_incoming_var_for_parameter_var(in_var_obj, func_obj)
 			result[0].type = out_var.source_type
 			result[0].index = out_var.index
@@ -381,8 +380,8 @@ class CallingConvention(object):
 			if func is None:
 				func_obj = None
 			else:
-				func_obj = binaryninja.function.Function(handle = core.BNNewFunctionReference(func))
-			in_var_obj = binaryninja.function.Variable(func_obj, in_var[0].type, in_var[0].index, in_var[0].storage)
+				func_obj = function.Function(handle = core.BNNewFunctionReference(func))
+			in_var_obj = variable.Variable(func_obj, in_var[0].type, in_var[0].index, in_var[0].storage)
 			out_var = self.perform_get_parameter_var_for_incoming_var(in_var_obj, func_obj)
 			result[0].type = out_var.source_type
 			result[0].index = out_var.index
@@ -397,11 +396,11 @@ class CallingConvention(object):
 		reg_stack = self.arch.get_reg_stack_for_reg(reg)
 		if reg_stack is not None:
 			if reg == self.arch.reg_stacks[reg_stack].stack_top_reg:
-				return binaryninja.function.RegisterValue.constant(0)
-		return binaryninja.function.RegisterValue()
+				return variable.RegisterValue.constant(0)
+		return variable.RegisterValue()
 
 	def perform_get_incoming_flag_value(self, reg, func):
-		return binaryninja.function.RegisterValue()
+		return variable.RegisterValue()
 
 	def perform_get_incoming_var_for_parameter_var(self, in_var, func):
 		in_buf = core.BNVariable()
@@ -412,7 +411,7 @@ class CallingConvention(object):
 		name = None
 		if (func is not None) and (out_var.type == VariableSourceType.RegisterVariableSourceType):
 			name = func.arch.get_reg_name(out_var.storage)
-		return binaryninja.function.Variable(func, out_var.type, out_var.index, out_var.storage, name)
+		return variable.Variable(func, out_var.type, out_var.index, out_var.storage, name)
 
 	def perform_get_parameter_var_for_incoming_var(self, in_var, func):
 		in_buf = core.BNVariable()
@@ -420,7 +419,7 @@ class CallingConvention(object):
 		in_buf.index = in_var.index
 		in_buf.storage = in_var.storage
 		out_var = core.BNGetDefaultParameterVariableForIncomingVariable(self.handle, in_buf)
-		return binaryninja.function.Variable(func, out_var.type, out_var.index, out_var.storage)
+		return variable.Variable(func, out_var.type, out_var.index, out_var.storage)
 
 	def with_confidence(self, confidence):
 		return CallingConvention(self.arch, handle = core.BNNewCallingConventionReference(self.handle),
@@ -431,14 +430,14 @@ class CallingConvention(object):
 		func_handle = None
 		if func is not None:
 			func_handle = func.handle
-		return binaryninja.function.RegisterValue(self.arch, core.BNGetIncomingRegisterValue(self.handle, reg_num, func_handle))
+		return variable.RegisterValue(self.arch, core.BNGetIncomingRegisterValue(self.handle, reg_num, func_handle))
 
 	def get_incoming_flag_value(self, flag, func):
 		reg_num = self.arch.get_flag_index(flag)
 		func_handle = None
 		if func is not None:
 			func_handle = func.handle
-		return binaryninja.function.RegisterValue(self.arch, core.BNGetIncomingFlagValue(self.handle, reg_num, func_handle))
+		return variable.RegisterValue(self.arch, core.BNGetIncomingFlagValue(self.handle, reg_num, func_handle))
 
 	def get_incoming_var_for_parameter_var(self, in_var, func):
 		in_buf = core.BNVariable()
@@ -453,7 +452,7 @@ class CallingConvention(object):
 		name = None
 		if (func is not None) and (out_var.type == VariableSourceType.RegisterVariableSourceType):
 			name = func.arch.get_reg_name(out_var.storage)
-		return binaryninja.function.Variable(func, out_var.type, out_var.index, out_var.storage, name)
+		return variable.Variable(func, out_var.type, out_var.index, out_var.storage, name)
 
 	def get_parameter_var_for_incoming_var(self, in_var, func):
 		in_buf = core.BNVariable()
@@ -465,7 +464,7 @@ class CallingConvention(object):
 		else:
 			func_obj = func.handle
 		out_var = core.BNGetParameterVariableForIncomingVariable(self.handle, in_buf, func_obj)
-		return binaryninja.function.Variable(func, out_var.type, out_var.index, out_var.storage)
+		return variable.Variable(func, out_var.type, out_var.index, out_var.storage)
 
 	@property
 	def arch(self):

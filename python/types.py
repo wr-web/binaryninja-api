@@ -18,34 +18,25 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from __future__ import absolute_import
-
-from binaryninja.log import log_warn
-max_confidence = 255
-
 import ctypes
+from typing import List
 
 # Binary Ninja components
 import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import SymbolType, SymbolBinding, TypeClass, NamedTypeReferenceClass, InstructionTextTokenType, StructureType, ReferenceType, VariableSourceType, TypeReferenceType
-
-# 2-3 compatibility
-from binaryninja import range
-from binaryninja import pyNativeStr
+from . import _binaryninjacore as core
+from .enums import SymbolType, SymbolBinding, TypeClass, NamedTypeReferenceClass, InstructionTextTokenType, StructureType, ReferenceType, VariableSourceType, TypeReferenceType
+from .log import log_warn
+from .compatibility import cstr
 
 
 class QualifiedName(object):
 	def __init__(self, name = []):
 		if isinstance(name, str):
 			self._name = [name]
-			self._byte_name = [name.encode('charmap')]
 		elif isinstance(name, self.__class__):
 			self._name = name.name
-			self._byte_name = [n.encode('charmap') for n in name.name]
 		else:
-			self._name = [pyNativeStr(i) for i in name]
-			self._byte_name = name
+			self._name = [cstr(i) for i in name]
 
 	def __str__(self):
 		return "::".join(self.name)
@@ -117,7 +108,7 @@ class QualifiedName(object):
 		result = core.BNQualifiedName()
 		name_list = (ctypes.c_char_p * len(self.name))()
 		for i in range(0, len(self.name)):
-			name_list[i] = self.name[i].encode('charmap')
+			name_list[i] = cstr(self.name[i])
 		result.name = name_list
 		result.nameCount = len(self.name)
 		return result
@@ -126,7 +117,7 @@ class QualifiedName(object):
 	def _from_core_struct(cls, name):
 		result = []
 		for i in range(0, name.nameCount):
-			result.append(name.name[i])
+			result.append(cstr(name.name[i]))
 		return QualifiedName(result)
 
 	@property
@@ -135,17 +126,8 @@ class QualifiedName(object):
 		return self._name
 
 	@name.setter
-	def name(self, value):
+	def name(self, value:List[str]):
 		self._name = value
-
-	@property
-	def byte_name(self):
-		""" """
-		return self._byte_name
-
-	@byte_name.setter
-	def byte_name(self, value):
-		self._byte_name = value
 
 
 class TypeReferenceSource(object):
@@ -408,7 +390,7 @@ class Type(object):
 	:py:meth:`parse_types_from_source_file <binaryninja.platform.Platform.parse_types_from_source_file>`
 
 	"""
-	def __init__(self, handle, platform = None, confidence = max_confidence):
+	def __init__(self, handle, platform = None, confidence = core.max_confidence):
 		self._handle = handle
 		self._mutable = isinstance(handle.contents, core.BNTypeBuilder)
 		self._confidence = confidence
@@ -421,8 +403,8 @@ class Type(object):
 			core.BNFreeType(self._handle)
 
 	def __repr__(self):
-		if self._confidence < max_confidence:
-			return "<type: %s, %d%% confidence>" % (str(self), (self._confidence * 100) // max_confidence)
+		if self._confidence < core.max_confidence:
+			return "<type: %s, %d%% confidence>" % (str(self), (self._confidence * 100) // core.max_confidence)
 		return "<type: %s>" % str(self)
 
 	def __str__(self):
@@ -507,7 +489,7 @@ class Type(object):
 		if hasattr(value, 'confidence'):
 			bc.confidence = value.confidence
 		else:
-			bc.confidence = max_confidence
+			bc.confidence = core.max_confidence
 		core.BNTypeBuilderSetConst(self._handle, bc)
 
 	@property
@@ -528,7 +510,7 @@ class Type(object):
 		if hasattr(value, 'confidence'):
 			bc.confidence = value.confidence
 		else:
-			bc.confidence = max_confidence
+			bc.confidence = core.max_confidence
 		core.BNTypeBuilderSetVolatile(self._handle, bc)
 
 	@property
@@ -635,7 +617,7 @@ class Type(object):
 		if hasattr(value, 'confidence'):
 			bc.confidence = value.confidence
 		else:
-			bc.confidence = max_confidence
+			bc.confidence = core.max_confidence
 		core.BNSetFunctionTypeBuilderCanReturn(self._handle, bc)
 
 	@property
@@ -725,7 +707,7 @@ class Type(object):
 		"""Type string as a list of tokens (read-only)"""
 		return self.get_tokens()
 
-	def get_tokens(self, base_confidence = max_confidence):
+	def get_tokens(self, base_confidence = core.max_confidence):
 		count = ctypes.c_ulonglong()
 		platform = None
 		if self._platform is not None:
@@ -734,11 +716,11 @@ class Type(object):
 			tokens = core.BNGetTypeBuilderTokens(self._handle, platform, base_confidence, count)
 		else:
 			tokens = core.BNGetTypeTokens(self._handle, platform, base_confidence, count)
-		result = binaryninja.function.InstructionTextToken.get_instruction_lines(tokens, count.value)
+		result = binaryninja.function.InstructionTextToken._from_core_struct(tokens, count.value)
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
-	def get_tokens_before_name(self, base_confidence = max_confidence):
+	def get_tokens_before_name(self, base_confidence = core.max_confidence):
 		count = ctypes.c_ulonglong()
 		platform = None
 		if self._platform is not None:
@@ -747,11 +729,11 @@ class Type(object):
 			tokens = core.BNGetTypeBuilderTokensBeforeName(self._handle, platform, base_confidence, count)
 		else:
 			tokens = core.BNGetTypeTokensBeforeName(self._handle, platform, base_confidence, count)
-		result = binaryninja.function.InstructionTextToken.get_instruction_lines(tokens, count.value)
+		result = binaryninja.function.InstructionTextToken._from_core_struct(tokens, count.value)
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
-	def get_tokens_after_name(self, base_confidence = max_confidence):
+	def get_tokens_after_name(self, base_confidence = core.max_confidence):
 		count = ctypes.c_ulonglong()
 		platform = None
 		if self._platform is not None:
@@ -760,7 +742,7 @@ class Type(object):
 			tokens = core.BNGetTypeBuilderTokensAfterName(self._handle, platform, base_confidence, count)
 		else:
 			tokens = core.BNGetTypeTokensAfterName(self._handle, platform, base_confidence, count)
-		result = binaryninja.function.InstructionTextToken.get_instruction_lines(tokens, count.value)
+		result = binaryninja.function.InstructionTextToken._from_core_struct(tokens, count.value)
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
@@ -1004,7 +986,7 @@ class Type(object):
 
 
 class BoolWithConfidence(object):
-	def __init__(self, value, confidence = max_confidence):
+	def __init__(self, value, confidence = core.max_confidence):
 		self._value = value
 		self._confidence = confidence
 
@@ -1040,7 +1022,7 @@ class BoolWithConfidence(object):
 
 
 class SizeWithConfidence(object):
-	def __init__(self, value, confidence = max_confidence):
+	def __init__(self, value, confidence = core.max_confidence):
 		self._value = value
 		self._confidence = confidence
 
@@ -1073,7 +1055,7 @@ class SizeWithConfidence(object):
 
 
 class RegisterStackAdjustmentWithConfidence(object):
-	def __init__(self, value, confidence = max_confidence):
+	def __init__(self, value, confidence = core.max_confidence):
 		self._value = value
 		self._confidence = confidence
 
@@ -1106,7 +1088,7 @@ class RegisterStackAdjustmentWithConfidence(object):
 
 
 class RegisterSet(object):
-	def __init__(self, reg_list, confidence = max_confidence):
+	def __init__(self, reg_list, confidence = core.max_confidence):
 		self._regs = reg_list
 		self._confidence = confidence
 
@@ -1146,7 +1128,7 @@ class RegisterSet(object):
 
 
 class ReferenceTypeWithConfidence(object):
-	def __init__(self, value, confidence = max_confidence):
+	def __init__(self, value, confidence = core.max_confidence):
 		self._value = value
 		self._confidence = confidence
 
@@ -1675,3 +1657,108 @@ def preprocess_source(source, filename=None, include_dirs=[]):
 	if result:
 		return (output_str, error_str)
 	return (None, error_str)
+
+
+class TypeFieldReference(object):
+	def __init__(self, func, arch, addr, size):
+		self._function = func
+		self._arch = arch
+		self._address = addr
+		self._size = size
+
+	def __repr__(self):
+		if self._arch:
+			return "<ref: %s@%#x, size: %#x>" % (self._arch.name, self._address, self._size)
+		else:
+			return "<ref: %#x, size: %#x>" % (self._address, self._size)
+
+	def __eq__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		return (self.function, self.arch, self.address, self._size) ==\
+			(other.address, other.function, other.arch, other.size)
+
+	def __ne__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		return not (self == other)
+
+	def __lt__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		if self.address < other.address:
+			return True
+		elif self.address > other.address:
+			return False
+		else:
+			return self.size < other.size
+
+	def __gt__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		if self.address > other.address:
+			return True
+		elif self.address < other.address:
+			return False
+		else:
+			return self.size > other.size
+
+	def __ge__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		if self.address > other.address:
+			return True
+		elif self.address < other.address:
+			return False
+		else:
+			return self.size >= other.size
+
+	def __le__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		if self.address < other.address:
+			return True
+		elif self.address > other.address:
+			return False
+		else:
+			return self.size <= other.size
+
+	def __hash__(self):
+		return hash((self._function, self._arch, self._address, self._size))
+
+	@property
+	def function(self):
+		""" """
+		return self._function
+
+	@function.setter
+	def function(self, value):
+		self._function = value
+
+	@property
+	def arch(self):
+		""" """
+		return self._arch
+
+	@arch.setter
+	def arch(self, value):
+		self._arch = value
+
+	@property
+	def address(self):
+		""" """
+		return self._address
+
+	@address.setter
+	def address(self, value):
+		self._address = value
+
+	@property
+	def size(self):
+		""" """
+		return self._size
+
+	@size.setter
+	def address(self, value):
+		self._size = value
+

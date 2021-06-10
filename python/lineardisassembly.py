@@ -21,11 +21,11 @@
 import ctypes
 
 import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja import highlight
-from binaryninja import function
-from binaryninja import basicblock
-from binaryninja.enums import LinearViewObjectIdentifierType
+from . import _binaryninjacore as core
+from . import highlight
+from . import function
+from . import basicblock
+from .enums import LinearViewObjectIdentifierType
 
 
 class LinearDisassemblyLine(object):
@@ -255,7 +255,7 @@ class LinearViewObject(object):
 				block = binaryninja.basicblock.BasicBlock(core.BNNewBasicBlockReference(lines[i].block), self)
 			color = highlight.HighlightColor._from_core_struct(lines[i].contents.highlight)
 			addr = lines[i].contents.addr
-			tokens = binaryninja.function.InstructionTextToken.get_instruction_lines(lines[i].contents.tokens, lines[i].contents.count)
+			tokens = binaryninja.function.InstructionTextToken._from_core_struct(lines[i].contents.tokens, lines[i].contents.count)
 			contents = binaryninja.function.DisassemblyTextLine(tokens, addr, color = color)
 			result.append(LinearDisassemblyLine(lines[i].type, func, block, contents))
 
@@ -475,7 +475,7 @@ class LinearViewCursor(object):
 				block = binaryninja.basicblock.BasicBlock(core.BNNewBasicBlockReference(lines[i].block), self)
 			color = highlight.HighlightColor._from_core_struct(lines[i].contents.highlight)
 			addr = lines[i].contents.addr
-			tokens = binaryninja.function.InstructionTextToken.get_instruction_lines(lines[i].contents.tokens, lines[i].contents.count)
+			tokens = binaryninja.function.InstructionTextToken._from_core_struct(lines[i].contents.tokens, lines[i].contents.count)
 			contents = binaryninja.function.DisassemblyTextLine(tokens, addr, color = color)
 			result.append(LinearDisassemblyLine(lines[i].type, func, block, contents))
 

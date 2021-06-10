@@ -27,23 +27,19 @@ import threading
 import abc
 import sys
 import subprocess
-from pathlib import Path, PurePath
+from pathlib import Path
 import re
 import os
-import site
-from typing import Generator
+from typing import Generator, Optional, List
 
 # Binary Ninja components
 import binaryninja
-from binaryninja import bncompleter, log
-from binaryninja import _binaryninjacore as core
-from binaryninja import settings
-from binaryninja.pluginmanager import RepositoryManager
-from binaryninja.enums import ScriptingProviderExecuteResult, ScriptingProviderInputReadyState
-
-# 2-3 compatibility
-from binaryninja import with_metaclass
-
+from . import bncompleter, log
+from . import _binaryninjacore as core
+from . import settings
+from .pluginmanager import RepositoryManager
+from .enums import ScriptingProviderExecuteResult, ScriptingProviderInputReadyState
+from .compatibility import cstr
 
 class _ThreadActionContext(object):
 	_actions = []
@@ -204,10 +200,10 @@ class ScriptingInstance(object):
 		try:
 			if not isinstance(text, str):
 				text = text.decode("charmap")
-			return ctypes.cast(binaryninja.cstr(self.perform_complete_input(text, state)), ctypes.c_void_p).value
+			return ctypes.cast(cstr(self.perform_complete_input(text, state)), ctypes.c_void_p).value
 		except:
 			log.log_error(traceback.format_exc())
-			return ctypes.cast(binaryninja.cstr(""), ctypes.c_void_p).value
+			return ctypes.cast(cstr(""), ctypes.c_void_p).value
 
 	@abc.abstractmethod
 	def perform_destroy_instance(self):
@@ -310,7 +306,7 @@ class ScriptingInstance(object):
 class _ScriptingProviderMetaclass(type):
 
 	@property
-	def list(self):
+	def list(self) -> List['ScriptingProvider']:
 		"""List all ScriptingProvider types (read-only)"""
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
@@ -321,7 +317,7 @@ class _ScriptingProviderMetaclass(type):
 		core.BNFreeScriptingProviderList(types)
 		return result
 
-	def __iter__(self):
+	def __iter__(self) -> Generator['ScriptingProvider', None, None]:
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
 		types = core.BNGetScriptingProviderList(count)
@@ -331,22 +327,18 @@ class _ScriptingProviderMetaclass(type):
 		finally:
 			core.BNFreeScriptingProviderList(types)
 
-	def __getitem__(self, value):
+	def __getitem__(self, value) -> 'ScriptingProvider':
 		binaryninja._init_plugins()
 		provider = core.BNGetScriptingProviderByName(str(value))
 		if provider is None:
 			raise KeyError("'%s' is not a valid scripting provider" % str(value))
 		return ScriptingProvider(provider)
 
-	def __setattr__(self, name, value):
-		try:
-			type.__setattr__(self, name, value)
-		except AttributeError:
-			raise AttributeError("attribute '%s' is read only" % name)
 
-
-class ScriptingProvider(with_metaclass(_ScriptingProviderMetaclass, object)):
+class ScriptingProvider(metaclass=_ScriptingProviderMetaclass):
 	_registered_providers = []
+	name = ''
+	instance_class: Optional['ScriptingProvider'] = None
 
 	def __init__(self, handle = None):
 		if handle is not None:
@@ -354,28 +346,21 @@ class ScriptingProvider(with_metaclass(_ScriptingProviderMetaclass, object)):
 			self.__dict__["name"] = core.BNGetScriptingProviderName(handle)
 
 	@property
-	def name(self):
-		return NotImplemented
-
-	@property
-	def instance_class(self):
-		return NotImplemented
-
-	@property
 	def list(self):
 		"""Allow tab completion to discover metaclass list property"""
 		pass
 
-	def register(self):
+	def register(self) -> None:
 		self._cb = core.BNScriptingProviderCallbacks()
 		self._cb.context = 0
 		self._cb.createInstance = self._cb.createInstance.__class__(self._create_instance)
 		self._cb.loadModule = self._cb.loadModule.__class__(self._load_module)
 		self._cb.installModules = self._cb.installModules.__class__(self._install_modules)
+		self._cb.moduleInstalled = self._cb.installModules.__class__(self._module_installed)
 		self.handle = core.BNRegisterScriptingProvider(self.__class__.name, self.__class__.apiName, self._cb)
 		self.__class__._registered_providers.append(self)
 
-	def _create_instance(self, ctxt):
+	def _create_instance(self, ctxt) -> Optional['ScriptingProvider']:
 		try:
 			result = self.__class__.instance_class(self)
 			if result is None:
@@ -385,16 +370,19 @@ class ScriptingProvider(with_metaclass(_ScriptingProviderMetaclass, object)):
 			log.log_error(traceback.format_exc())
 			return None
 
-	def create_instance(self):
+	def create_instance(self) -> Optional[ScriptingInstance]:
 		result = core.BNCreateScriptingProviderInstance(self.handle)
 		if result is None:
 			return None
 		return ScriptingInstance(self, handle = result)
 
-	def _load_plugin(self, ctx, repo_path, plugin_path, force):
+	def _load_plugin(self, ctx, repo_path:str, plugin_path:str, force:bool) -> bool:
 		return False
 
-	def _install_modules(self, ctx, modules):
+	def _install_modules(self, ctx, modules:str) -> bool:
+		return False
+
+	def _module_installed(self, ctx, module:str) -> bool:
 		return False
 
 
@@ -809,6 +797,13 @@ class PythonScriptingProvider(ScriptingProvider):
 	apiName = f"python{sys.version_info.major}" # Used for plugin compatibility testing
 	instance_class = PythonScriptingInstance
 
+	@property
+	def _python_bin(self) -> str:
+		python_lib = settings.Settings().get_string("python.interpreter")
+		python_bin_override = settings.Settings().get_string("python.binaryOverride")
+		python_bin, status = self._get_executable_for_libpython(python_lib, python_bin_override)
+		return python_bin
+
 	def _load_module(self, ctx, repo_path, module, force):
 		try:
 			repo_path = repo_path.decode("utf-8")
@@ -859,9 +854,6 @@ class PythonScriptingProvider(ScriptingProvider):
 			return None
 		for line in result.splitlines():
 			yield line.split("==", 2)[0]
-
-	def _dependency_satisfied(self, dependency:str, python_bin:str) -> bool:
-		return re.split('>|=|,', dependency.strip(), 1)[0] in self._satisfied_dependencies(python_bin)
 
 	def _bin_version(self, python_bin: str):
 		return self._run_args([str(python_bin), "-c", "import sys; sys.stdout.write(f'{sys.version_info.major}.{sys.version_info.minor}')"])[1]
@@ -925,7 +917,7 @@ class PythonScriptingProvider(ScriptingProvider):
 
 		return (python_bin, "Success")
 
-	def _install_modules(self, ctx, modules):
+	def _install_modules(self, ctx, modules: str) -> bool:
 		# This callback should not be called directly it is indirectly
 		# executed binary ninja is executed with --pip option
 		if len(modules.strip()) == 0:
@@ -973,6 +965,9 @@ class PythonScriptingProvider(ScriptingProvider):
 		if not status:
 			log.log_error(f"Error while attempting to install requirements {result}")
 		return status
+
+	def _module_installed(self, ctx, module:str) -> bool:
+		return re.split('>|=|,', module.strip(), 1)[0] in self._satisfied_dependencies(self._python_bin)
 
 
 PythonScriptingProvider().register()

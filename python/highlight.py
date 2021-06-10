@@ -20,8 +20,8 @@
 
 
 # Binary Ninja components
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import HighlightColorStyle, HighlightStandardColor
+from . import _binaryninjacore as core
+from .enums import HighlightColorStyle, HighlightStandardColor
 
 
 class HighlightColor(object):

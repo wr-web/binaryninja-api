@@ -22,9 +22,9 @@ import struct
 import traceback
 import os
 
-from binaryninja.architecture import Architecture
+from binaryninja.architecture import Architecture, InstructionInfo
 from binaryninja.lowlevelil import LowLevelILLabel, LLIL_TEMP
-from binaryninja.function import RegisterInfo, InstructionInfo, InstructionTextToken
+from binaryninja.function import RegisterInfo, InstructionTextToken
 from binaryninja.binaryview import BinaryView
 from binaryninja.types import Symbol
 from binaryninja.log import log_error

@@ -20,19 +20,30 @@
 
 import ctypes
 import struct
+from typing import Generator, List, Optional, Any, Mapping, Union, Tuple
 
 # Binary Ninja components
-import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import LowLevelILOperation, LowLevelILFlagCondition, InstructionTextTokenType
-from binaryninja import basicblock #required for LowLevelILBasicBlock
+from .enums import LowLevelILOperation, LowLevelILFlagCondition, InstructionTextTokenType, DataFlowQueryOption
+from . import _binaryninjacore as core
+from . import basicblock #required for LowLevelILBasicBlock
+from . import function
+from . import mediumlevelil
+from . import highlevelil
+from . import flowgraph
+from . import variable
+from . import binaryview
+from . import architecture
+from . import types
 
-# 2-3 compatibility
-from binaryninja import range
-
+ExpressionIndex = int
+InstructionIndex = int
+Index = Union[ExpressionIndex, InstructionIndex]
+TokenList = List['function.InstructionTextToken']
+InstructionOrExpression = Union['LowLevelILInstruction', 'LowLevelILExpr', Index]
+ILRegisterType = Union[str, 'lowlevelil.ILRegister', int]
 
 class LowLevelILLabel(object):
-	def __init__(self, handle = None):
+	def __init__(self, handle:core.BNLowLevelILLabel=None):
 		if handle is None:
 			self.handle = (core.BNLowLevelILLabel * 1)()
 			core.BNLowLevelILInitLabel(self.handle)
@@ -41,7 +52,7 @@ class LowLevelILLabel(object):
 
 
 class ILRegister(object):
-	def __init__(self, arch, reg):
+	def __init__(self, arch:'architecture.Architecture', reg:'architecture.RegisterIndex'):
 		self._arch = arch
 		self._index = reg
 		self._temp = (self._index & 0x80000000) != 0
@@ -62,7 +73,7 @@ class ILRegister(object):
 
 	def __eq__(self, other):
 		if isinstance(other, str) and other in self._arch.regs:
-			other = binaryninja.lowlevelil.ILRegister(self._arch, self._arch.regs[other].index)
+			other = ILRegister(self._arch, self._arch.regs[other].index)
 		elif not isinstance(other, self.__class__):
 			return NotImplemented
 		return (self._arch, self._index, self._name) == (other._arch, other._index, other._name)
@@ -76,44 +87,24 @@ class ILRegister(object):
 		return hash((self._arch, self._index, self._name))
 
 	@property
-	def arch(self):
-		""" """
+	def arch(self) -> 'architecture.Architecture':
 		return self._arch
 
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
 	@property
-	def index(self):
-		""" """
+	def index(self) -> 'architecture.RegisterIndex':
 		return self._index
 
-	@index.setter
-	def index(self, value):
-		self._index = value
-
 	@property
-	def temp(self):
-		""" """
+	def temp(self) -> bool:
 		return self._temp
 
-	@temp.setter
-	def temp(self, value):
-		self._temp = value
-
 	@property
-	def name(self):
-		""" """
+	def name(self) -> str:
 		return self._name
-
-	@name.setter
-	def name(self, value):
-		self._name = value
 
 
 class ILRegisterStack(object):
-	def __init__(self, arch, reg_stack):
+	def __init__(self, arch:'architecture.Architecture', reg_stack:'architecture.RegisterStackIndex'):
 		self._arch = arch
 		self._index = reg_stack
 		self._name = self._arch.get_reg_stack_name(self._index)
@@ -142,35 +133,20 @@ class ILRegisterStack(object):
 		return hash((self._arch, self._index, self._name))
 
 	@property
-	def arch(self):
-		""" """
+	def arch(self) -> 'architecture.Architecture':
 		return self._arch
 
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
 	@property
-	def index(self):
-		""" """
+	def index(self) -> 'architecture.RegisterStackIndex':
 		return self._index
 
-	@index.setter
-	def index(self, value):
-		self._index = value
-
 	@property
-	def name(self):
-		""" """
+	def name(self) -> str:
 		return self._name
-
-	@name.setter
-	def name(self, value):
-		self._name = value
 
 
 class ILFlag(object):
-	def __init__(self, arch, flag):
+	def __init__(self, arch:'architecture.Architecture', flag:'architecture.FlagIndex'):
 		self._arch = arch
 		self._index = flag
 		self._temp = (self._index & 0x80000000) != 0
@@ -198,45 +174,28 @@ class ILFlag(object):
 	def __hash__(self):
 		return hash((self._arch, self._index, self._name))
 
-	@property
-	def arch(self):
-		""" """
-		return self._arch
-
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
-	@property
-	def index(self):
-		""" """
+	def __int__(self):
 		return self._index
 
-	@index.setter
-	def index(self, value):
-		self._index = value
+	@property
+	def arch(self) -> 'architecture.Architecture':
+		return self._arch
+
+	@property
+	def index(self) -> 'architecture.FlagIndex':
+		return self._index
 
 	@property
 	def temp(self):
-		""" """
 		return self._temp
 
-	@temp.setter
-	def temp(self, value):
-		self._temp = value
-
 	@property
-	def name(self):
-		""" """
+	def name(self) -> str:
 		return self._name
-
-	@name.setter
-	def name(self, value):
-		self._name = value
 
 
 class ILSemanticFlagClass(object):
-	def __init__(self, arch, sem_class):
+	def __init__(self, arch:'architecture.Architecture', sem_class:'architecture.SemanticClassIndex'):
 		self._arch = arch
 		self._index = sem_class
 		self._name = self._arch.get_semantic_flag_class_name(self._index)
@@ -261,35 +220,20 @@ class ILSemanticFlagClass(object):
 		return hash((self._arch, self._index, self._name))
 
 	@property
-	def arch(self):
-		""" """
+	def arch(self) -> 'architecture.Architecture':
 		return self._arch
 
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
 	@property
-	def index(self):
-		""" """
+	def index(self) -> 'architecture.SemanticClassIndex':
 		return self._index
 
-	@index.setter
-	def index(self, value):
-		self._index = value
-
 	@property
-	def name(self):
-		""" """
+	def name(self) -> str:
 		return self._name
-
-	@name.setter
-	def name(self, value):
-		self._name = value
 
 
 class ILSemanticFlagGroup(object):
-	def __init__(self, arch, sem_group):
+	def __init__(self, arch:'architecture.Architecture', sem_group:'architecture.SemanticClassIndex'):
 		self._arch = arch
 		self._index = sem_group
 		self._name = self._arch.get_semantic_flag_group_name(self._index)
@@ -314,35 +258,20 @@ class ILSemanticFlagGroup(object):
 		return hash((self._arch, self._index, self._name))
 
 	@property
-	def arch(self):
-		""" """
+	def arch(self) -> 'architecture.Architecture':
 		return self._arch
 
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
 	@property
-	def index(self):
-		""" """
+	def index(self) -> 'architecture.SemanticClassIndex':
 		return self._index
 
-	@index.setter
-	def index(self, value):
-		self._index = value
-
 	@property
-	def name(self):
-		""" """
+	def name(self) -> str:
 		return self._name
-
-	@name.setter
-	def name(self, value):
-		self._name = value
 
 
 class ILIntrinsic(object):
-	def __init__(self, arch, intrinsic):
+	def __init__(self, arch:'architecture.Architecture', intrinsic:'architecture.IntrinsicIndex'):
 		self._arch = arch
 		self._index = intrinsic
 		self._name = self._arch.get_intrinsic_name(self._index)
@@ -370,53 +299,30 @@ class ILIntrinsic(object):
 		return hash((self._arch, self._index, self._name))
 
 	@property
-	def arch(self):
-		""" """
+	def arch(self) -> 'architecture.Architecture':
 		return self._arch
 
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
 	@property
-	def index(self):
-		""" """
+	def index(self) -> 'architecture.IntrinsicIndex':
 		return self._index
 
-	@index.setter
-	def index(self, value):
-		self._index = value
-
 	@property
-	def name(self):
-		""" """
+	def name(self) -> str:
 		return self._name
 
-	@name.setter
-	def name(self, value):
-		self._name = value
-
 	@property
-	def inputs(self):
+	def inputs(self) -> List['architecture.IntrinsicInput']:
 		"""``inputs`` is only available if the IL intrinsic is an Architecture intrinsic """
 		return self._inputs
 
-	@inputs.setter
-	def inputs(self, value):
-		self._inputs = value
-
 	@property
-	def outputs(self):
+	def outputs(self) -> List['types.Type']:
 		"""``outputs`` is only available if the IL intrinsic is an Architecture intrinsic """
 		return self._outputs
 
-	@outputs.setter
-	def outputs(self, value):
-		self._outputs = value
-
 
 class SSARegister(object):
-	def __init__(self, reg, version):
+	def __init__(self, reg:ILRegister, version:int):
 		self._reg = reg
 		self._version = version
 
@@ -437,17 +343,11 @@ class SSARegister(object):
 		return hash((self._reg, self._version))
 
 	@property
-	def reg(self):
-		""" """
+	def reg(self) -> ILRegister:
 		return self._reg
 
-	@reg.setter
-	def reg(self, value):
-		self._reg = value
-
 	@property
-	def version(self):
-		""" """
+	def version(self) -> int:
 		return self._version
 
 	@version.setter
@@ -456,7 +356,7 @@ class SSARegister(object):
 
 
 class SSARegisterStack(object):
-	def __init__(self, reg_stack, version):
+	def __init__(self, reg_stack:ILRegisterStack, version:int):
 		self._reg_stack = reg_stack
 		self._version = version
 
@@ -477,26 +377,16 @@ class SSARegisterStack(object):
 		return hash((self._reg_stack, self._version))
 
 	@property
-	def reg_stack(self):
-		""" """
+	def reg_stack(self) -> ILRegisterStack:
 		return self._reg_stack
 
-	@reg_stack.setter
-	def reg_stack(self, value):
-		self._reg_stack = value
-
 	@property
-	def version(self):
-		""" """
+	def version(self) -> int:
 		return self._version
-
-	@version.setter
-	def version(self, value):
-		self._version = value
 
 
 class SSAFlag(object):
-	def __init__(self, flag, version):
+	def __init__(self, flag:ILFlag, version:int):
 		self._flag = flag
 		self._version = version
 
@@ -517,26 +407,16 @@ class SSAFlag(object):
 		return hash((self._flag, self._version))
 
 	@property
-	def flag(self):
-		""" """
+	def flag(self) -> ILFlag:
 		return self._flag
 
-	@flag.setter
-	def flag(self, value):
-		self._flag = value
-
 	@property
-	def version(self):
-		""" """
+	def version(self) -> int:
 		return self._version
-
-	@version.setter
-	def version(self, value):
-		self._version = value
 
 
 class SSARegisterOrFlag(object):
-	def __init__(self, reg_or_flag, version):
+	def __init__(self, reg_or_flag:Union[ILRegister, ILFlag], version:int):
 		self._reg_or_flag = reg_or_flag
 		self._version = version
 
@@ -557,26 +437,17 @@ class SSARegisterOrFlag(object):
 		return hash((self._reg_or_flag, self._version))
 
 	@property
-	def reg_or_flag(self):
+	def reg_or_flag(self) -> Union[ILRegister, ILFlag]:
 		""" """
 		return self._reg_or_flag
 
-	@reg_or_flag.setter
-	def reg_or_flag(self, value):
-		self._reg_or_flag = value
-
 	@property
-	def version(self):
-		""" """
+	def version(self) -> int:
 		return self._version
-
-	@version.setter
-	def version(self, value):
-		self._version = value
 
 
 class LowLevelILOperationAndSize(object):
-	def __init__(self, operation, size):
+	def __init__(self, operation:'LowLevelILOperation', size:int):
 		self._operation = operation
 		self._size = size
 
@@ -599,13 +470,11 @@ class LowLevelILOperationAndSize(object):
 		return hash((self._operation, self._size))
 
 	@property
-	def operation(self):
-		""" """
+	def operation(self) -> 'LowLevelILOperation':
 		return self._operation
 
 	@property
-	def size(self):
-		""" """
+	def size(self) -> int:
 		return self._size
 
 
@@ -754,8 +623,10 @@ class LowLevelILInstruction(object):
 		LowLevelILOperation.LLIL_MEM_PHI: [("dest_memory", "int"), ("src_memory", "int_list")]
 	}
 
-	def __init__(self, func, expr_index, instr_index=None):
+	def __init__(self, func:'LowLevelILFunction', expr_index:ExpressionIndex, instr_index:InstructionIndex=None):
 		instr = core.BNGetLowLevelILByIndex(func.handle, expr_index)
+		if func.arch is None:
+			raise Exception("Attempting to create a LowLevelILInstruction with function that doesn't have an architecture.")
 		self._function = func
 		self._expr_index = expr_index
 		self._instr_index = instr_index
@@ -772,8 +643,10 @@ class LowLevelILInstruction(object):
 		operands = LowLevelILInstruction.ILOperations[instr.operation]
 		self._operands = []
 		i = 0
+
 		for operand in operands:
 			name, operand_type = operand
+			value:Optional[Any] = None
 			if operand_type == "int":
 				value = instr.operands[i]
 				value = (value & ((1 << 63) - 1)) - (value & (1 << 63))
@@ -806,7 +679,7 @@ class LowLevelILInstruction(object):
 				value = SSARegisterStack(reg_stack, instr.operands[i])
 				i += 1
 				self._operands.append(value)
-				self.dest = value
+				self.__dict__['dest'] = value
 				value = SSARegisterStack(reg_stack, instr.operands[i])
 			elif operand_type == "flag":
 				value = ILFlag(func.arch, instr.operands[i])
@@ -965,7 +838,7 @@ class LowLevelILInstruction(object):
 		return hash((self._function, self.expr_index))
 
 	@property
-	def tokens(self):
+	def tokens(self) -> Optional[TokenList]:
 		"""LLIL tokens (read-only)"""
 		count = ctypes.c_ulonglong()
 		tokens = ctypes.POINTER(core.BNInstructionTextToken)()
@@ -974,80 +847,88 @@ class LowLevelILInstruction(object):
 				self._function.arch.handle, self._instr_index, tokens, count):
 				return None
 		else:
+			# TODO: Special case LLIL_CALL_OUTPUT_SSA
 			if not core.BNGetLowLevelILExprText(self._function.handle, self._function.arch.handle,
 				self.expr_index, tokens, count):
 				return None
-		result = binaryninja.function.InstructionTextToken.get_instruction_lines(tokens, count.value)
+		result = function.InstructionTextToken._from_core_struct(tokens, count.value)
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
 	@property
-	def il_basic_block(self):
+	def il_basic_block(self) -> 'LowLevelILBasicBlock':
 		"""IL basic block object containing this expression (read-only) (only available on finalized functions)"""
-		view = None
-		if self._function.source_function is not None:
-			view = self._function.source_function.view
-		return LowLevelILBasicBlock(view, core.BNGetLowLevelILBasicBlockForInstruction(self._function.handle, self._instr_index), self._function)
+		assert self._function.source_function is not None
+		view = self._function.source_function.view
+		core_block = core.BNGetLowLevelILBasicBlockForInstruction(self._function.handle, self._instr_index)
+		assert core_block is not None, "BNGetLowLevelILBasicBlockForInstruction returned None"
+		return LowLevelILBasicBlock(view, core_block, self._function)
 
 	@property
-	def ssa_form(self):
+	def ssa_form(self) -> 'LowLevelILInstruction':
 		"""SSA form of expression (read-only)"""
-		return LowLevelILInstruction(self._function.ssa_form,
+		ssa_func = self._function.ssa_form
+		assert ssa_func is not None
+		return LowLevelILInstruction(ssa_func,
 			core.BNGetLowLevelILSSAExprIndex(self._function.handle, self.expr_index),
 			core.BNGetLowLevelILSSAInstructionIndex(self._function.handle, self._instr_index) if self._instr_index is not None else None)
 
 	@property
-	def non_ssa_form(self):
+	def non_ssa_form(self) -> 'LowLevelILInstruction':
 		"""Non-SSA form of expression (read-only)"""
-		return LowLevelILInstruction(self._function.non_ssa_form,
+		non_ssa_function = self._function.non_ssa_form
+		assert non_ssa_function is not None
+		return LowLevelILInstruction(non_ssa_function,
 			core.BNGetLowLevelILNonSSAExprIndex(self._function.handle, self.expr_index),
 			core.BNGetLowLevelILNonSSAInstructionIndex(self._function.handle, self._instr_index) if self._instr_index is not None else None)
 
 	@property
-	def medium_level_il(self):
+	def medium_level_il(self) -> Optional['mediumlevelil.MediumLevelILInstruction']:
 		"""Gets the medium level IL expression corresponding to this expression (may be None for eliminated instructions)"""
 		expr = self._function.get_medium_level_il_expr_index(self.expr_index)
 		if expr is None:
 			return None
-		return binaryninja.mediumlevelil.MediumLevelILInstruction(self._function.medium_level_il, expr)
+		mlil_func = self._function.medium_level_il
+		assert mlil_func is not None, "self._function.medium_level_il is None"
+		return mediumlevelil.MediumLevelILInstruction(mlil_func, expr)
 
 	@property
-	def mlil(self):
+	def mlil(self) -> Optional['mediumlevelil.MediumLevelILInstruction']:
 		return self.medium_level_il
 
 	@property
-	def mlils(self):
+	def mlils(self) -> List['mediumlevelil.MediumLevelILInstruction']:
 		exprs = self._function.get_medium_level_il_expr_indexes(self.expr_index)
 		result = []
 		for expr in exprs:
-			result.append(binaryninja.mediumlevelil.MediumLevelILInstruction(self._function.medium_level_il, expr))
+			result.append(mediumlevelil.MediumLevelILInstruction(self._function.medium_level_il, expr))
 		return result
 
 	@property
-	def mapped_medium_level_il(self):
+	def mapped_medium_level_il(self) -> Optional['mediumlevelil.MediumLevelILInstruction']:
 		"""Gets the mapped medium level IL expression corresponding to this expression"""
 		expr = self._function.get_mapped_medium_level_il_expr_index(self.expr_index)
 		if expr is None:
 			return None
-		return binaryninja.mediumlevelil.MediumLevelILInstruction(self._function.mapped_medium_level_il, expr)
+		return mediumlevelil.MediumLevelILInstruction(self._function.mapped_medium_level_il, expr)
 
 	@property
-	def mmlil(self):
+	def mmlil(self) -> Optional['mediumlevelil.MediumLevelILInstruction']:
 		return self.mapped_medium_level_il
 
 	@property
-	def high_level_il(self):
+	def high_level_il(self) -> Optional['highlevelil.HighLevelILInstruction']:
 		"""Gets the high level IL expression corresponding to this expression (may be None for eliminated instructions)"""
 		if self.mlil is None:
 			return None
 		return self.mlil.hlil
 
 	@property
-	def hlil(self):
+	def hlil(self) -> Optional['highlevelil.HighLevelILInstruction']:
 		return self.high_level_il
 
 	@property
-	def hlils(self):
+	def hlils(self) -> List['highlevelil.HighLevelILInstruction']:
 		result = set()
 		for mlil_expr in self.mlils:
 			for hlil_expr in mlil_expr.hlils:
@@ -1055,23 +936,23 @@ class LowLevelILInstruction(object):
 		return list(result)
 
 	@property
-	def value(self):
+	def value(self) -> 'variable.RegisterValue':
 		"""Value of expression if constant or a known value (read-only)"""
 		value = core.BNGetLowLevelILExprValue(self._function.handle, self.expr_index)
-		result = binaryninja.function.RegisterValue(self._function.arch, value)
-		return result
+		return variable.RegisterValue(self._function.arch, value)
 
 	@property
-	def possible_values(self):
+	def possible_values(self) -> 'variable.PossibleValueSet':
 		"""Possible values of expression using path-sensitive static data flow analysis (read-only)"""
 		value = core.BNGetLowLevelILPossibleExprValues(self._function.handle, self.expr_index, None, 0)
-		result = binaryninja.function.PossibleValueSet(self._function.arch, value)
+		result = variable.PossibleValueSet(self._function.arch, value)
 		core.BNFreePossibleValueSet(value)
 		return result
 
 	@property
-	def prefix_operands(self):
+	def prefix_operands(self) -> List[Any]:
 		"""All operands in the expression tree in prefix order"""
+		# TODO: There is probably a much better type hint we can provide here
 		result = [LowLevelILOperationAndSize(self._operation, self._size)]
 		for operand in self._operands:
 			if isinstance(operand, LowLevelILInstruction):
@@ -1081,8 +962,9 @@ class LowLevelILInstruction(object):
 		return result
 
 	@property
-	def postfix_operands(self):
+	def postfix_operands(self) -> List[Any]:
 		"""All operands in the expression tree in postfix order"""
+		# TODO: There is probably a much better type hint we can provide here
 		result = []
 		for operand in self._operands:
 			if isinstance(operand, LowLevelILInstruction):
@@ -1092,30 +974,28 @@ class LowLevelILInstruction(object):
 		result.append(LowLevelILOperationAndSize(self._operation, self._size))
 		return result
 
-	def get_possible_values(self, options = []):
+	def get_possible_values(self, options:List[DataFlowQueryOption]=[]) -> variable.PossibleValueSet:
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
 		for option in options:
 			option_array[idx] = option
 			idx += 1
 		value = core.BNGetLowLevelILPossibleExprValues(self._function.handle, self.expr_index, option_array, len(options))
-		result = binaryninja.function.PossibleValueSet(self._function.arch, value)
+		result = variable.PossibleValueSet(self._function.arch, value)
 		core.BNFreePossibleValueSet(value)
 		return result
 
-	def get_reg_value(self, reg):
+	def get_reg_value(self, reg:'architecture.RegisterType') -> variable.RegisterValue:
 		reg = self._function.arch.get_reg_index(reg)
 		value = core.BNGetLowLevelILRegisterValueAtInstruction(self._function.handle, reg, self._instr_index)
-		result = binaryninja.function.RegisterValue(self._function.arch, value)
-		return result
+		return variable.RegisterValue(self._function.arch, value)
 
-	def get_reg_value_after(self, reg):
+	def get_reg_value_after(self, reg:'architecture.RegisterType') -> variable.RegisterValue:
 		reg = self._function.arch.get_reg_index(reg)
 		value = core.BNGetLowLevelILRegisterValueAfterInstruction(self._function.handle, reg, self._instr_index)
-		result = binaryninja.function.RegisterValue(self._function.arch, value)
-		return result
+		return variable.RegisterValue(self._function.arch, value)
 
-	def get_possible_reg_values(self, reg, options = []):
+	def get_possible_reg_values(self, reg:'architecture.RegisterType', options:List[DataFlowQueryOption]=[]) -> 'variable.PossibleValueSet':
 		reg = self._function.arch.get_reg_index(reg)
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
@@ -1124,11 +1004,11 @@ class LowLevelILInstruction(object):
 			idx += 1
 		value = core.BNGetLowLevelILPossibleRegisterValuesAtInstruction(self._function.handle, reg, self._instr_index,
 			option_array, len(options))
-		result = binaryninja.function.PossibleValueSet(self._function.arch, value)
+		result = variable.PossibleValueSet(self._function.arch, value)
 		core.BNFreePossibleValueSet(value)
 		return result
 
-	def get_possible_reg_values_after(self, reg, options = []):
+	def get_possible_reg_values_after(self, reg:'architecture.RegisterType', options:List[DataFlowQueryOption]=[]) -> 'variable.PossibleValueSet':
 		reg = self._function.arch.get_reg_index(reg)
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
@@ -1137,23 +1017,23 @@ class LowLevelILInstruction(object):
 			idx += 1
 		value = core.BNGetLowLevelILPossibleRegisterValuesAfterInstruction(self._function.handle, reg, self._instr_index,
 			option_array, len(options))
-		result = binaryninja.function.PossibleValueSet(self._function.arch, value)
+		result = variable.PossibleValueSet(self._function.arch, value)
 		core.BNFreePossibleValueSet(value)
 		return result
 
-	def get_flag_value(self, flag):
+	def get_flag_value(self, flag:'architecture.FlagType') -> 'variable.RegisterValue':
 		flag = self._function.arch.get_flag_index(flag)
 		value = core.BNGetLowLevelILFlagValueAtInstruction(self._function.handle, flag, self._instr_index)
-		result = binaryninja.function.RegisterValue(self._function.arch, value)
+		result = variable.RegisterValue(self._function.arch, value)
 		return result
 
-	def get_flag_value_after(self, flag):
+	def get_flag_value_after(self, flag:'architecture.FlagType') -> 'variable.RegisterValue':
 		flag = self._function.arch.get_flag_index(flag)
 		value = core.BNGetLowLevelILFlagValueAfterInstruction(self._function.handle, flag, self._instr_index)
-		result = binaryninja.function.RegisterValue(self._function.arch, value)
+		result = variable.RegisterValue(self._function.arch, value)
 		return result
 
-	def get_possible_flag_values(self, flag, options = []):
+	def get_possible_flag_values(self, flag:'architecture.FlagType', options:List[DataFlowQueryOption]=[]) -> 'variable.PossibleValueSet':
 		flag = self._function.arch.get_flag_index(flag)
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
@@ -1162,11 +1042,11 @@ class LowLevelILInstruction(object):
 			idx += 1
 		value = core.BNGetLowLevelILPossibleFlagValuesAtInstruction(self._function.handle, flag, self._instr_index,
 			option_array, len(options))
-		result = binaryninja.function.PossibleValueSet(self._function.arch, value)
+		result = variable.PossibleValueSet(self._function.arch, value)
 		core.BNFreePossibleValueSet(value)
 		return result
 
-	def get_possible_flag_values_after(self, flag, options = []):
+	def get_possible_flag_values_after(self, flag:'architecture.FlagType', options:List[DataFlowQueryOption]=[]) -> 'variable.PossibleValueSet':
 		flag = self._function.arch.get_flag_index(flag)
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
@@ -1175,21 +1055,21 @@ class LowLevelILInstruction(object):
 			idx += 1
 		value = core.BNGetLowLevelILPossibleFlagValuesAfterInstruction(self._function.handle, flag, self._instr_index,
 			option_array, len(options))
-		result = binaryninja.function.PossibleValueSet(self._function.arch, value)
+		result = variable.PossibleValueSet(self._function.arch, value)
 		core.BNFreePossibleValueSet(value)
 		return result
 
-	def get_stack_contents(self, offset, size):
+	def get_stack_contents(self, offset:int, size:int) -> 'variable.RegisterValue':
 		value = core.BNGetLowLevelILStackContentsAtInstruction(self._function.handle, offset, size, self._instr_index)
-		result = binaryninja.function.RegisterValue(self._function.arch, value)
+		result = variable.RegisterValue(self._function.arch, value)
 		return result
 
-	def get_stack_contents_after(self, offset, size):
+	def get_stack_contents_after(self, offset:int, size:int) -> 'variable.RegisterValue':
 		value = core.BNGetLowLevelILStackContentsAfterInstruction(self._function.handle, offset, size, self._instr_index)
-		result = binaryninja.function.RegisterValue(self._function.arch, value)
+		result = variable.RegisterValue(self._function.arch, value)
 		return result
 
-	def get_possible_stack_contents(self, offset, size, options = []):
+	def get_possible_stack_contents(self, offset:int, size:int, options:List[DataFlowQueryOption]=[]) -> variable.PossibleValueSet:
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
 		for option in options:
@@ -1197,11 +1077,11 @@ class LowLevelILInstruction(object):
 			idx += 1
 		value = core.BNGetLowLevelILPossibleStackContentsAtInstruction(self._function.handle, offset, size, self._instr_index,
 			option_array, len(options))
-		result = binaryninja.function.PossibleValueSet(self._function.arch, value)
+		result = variable.PossibleValueSet(self._function.arch, value)
 		core.BNFreePossibleValueSet(value)
 		return result
 
-	def get_possible_stack_contents_after(self, offset, size, options = []):
+	def get_possible_stack_contents_after(self, offset:int, size:int, options:List[DataFlowQueryOption]=[]) -> variable.PossibleValueSet:
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
 		for option in options:
@@ -1209,53 +1089,44 @@ class LowLevelILInstruction(object):
 			idx += 1
 		value = core.BNGetLowLevelILPossibleStackContentsAfterInstruction(self._function.handle, offset, size, self._instr_index,
 			option_array, len(options))
-		result = binaryninja.function.PossibleValueSet(self._function.arch, value)
+		result = variable.PossibleValueSet(self._function.arch, value)
 		core.BNFreePossibleValueSet(value)
 		return result
 
 	@property
-	def function(self):
-		""" """
+	def function(self) -> 'LowLevelILFunction':
 		return self._function
 
 	@property
-	def expr_index(self):
-		""" """
+	def expr_index(self) -> ExpressionIndex:
 		return self._expr_index
 
 	@property
-	def instr_index(self):
-		""" """
+	def instr_index(self) -> Optional[InstructionIndex]:
 		return self._instr_index
 
 	@property
-	def operation(self):
-		""" """
+	def operation(self) -> LowLevelILOperation:
 		return self._operation
 
 	@property
-	def size(self):
-		""" """
+	def size(self) -> int:
 		return self._size
 
 	@property
-	def address(self):
-		""" """
+	def address(self) -> int:
 		return self._address
 
 	@property
-	def source_operand(self):
-		""" """
+	def source_operand(self) -> Optional[ExpressionIndex]:
 		return self._source_operand
 
 	@property
-	def flags(self):
-		""" """
+	def flags(self) -> Optional[str]:
 		return self._flags
 
 	@property
-	def operands(self):
-		""" """
+	def operands(self) -> List[Any]:
 		return self._operands
 
 
@@ -1266,22 +1137,20 @@ class LowLevelILExpr(object):
 	.. note:: This class shouldn't be instantiated directly. Rather the helper members of LowLevelILFunction should be \
 	used instead.
 	"""
-	def __init__(self, index):
+	def __init__(self, index:ExpressionIndex):
 		self._index = index
+
+	def __int__(self) -> int:
+		return self._index
 
 	@property
 	def index(self):
-		""" """
 		return self._index
-
-	@index.setter
-	def index(self, value):
-		self._index = value
 
 
 class LowLevelILFunction(object):
 	"""
-	``class LowLevelILFunction`` contains the list of LowLevelILExpr objects that make up a binaryninja.function. LowLevelILExpr
+	``class LowLevelILFunction`` contains the list of LowLevelILExpr objects that make up a function. LowLevelILExpr
 	objects can be added to the LowLevelILFunction by calling :func:`append` and passing the result of the various class
 	methods which return LowLevelILExpr objects.
 
@@ -1307,7 +1176,8 @@ class LowLevelILFunction(object):
 		LLFC_NO                 !overflow  No overflow
 		======================= ========== ===============================
 	"""
-	def __init__(self, arch = None, handle = None, source_func = None):
+	def __init__(self, arch:'architecture.Architecture'=None, handle:core.BNLowLevelILFunction=None,
+		source_func:'function.Function'=None):
 		self._arch = arch
 		self._source_function = source_func
 		if handle is not None:
@@ -1315,7 +1185,7 @@ class LowLevelILFunction(object):
 			if self._source_function is None:
 				source_handle = core.BNGetLowLevelILOwnerFunction(self.handle)
 				if source_handle:
-					self._source_function = binaryninja.function.Function(handle = source_handle)
+					self._source_function = function.Function(handle = source_handle)
 				else:
 					self._source_function = None
 			if self._arch is None:
@@ -1337,9 +1207,9 @@ class LowLevelILFunction(object):
 		source_function = getattr(self, "source_function", None)
 		arch = getattr(source_function, "arch", None)
 		if arch and source_function:
-			return "<llil func: %s@%#x>" % (arch.name, self.source_function.start)
+			return "<llil func: %s@%#x>" % (arch.name, self.__dict__['source_function'].start)
 		elif source_function:
-			return "<llil func: %#x>" % self.source_function.start
+			return "<llil func: %#x>" % self.__dict__['source_function'].start
 		else:
 			return "<llil func: anonymous>"
 
@@ -1357,7 +1227,7 @@ class LowLevelILFunction(object):
 		return not (self == other)
 
 	def __hash__(self):
-		return hash(('LLIL', self._source_function))
+		return hash(ctypes.addressof(self.handle.contents))
 
 	def __getitem__(self, i):
 		if isinstance(i, slice) or isinstance(i, tuple):
@@ -1384,20 +1254,22 @@ class LowLevelILFunction(object):
 			view = self._source_function.view
 		try:
 			for i in range(0, count.value):
-				yield LowLevelILBasicBlock(view, core.BNNewBasicBlockReference(blocks[i]), self)
+				core_block = core.BNNewBasicBlockReference(blocks[i])
+				assert core_block is not None
+				yield LowLevelILBasicBlock(view, core_block, self)
 		finally:
 			core.BNFreeBasicBlockList(blocks, count.value)
 
 	@property
-	def current_address(self):
+	def current_address(self) -> int:
 		"""Current IL Address (read/write)"""
 		return core.BNLowLevelILGetCurrentAddress(self.handle)
 
 	@current_address.setter
-	def current_address(self, value):
+	def current_address(self, value:int) -> None:
 		core.BNLowLevelILSetCurrentAddress(self.handle, self._arch.handle, value)
 
-	def set_current_address(self, value, arch = None):
+	def set_current_address(self, value:int, arch:Optional['architecture.Architecture']=None):
 		if arch is None:
 			arch = self._arch
 		core.BNLowLevelILSetCurrentAddress(self.handle, arch.handle, value)
@@ -1406,97 +1278,93 @@ class LowLevelILFunction(object):
 		core.BNLowLevelILSetCurrentSourceBlock(self.handle, block.handle)
 
 	@property
-	def temp_reg_count(self):
+	def temp_reg_count(self) -> int:
 		"""Number of temporary registers (read-only)"""
 		return core.BNGetLowLevelILTemporaryRegisterCount(self.handle)
 
 	@property
-	def temp_flag_count(self):
+	def temp_flag_count(self) -> int:
 		"""Number of temporary flags (read-only)"""
 		return core.BNGetLowLevelILTemporaryFlagCount(self.handle)
 
 	@property
-	def basic_blocks(self):
+	def basic_blocks(self) -> Generator['LowLevelILBasicBlock', None, None]:
 		"""list of LowLevelILBasicBlock objects (read-only)"""
 		count = ctypes.c_ulonglong()
 		blocks = core.BNGetLowLevelILBasicBlockList(self.handle, count)
-		result = []
 		view = None
 		if self._source_function is not None:
 			view = self._source_function.view
-		for i in range(0, count.value):
-			result.append(LowLevelILBasicBlock(view, core.BNNewBasicBlockReference(blocks[i]), self))
-		core.BNFreeBasicBlockList(blocks, count.value)
-		return result
+		try:
+			for i in range(0, count.value):
+				core_block = core.BNNewBasicBlockReference(blocks[i])
+				assert core_block is not None
+				yield LowLevelILBasicBlock(view, core_block, self)
+		finally:
+			core.BNFreeBasicBlockList(blocks, count.value)
 
 	@property
-	def instructions(self):
+	def instructions(self) -> Generator['LowLevelILInstruction', None, None]:
 		"""A generator of llil instructions of the current llil function"""
 		for block in self.basic_blocks:
 			for i in block:
 				yield i
 
 	@property
-	def ssa_form(self):
+	def ssa_form(self) -> 'LowLevelILFunction':
 		"""Low level IL in SSA form (read-only)"""
 		result = core.BNGetLowLevelILSSAForm(self.handle)
-		if not result:
-			return None
+		assert result is not None, "Failed to retrieve ssa-form"
 		return LowLevelILFunction(self._arch, result, self._source_function)
 
 	@property
-	def non_ssa_form(self):
+	def non_ssa_form(self) -> 'LowLevelILFunction':
 		"""Low level IL in non-SSA (default) form (read-only)"""
 		result = core.BNGetLowLevelILNonSSAForm(self.handle)
-		if not result:
-			return None
+		assert result is not None, "Failed to retrieve non-ssa-form"
 		return LowLevelILFunction(self._arch, result, self._source_function)
 
 	@property
-	def medium_level_il(self):
+	def medium_level_il(self) -> 'mediumlevelil.MediumLevelILFunction':
 		"""Medium level IL for this low level IL."""
 		result = core.BNGetMediumLevelILForLowLevelIL(self.handle)
-		if not result:
-			return None
-		return binaryninja.mediumlevelil.MediumLevelILFunction(self._arch, result, self._source_function)
+		assert result is not None, "MLIL not present"
+		return mediumlevelil.MediumLevelILFunction(self._arch, result, self._source_function)
 
 	@property
-	def mlil(self):
+	def mlil(self) -> 'mediumlevelil.MediumLevelILFunction':
 		return self.medium_level_il
 
 	@property
-	def mapped_medium_level_il(self):
+	def mapped_medium_level_il(self) -> 'mediumlevelil.MediumLevelILFunction':
 		"""Medium level IL with mappings between low level IL and medium level IL. Unused stores are not removed.
 		Typically, this should only be used to answer queries on assembly or low level IL where the query is
 		easier to perform on medium level IL."""
 		result = core.BNGetMappedMediumLevelIL(self.handle)
-		if not result:
-			return None
-		return binaryninja.mediumlevelil.MediumLevelILFunction(self._arch, result, self._source_function)
+		assert result is not None, "MLIL not present"
+		return mediumlevelil.MediumLevelILFunction(self._arch, result, self._source_function)
 
 	@property
-	def mmlil(self):
+	def mmlil(self) -> 'mediumlevelil.MediumLevelILFunction':
 		return self.mapped_medium_level_il
 
 	@property
-	def arch(self):
-		""" """
+	def arch(self) -> Optional['architecture.Architecture']:
 		return self._arch
 
 	@arch.setter
-	def arch(self, value):
+	def arch(self, value='architecture.Architecture') -> None:
 		self._arch = value
 
 	@property
-	def source_function(self):
-		""" """
+	def source_function(self) -> Optional['function.Function']:
 		return self._source_function
 
 	@source_function.setter
-	def source_function(self, value):
+	def source_function(self, value:'function.Function') -> None:
 		self._source_function = value
 
-	def get_instruction_start(self, addr, arch = None):
+	def get_instruction_start(self, addr:int, arch:Optional['architecture.Architecture']=None) -> Optional[int]:
 		if arch is None:
 			arch = self._arch
 		result = core.BNLowLevelILGetInstructionStart(self.handle, arch.handle, addr)
@@ -1504,28 +1372,30 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def clear_indirect_branches(self):
+	def clear_indirect_branches(self) -> None:
 		core.BNLowLevelILClearIndirectBranches(self.handle)
 
-	def set_indirect_branches(self, branches):
+	def set_indirect_branches(self, branches:List[Tuple['architecture.Architecture', int]]) -> None:
 		branch_list = (core.BNArchitectureAndAddress * len(branches))()
 		for i in range(len(branches)):
 			branch_list[i].arch = branches[i][0].handle
 			branch_list[i].address = branches[i][1]
 		core.BNLowLevelILSetIndirectBranches(self.handle, branch_list, len(branches))
 
-	def expr(self, operation, a = 0, b = 0, c = 0, d = 0, size = 0, flags = None):
+	def expr(self, operation, a:ExpressionIndex = 0, b:ExpressionIndex = 0, c:ExpressionIndex = 0, d:ExpressionIndex = 0, size = 0, flags:'architecture.FlagType' = None):
 		if isinstance(operation, str):
 			operation = LowLevelILOperation[operation]
 		elif isinstance(operation, LowLevelILOperation):
 			operation = operation.value
 		if isinstance(flags, str):
 			flags = self._arch.get_flag_write_type_by_name(flags)
+		elif isinstance(flags, ILFlag):
+			flags = flags.index
 		elif flags is None:
 			flags = 0
 		return LowLevelILExpr(core.BNLowLevelILAddExpr(self.handle, operation, size, flags, a, b, c, d))
 
-	def replace_expr(self, original, new):
+	def replace_expr(self, original:InstructionOrExpression, new:InstructionOrExpression) -> None:
 		"""
 		``replace_expr`` allows modification of LowLevelILExpressions but ONLY during lifting.
 
@@ -1547,7 +1417,7 @@ class LowLevelILFunction(object):
 
 		core.BNReplaceLowLevelILExpr(self.handle, original, new)
 
-	def append(self, expr):
+	def append(self, expr:LowLevelILExpr) -> int:
 		"""
 		``append`` adds the LowLevelILExpr ``expr`` to the current LowLevelILFunction.
 
@@ -1557,7 +1427,7 @@ class LowLevelILFunction(object):
 		"""
 		return core.BNLowLevelILAddInstruction(self.handle, expr.index)
 
-	def nop(self):
+	def nop(self) -> LowLevelILExpr:
 		"""
 		``nop`` no operation, this instruction does nothing
 
@@ -1566,7 +1436,8 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_NOP)
 
-	def set_reg(self, size, reg, value, flags = 0):
+	def set_reg(self, size:int, reg:'architecture.RegisterType', value:LowLevelILExpr,
+		flags:'architecture.FlagType'=0) -> LowLevelILExpr:
 		"""
 		``set_reg`` sets the register ``reg`` of size ``size`` to the expression ``value``
 
@@ -1577,10 +1448,11 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg = value``
 		:rtype: LowLevelILExpr
 		"""
-		reg = self._arch.get_reg_index(reg)
-		return self.expr(LowLevelILOperation.LLIL_SET_REG, reg, value.index, size = size, flags = flags)
+		_reg = self._arch.get_reg_index(reg)
+		return self.expr(LowLevelILOperation.LLIL_SET_REG, _reg, value.index, size = size, flags = flags)
 
-	def set_reg_split(self, size, hi, lo, value, flags = 0):
+	def set_reg_split(self, size:int, hi:'architecture.RegisterType', lo:'architecture.RegisterType',
+		value:LowLevelILExpr, flags:'architecture.FlagType'=0) -> LowLevelILExpr:
 		"""
 		``set_reg_split`` uses ``hi`` and ``lo`` as a single extended register setting ``hi:lo`` to the expression
 		``value``.
@@ -1593,11 +1465,12 @@ class LowLevelILFunction(object):
 		:return: The expression ``hi:lo = value``
 		:rtype: LowLevelILExpr
 		"""
-		hi = self._arch.get_reg_index(hi)
-		lo = self._arch.get_reg_index(lo)
-		return self.expr(LowLevelILOperation.LLIL_SET_REG_SPLIT, hi, lo, value.index, size = size, flags = flags)
+		_hi = self._arch.get_reg_index(hi)
+		_lo = self._arch.get_reg_index(lo)
+		return self.expr(LowLevelILOperation.LLIL_SET_REG_SPLIT, _hi, _lo, value.index, size = size, flags = flags)
 
-	def set_reg_stack_top_relative(self, size, reg_stack, entry, value, flags = 0):
+	def set_reg_stack_top_relative(self, size:int, reg_stack:'architecture.RegisterStackType', entry:LowLevelILExpr,
+		value:LowLevelILExpr, flags:'architecture.FlagType'=0) -> LowLevelILExpr:
 		"""
 		``set_reg_stack_top_relative`` sets the top-relative entry ``entry`` of size ``size`` in register
 		stack ``reg_stack`` to the expression ``value``
@@ -1610,11 +1483,12 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg_stack[entry] = value``
 		:rtype: LowLevelILExpr
 		"""
-		reg_stack = self._arch.get_reg_stack_index(reg_stack)
-		return self.expr(LowLevelILOperation.LLIL_SET_REG_STACK_REL, reg_stack, entry.index, value.index,
+		_reg_stack = self._arch.get_reg_stack_index(reg_stack)
+		return self.expr(LowLevelILOperation.LLIL_SET_REG_STACK_REL, _reg_stack, entry.index, value.index,
 			size = size, flags = flags)
 
-	def reg_stack_push(self, size, reg_stack, value, flags = 0):
+	def reg_stack_push(self, size:int, reg_stack:'architecture.RegisterStackType', value:LowLevelILExpr,
+		flags:'architecture.FlagType'=0) -> LowLevelILExpr:
 		"""
 		``reg_stack_push`` pushes the expression ``value`` of size ``size`` onto the top of the register
 		stack ``reg_stack``
@@ -1626,10 +1500,10 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg_stack.push(value)``
 		:rtype: LowLevelILExpr
 		"""
-		reg_stack = self._arch.get_reg_stack_index(reg_stack)
-		return self.expr(LowLevelILOperation.LLIL_REG_STACK_PUSH, reg_stack, value.index, size = size, flags = flags)
+		_reg_stack = self._arch.get_reg_stack_index(reg_stack)
+		return self.expr(LowLevelILOperation.LLIL_REG_STACK_PUSH, _reg_stack, value.index, size = size, flags = flags)
 
-	def set_flag(self, flag, value):
+	def set_flag(self, flag:'architecture.FlagName', value:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``set_flag`` sets the flag ``flag`` to the LowLevelILExpr ``value``
 
@@ -1640,7 +1514,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_SET_FLAG, self._arch.get_flag_by_name(flag), value.index)
 
-	def load(self, size, addr):
+	def load(self, size:int, addr:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``load`` Reads ``size`` bytes from the expression ``addr``
 
@@ -1651,7 +1525,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_LOAD, addr.index, size=size)
 
-	def store(self, size, addr, value, flags=None):
+	def store(self, size:int, addr:LowLevelILExpr, value:LowLevelILExpr, flags=None) -> LowLevelILExpr:
 		"""
 		``store`` Writes ``size`` bytes to expression ``addr`` read from expression ``value``
 
@@ -1664,7 +1538,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_STORE, addr.index, value.index, size=size, flags=flags)
 
-	def push(self, size, value):
+	def push(self, size:int, value:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``push`` writes ``size`` bytes from expression ``value`` to the stack, adjusting the stack by ``size``.
 
@@ -1675,7 +1549,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_PUSH, value.index, size=size)
 
-	def pop(self, size):
+	def pop(self, size:int) -> LowLevelILExpr:
 		"""
 		``pop`` reads ``size`` bytes from the stack, adjusting the stack by ``size``.
 
@@ -1685,7 +1559,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_POP, size=size)
 
-	def reg(self, size, reg):
+	def reg(self, size:int, reg:'architecture.RegisterType') -> LowLevelILExpr:
 		"""
 		``reg`` returns a register of size ``size`` with name ``reg``
 
@@ -1694,10 +1568,10 @@ class LowLevelILFunction(object):
 		:return: A register expression for the given string
 		:rtype: LowLevelILExpr
 		"""
-		reg = self._arch.get_reg_index(reg)
-		return self.expr(LowLevelILOperation.LLIL_REG, reg, size=size)
+		_reg = self._arch.get_reg_index(reg)
+		return self.expr(LowLevelILOperation.LLIL_REG, _reg, size=size)
 
-	def reg_split(self, size, hi, lo):
+	def reg_split(self, size:int, hi:'architecture.RegisterType', lo:'architecture.RegisterType') -> LowLevelILExpr:
 		"""
 		``reg_split`` combines registers of size ``size`` with names ``hi`` and ``lo``
 
@@ -1707,11 +1581,11 @@ class LowLevelILFunction(object):
 		:return: The expression ``hi:lo``
 		:rtype: LowLevelILExpr
 		"""
-		hi = self._arch.get_reg_index(hi)
-		lo = self._arch.get_reg_index(lo)
-		return self.expr(LowLevelILOperation.LLIL_REG_SPLIT, hi, lo, size=size)
+		_hi = self._arch.get_reg_index(hi)
+		_lo = self._arch.get_reg_index(lo)
+		return self.expr(LowLevelILOperation.LLIL_REG_SPLIT, _hi, _lo, size=size)
 
-	def reg_stack_top_relative(self, size, reg_stack, entry):
+	def reg_stack_top_relative(self, size:int, reg_stack:'architecture.RegisterStackType', entry:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``reg_stack_top_relative`` returns a register stack entry of size ``size`` at top-relative
 		location ``entry`` in register stack with name ``reg_stack``
@@ -1722,10 +1596,10 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg_stack[entry]``
 		:rtype: LowLevelILExpr
 		"""
-		reg_stack = self._arch.get_reg_stack_index(reg_stack)
-		return self.expr(LowLevelILOperation.LLIL_REG_STACK_REL, reg_stack, entry.index, size=size)
+		_reg_stack = self._arch.get_reg_stack_index(reg_stack)
+		return self.expr(LowLevelILOperation.LLIL_REG_STACK_REL, _reg_stack, entry.index, size=size)
 
-	def reg_stack_pop(self, size, reg_stack):
+	def reg_stack_pop(self, size:int, reg_stack:'architecture.RegisterStackType') -> LowLevelILExpr:
 		"""
 		``reg_stack_pop`` returns the top entry of size ``size`` in register stack with name ``reg_stack``, and
 		removes the entry from the stack
@@ -1735,10 +1609,10 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg_stack.pop``
 		:rtype: LowLevelILExpr
 		"""
-		reg_stack = self._arch.get_reg_stack_index(reg_stack)
-		return self.expr(LowLevelILOperation.LLIL_REG_STACK_POP, reg_stack, size=size)
+		_reg_stack = self._arch.get_reg_stack_index(reg_stack)
+		return self.expr(LowLevelILOperation.LLIL_REG_STACK_POP, _reg_stack, size=size)
 
-	def const(self, size, value):
+	def const(self, size:int, value:int) -> LowLevelILExpr:
 		"""
 		``const`` returns an expression for the constant integer ``value`` with size ``size``
 
@@ -1749,7 +1623,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CONST, value, size=size)
 
-	def const_pointer(self, size, value):
+	def const_pointer(self, size:int, value:int) -> LowLevelILExpr:
 		"""
 		``const_pointer`` returns an expression for the constant pointer ``value`` with size ``size``
 
@@ -1760,7 +1634,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CONST_PTR, value, size=size)
 
-	def reloc_pointer(self, size, value):
+	def reloc_pointer(self, size:int, value:int) -> LowLevelILExpr:
 		"""
 		``reloc_pointer`` returns an expression for the constant relocated pointer ``value`` with size ``size``
 
@@ -1771,7 +1645,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_EXTERN_PTR, value, size=size)
 
-	def float_const_raw(self, size, value):
+	def float_const_raw(self, size:int, value:int) -> LowLevelILExpr:
 		"""
 		``float_const_raw`` returns an expression for the constant raw binary floating point
 		value ``value`` with size ``size``
@@ -1783,7 +1657,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FLOAT_CONST, value, size=size)
 
-	def float_const_single(self, value):
+	def float_const_single(self, value:float) -> LowLevelILExpr:
 		"""
 		``float_const_single`` returns an expression for the single precision floating point value ``value``
 
@@ -1793,7 +1667,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FLOAT_CONST, struct.unpack("I", struct.pack("f", value))[0], size=4)
 
-	def float_const_double(self, value):
+	def float_const_double(self, value:float) -> LowLevelILExpr:
 		"""
 		``float_const_double`` returns an expression for the double precision floating point value ``value``
 
@@ -1803,17 +1677,17 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FLOAT_CONST, struct.unpack("Q", struct.pack("d", value))[0], size=8)
 
-	def flag(self, reg):
+	def flag(self, reg:'architecture.FlagName') -> LowLevelILExpr:
 		"""
 		``flag`` returns a flag expression for the given flag name.
 
-		:param str reg: name of the flag expression to retrieve
+		:param architecture.FlagName reg: name of the flag expression to retrieve
 		:return: A flag expression of given flag name
 		:rtype: LowLevelILExpr
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FLAG, self._arch.get_flag_by_name(reg))
 
-	def flag_bit(self, size, reg, bit):
+	def flag_bit(self, size:int, reg:'architecture.FlagName', bit:int) -> LowLevelILExpr:
 		"""
 		``flag_bit`` sets the flag named ``reg`` and size ``size`` to the constant integer value ``bit``
 
@@ -1825,7 +1699,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FLAG_BIT, self._arch.get_flag_by_name(reg), bit, size=size)
 
-	def add(self, size, a, b, flags=None):
+	def add(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``add`` adds expression ``a`` to expression ``b`` potentially setting flags ``flags`` and returning
 		an expression of ``size`` bytes.
@@ -1839,7 +1713,8 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_ADD, a.index, b.index, size=size, flags=flags)
 
-	def add_carry(self, size, a, b, carry, flags=None):
+	def add_carry(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, carry:LowLevelILExpr,
+		flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``add_carry`` adds with carry expression ``a`` to expression ``b`` potentially setting flags ``flags`` and
 		returning an expression of ``size`` bytes.
@@ -1854,7 +1729,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_ADC, a.index, b.index, carry.index, size=size, flags=flags)
 
-	def sub(self, size, a, b, flags=None):
+	def sub(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``sub`` subtracts expression ``b`` from expression ``a`` potentially setting flags ``flags`` and returning
 		an expression of ``size`` bytes.
@@ -1868,7 +1743,8 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_SUB, a.index, b.index, size=size, flags=flags)
 
-	def sub_borrow(self, size, a, b, carry, flags=None):
+	def sub_borrow(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, carry:LowLevelILExpr,
+		flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``sub_borrow`` subtracts with borrow expression ``b`` from expression ``a`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -1883,7 +1759,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_SBB, a.index, b.index, carry.index, size=size, flags=flags)
 
-	def and_expr(self, size, a, b, flags=None):
+	def and_expr(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``and_expr`` bitwise and's expression ``a`` and expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -1897,7 +1773,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_AND, a.index, b.index, size=size, flags=flags)
 
-	def or_expr(self, size, a, b, flags=None):
+	def or_expr(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``or_expr`` bitwise or's expression ``a`` and expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -1911,7 +1787,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_OR, a.index, b.index, size=size, flags=flags)
 
-	def xor_expr(self, size, a, b, flags=None):
+	def xor_expr(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``xor_expr`` xor's expression ``a`` with expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -1925,7 +1801,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_XOR, a.index, b.index, size=size, flags=flags)
 
-	def shift_left(self, size, a, b, flags=None):
+	def shift_left(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``shift_left`` shifts left expression ``a`` by expression ``b`` from expression ``a`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -1939,7 +1815,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_LSL, a.index, b.index, size=size, flags=flags)
 
-	def logical_shift_right(self, size, a, b, flags=None):
+	def logical_shift_right(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``logical_shift_right`` shifts logically right expression ``a`` by expression ``b`` potentially setting flags
 		``flags`` and returning an expression of ``size`` bytes.
@@ -1953,7 +1829,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_LSR, a.index, b.index, size=size, flags=flags)
 
-	def arith_shift_right(self, size, a, b, flags=None):
+	def arith_shift_right(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``arith_shift_right`` shifts arithmetic right expression ``a`` by expression ``b``  potentially setting flags
 		``flags`` and returning an expression of ``size`` bytes.
@@ -1967,7 +1843,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_ASR, a.index, b.index, size=size, flags=flags)
 
-	def rotate_left(self, size, a, b, flags=None):
+	def rotate_left(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``rotate_left`` bitwise rotates left expression ``a`` by expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -1981,7 +1857,8 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_ROL, a.index, b.index, size=size, flags=flags)
 
-	def rotate_left_carry(self, size, a, b, carry, flags=None):
+	def rotate_left_carry(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, carry:LowLevelILExpr,
+		flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``rotate_left_carry`` bitwise rotates left with carry expression ``a`` by expression ``b`` potentially setting
 		flags ``flags`` and returning an expression of ``size`` bytes.
@@ -1996,7 +1873,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_RLC, a.index, b.index, carry.index, size=size, flags=flags)
 
-	def rotate_right(self, size, a, b, flags=None):
+	def rotate_right(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``rotate_right`` bitwise rotates right expression ``a`` by expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2010,7 +1887,8 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_ROR, a.index, b.index, size=size, flags=flags)
 
-	def rotate_right_carry(self, size, a, b, carry, flags=None):
+	def rotate_right_carry(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, carry:LowLevelILExpr,
+		flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``rotate_right_carry`` bitwise rotates right with carry expression ``a`` by expression ``b`` potentially setting
 		flags ``flags`` and returning an expression of ``size`` bytes.
@@ -2025,7 +1903,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_RRC, a.index, b.index, carry.index, size=size, flags=flags)
 
-	def mult(self, size, a, b, flags=None):
+	def mult(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``mult`` multiplies expression ``a`` by expression ``b`` potentially setting flags ``flags`` and returning an
 		expression of ``size`` bytes.
@@ -2039,7 +1917,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_MUL, a.index, b.index, size=size, flags=flags)
 
-	def mult_double_prec_signed(self, size, a, b, flags=None):
+	def mult_double_prec_signed(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``mult_double_prec_signed`` multiplies signed with double precision expression ``a`` by expression ``b``
 		potentially setting flags ``flags`` and returning an expression of ``size`` bytes.
@@ -2053,7 +1931,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_MULS_DP, a.index, b.index, size=size, flags=flags)
 
-	def mult_double_prec_unsigned(self, size, a, b, flags=None):
+	def mult_double_prec_unsigned(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``mult_double_prec_unsigned`` multiplies unsigned with double precision expression ``a`` by expression ``b``
 		potentially setting flags ``flags`` and returning an expression of ``size`` bytes.
@@ -2067,7 +1945,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_MULU_DP, a.index, b.index, size=size, flags=flags)
 
-	def div_signed(self, size, a, b, flags=None):
+	def div_signed(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``div_signed`` signed divide expression ``a`` by expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2081,7 +1959,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_DIVS, a.index, b.index, size=size, flags=flags)
 
-	def div_double_prec_signed(self, size, a, b, flags=None):
+	def div_double_prec_signed(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``div_double_prec_signed`` signed double precision divide using expression ``a`` as a
 		single double precision register by expression ``b`` potentially  setting flags ``flags`` and returning an
@@ -2096,7 +1974,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_DIVS_DP, a.index, b.index, size=size, flags=flags)
 
-	def div_unsigned(self, size, a, b, flags=None):
+	def div_unsigned(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``div_unsigned`` unsigned divide expression ``a`` by expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2110,7 +1988,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_DIVU, a.index, b.index, size=size, flags=flags)
 
-	def div_double_prec_unsigned(self, size, a, b, flags=None):
+	def div_double_prec_unsigned(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``div_double_prec_unsigned`` unsigned double precision divide using expression ``a`` as
 		a single double precision register by expression ``b`` potentially  setting flags ``flags`` and returning an
@@ -2125,7 +2003,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_DIVU_DP, a.index, b.index, size=size, flags=flags)
 
-	def mod_signed(self, size, a, b, flags=None):
+	def mod_signed(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``mod_signed`` signed modulus expression ``a`` by expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2139,7 +2017,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_MODS, a.index, b.index, size=size, flags=flags)
 
-	def mod_double_prec_signed(self, size, a, b, flags=None):
+	def mod_double_prec_signed(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``mod_double_prec_signed`` signed double precision modulus using expression ``a`` as a single
 		double precision register by expression ``b`` potentially  setting flags ``flags`` and returning an expression
@@ -2154,7 +2032,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_MODS_DP, a.index, b.index, size=size, flags=flags)
 
-	def mod_unsigned(self, size, a, b, flags=None):
+	def mod_unsigned(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``mod_unsigned`` unsigned modulus expression ``a`` by expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2168,7 +2046,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_MODU, a.index, b.index, size=size, flags=flags)
 
-	def mod_double_prec_unsigned(self, size, a, b, flags=None):
+	def mod_double_prec_unsigned(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``mod_double_prec_unsigned`` unsigned double precision modulus using expression ``a`` as
 		a single double precision register by expression ``b`` potentially  setting flags ``flags`` and returning an
@@ -2183,7 +2061,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_MODU_DP, a.index, b.index, size=size, flags=flags)
 
-	def neg_expr(self, size, value, flags=None):
+	def neg_expr(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``neg_expr`` two's complement sign negation of expression ``value`` of size ``size`` potentially setting flags
 
@@ -2195,7 +2073,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_NEG, value.index, size=size, flags=flags)
 
-	def not_expr(self, size, value, flags=None):
+	def not_expr(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``not_expr`` bitwise inverse of expression ``value`` of size ``size`` potentially setting flags
 
@@ -2207,7 +2085,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_NOT, value.index, size=size, flags=flags)
 
-	def sign_extend(self, size, value, flags=None):
+	def sign_extend(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``sign_extend`` two's complement sign-extends the expression in ``value`` to ``size`` bytes
 
@@ -2219,7 +2097,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_SX, value.index, size=size, flags=flags)
 
-	def zero_extend(self, size, value, flags=None):
+	def zero_extend(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``zero_extend`` zero-extends the expression in ``value`` to ``size`` bytes
 
@@ -2230,7 +2108,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_ZX, value.index, size=size, flags=flags)
 
-	def low_part(self, size, value, flags=None):
+	def low_part(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``low_part`` truncates ``value`` to ``size`` bytes
 
@@ -2241,7 +2119,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_LOW_PART, value.index, size=size, flags=flags)
 
-	def jump(self, dest):
+	def jump(self, dest:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``jump`` returns an expression which jumps (branches) to the expression ``dest``
 
@@ -2251,7 +2129,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_JUMP, dest.index)
 
-	def call(self, dest):
+	def call(self, dest:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``call`` returns an expression which first pushes the address of the next instruction onto the stack then jumps
 		(branches) to the expression ``dest``
@@ -2262,7 +2140,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CALL, dest.index)
 
-	def call_stack_adjust(self, dest, stack_adjust):
+	def call_stack_adjust(self, dest:LowLevelILExpr, stack_adjust:int) -> LowLevelILExpr:
 		"""
 		``call_stack_adjust`` returns an expression which first pushes the address of the next instruction onto the stack
 		then jumps (branches) to the expression ``dest``. After the function exits, ``stack_adjust`` is added to the
@@ -2274,7 +2152,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CALL_STACK_ADJUST, dest.index, stack_adjust)
 
-	def tailcall(self, dest):
+	def tailcall(self, dest:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``tailcall`` returns an expression which jumps (branches) to the expression ``dest``
 
@@ -2284,7 +2162,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_TAILCALL, dest.index)
 
-	def ret(self, dest):
+	def ret(self, dest:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``ret`` returns an expression which jumps (branches) to the expression ``dest``. ``ret`` is a special alias for
 		jump that makes the disassembler stop disassembling.
@@ -2295,7 +2173,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_RET, dest.index)
 
-	def no_ret(self):
+	def no_ret(self) -> LowLevelILExpr:
 		"""
 		``no_ret`` returns an expression halts disassembly
 
@@ -2304,7 +2182,8 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_NORET)
 
-	def flag_condition(self, cond, sem_class = None):
+	def flag_condition(self, cond:Union[str, LowLevelILFlagCondition, int],
+		sem_class:Optional['architecture.SemanticClassType']=None) -> LowLevelILExpr:
 		"""
 		``flag_condition`` returns a flag_condition expression for the given LowLevelILFlagCondition
 
@@ -2331,7 +2210,7 @@ class LowLevelILFunction(object):
 		group = self._arch.get_semantic_flag_group_index(sem_group)
 		return self.expr(LowLevelILOperation.LLIL_FLAG_GROUP, group)
 
-	def compare_equal(self, size, a, b):
+	def compare_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_equal`` returns comparison expression of size ``size`` checking if expression ``a`` is equal to
 		expression ``b``
@@ -2344,7 +2223,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_E, a.index, b.index, size = size)
 
-	def compare_not_equal(self, size, a, b):
+	def compare_not_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_not_equal`` returns comparison expression of size ``size`` checking if expression ``a`` is not equal to
 		expression ``b``
@@ -2357,7 +2236,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_NE, a.index, b.index, size = size)
 
-	def compare_signed_less_than(self, size, a, b):
+	def compare_signed_less_than(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_signed_less_than`` returns comparison expression of size ``size`` checking if expression ``a`` is
 		signed less than expression ``b``
@@ -2370,7 +2249,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_SLT, a.index, b.index, size = size)
 
-	def compare_unsigned_less_than(self, size, a, b):
+	def compare_unsigned_less_than(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_unsigned_less_than`` returns comparison expression of size ``size`` checking if expression ``a`` is
 		unsigned less than expression ``b``
@@ -2383,7 +2262,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_ULT, a.index, b.index, size = size)
 
-	def compare_signed_less_equal(self, size, a, b):
+	def compare_signed_less_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_signed_less_equal`` returns comparison expression of size ``size`` checking if expression ``a`` is
 		signed less than or equal to expression ``b``
@@ -2396,7 +2275,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_SLE, a.index, b.index, size = size)
 
-	def compare_unsigned_less_equal(self, size, a, b):
+	def compare_unsigned_less_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_unsigned_less_equal`` returns comparison expression of size ``size`` checking if expression ``a`` is
 		unsigned less than or equal to expression ``b``
@@ -2409,7 +2288,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_ULE, a.index, b.index, size = size)
 
-	def compare_signed_greater_equal(self, size, a, b):
+	def compare_signed_greater_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_signed_greater_equal`` returns comparison expression of size ``size`` checking if expression ``a`` is
 		signed greater than or equal to expression ``b``
@@ -2422,7 +2301,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_SGE, a.index, b.index, size = size)
 
-	def compare_unsigned_greater_equal(self, size, a, b):
+	def compare_unsigned_greater_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_unsigned_greater_equal`` returns comparison expression of size ``size`` checking if expression ``a``
 		is unsigned greater than or equal to expression ``b``
@@ -2435,7 +2314,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_UGE, a.index, b.index, size = size)
 
-	def compare_signed_greater_than(self, size, a, b):
+	def compare_signed_greater_than(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_signed_greater_than`` returns comparison expression of size ``size`` checking if expression ``a`` is
 		signed greater than or equal to expression ``b``
@@ -2448,7 +2327,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_SGT, a.index, b.index, size = size)
 
-	def compare_unsigned_greater_than(self, size, a, b):
+	def compare_unsigned_greater_than(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``compare_unsigned_greater_than`` returns comparison expression of size ``size`` checking if expression ``a`` is
 		unsigned greater than or equal to expression ``b``
@@ -2461,10 +2340,10 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CMP_UGT, a.index, b.index, size = size)
 
-	def test_bit(self, size, a, b):
+	def test_bit(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		return self.expr(LowLevelILOperation.LLIL_TEST_BIT, a.index, b.index, size = size)
 
-	def system_call(self):
+	def system_call(self) -> LowLevelILExpr:
 		"""
 		``system_call`` return a system call expression.
 
@@ -2473,7 +2352,8 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_SYSCALL)
 
-	def intrinsic(self, outputs, intrinsic, params, flags=None):
+	def intrinsic(self, outputs:List[Union[ILFlag, LowLevelILExpr]], intrinsic:'architecture.IntrinsicType',
+		params:List[LowLevelILExpr], flags:'architecture.FlagType'=None):
 		"""
 		``intrinsic`` return an intrinsic expression.
 
@@ -2493,7 +2373,7 @@ class LowLevelILFunction(object):
 		return self.expr(LowLevelILOperation.LLIL_INTRINSIC, len(outputs), self.add_operand_list(output_list).index,
 			self._arch.get_intrinsic_index(intrinsic), call_param.index, flags = flags)
 
-	def breakpoint(self):
+	def breakpoint(self) -> LowLevelILExpr:
 		"""
 		``breakpoint`` returns a processor breakpoint expression.
 
@@ -2502,7 +2382,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_BP)
 
-	def trap(self, value):
+	def trap(self, value:int) -> LowLevelILExpr:
 		"""
 		``trap`` returns a processor trap (interrupt) expression of the given integer ``value``.
 
@@ -2512,7 +2392,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_TRAP, value)
 
-	def undefined(self):
+	def undefined(self) -> LowLevelILExpr:
 		"""
 		``undefined`` returns the undefined expression. This should be used for instructions which perform functions but
 		aren't important for dataflow or partial emulation purposes.
@@ -2522,7 +2402,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_UNDEF)
 
-	def unimplemented(self):
+	def unimplemented(self) -> LowLevelILExpr:
 		"""
 		``unimplemented`` returns the unimplemented expression. This should be used for all instructions which aren't
 		implemented.
@@ -2532,7 +2412,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_UNIMPL)
 
-	def unimplemented_memory_ref(self, size, addr):
+	def unimplemented_memory_ref(self, size:int, addr:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``unimplemented_memory_ref`` a memory reference to expression ``addr`` of size ``size`` with unimplemented operation.
 
@@ -2543,7 +2423,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_UNIMPL_MEM, addr.index, size = size)
 
-	def float_add(self, size, a, b, flags=None):
+	def float_add(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_add`` adds floating point expression ``a`` to expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2557,7 +2437,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FADD, a.index, b.index, size=size, flags=flags)
 
-	def float_sub(self, size, a, b, flags=None):
+	def float_sub(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_sub`` subtracts floating point expression ``b`` from expression ``a`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2571,7 +2451,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FSUB, a.index, b.index, size=size, flags=flags)
 
-	def float_mult(self, size, a, b, flags=None):
+	def float_mult(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_mult`` multiplies floating point expression ``a`` by expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2585,7 +2465,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FMUL, a.index, b.index, size=size, flags=flags)
 
-	def float_div(self, size, a, b, flags=None):
+	def float_div(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_div`` divides floating point expression ``a`` by expression ``b`` potentially setting flags ``flags``
 		and returning an expression of ``size`` bytes.
@@ -2599,7 +2479,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FDIV, a.index, b.index, size=size, flags=flags)
 
-	def float_sqrt(self, size, value, flags=None):
+	def float_sqrt(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_sqrt`` returns square root of floating point expression ``value`` of size ``size`` potentially setting flags
 
@@ -2611,7 +2491,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FSQRT, value.index, size=size, flags=flags)
 
-	def float_neg(self, size, value, flags=None):
+	def float_neg(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_neg`` returns sign negation of floating point expression ``value`` of size ``size`` potentially setting flags
 
@@ -2623,7 +2503,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FNEG, value.index, size=size, flags=flags)
 
-	def float_abs(self, size, value, flags=None):
+	def float_abs(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_abs`` returns absolute value of floating point expression ``value`` of size ``size`` potentially setting flags
 
@@ -2635,7 +2515,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FABS, value.index, size=size, flags=flags)
 
-	def float_to_int(self, size, value, flags=None):
+	def float_to_int(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_to_int`` returns integer value of floating point expression ``value`` of size ``size`` potentially setting flags
 
@@ -2647,7 +2527,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FLOAT_TO_INT, value.index, size=size, flags=flags)
 
-	def int_to_float(self, size, value, flags=None):
+	def int_to_float(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``int_to_float`` returns floating point value of integer expression ``value`` of size ``size`` potentially setting flags
 
@@ -2659,7 +2539,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_INT_TO_FLOAT, value.index, size=size, flags=flags)
 
-	def float_convert(self, size, value, flags=None):
+	def float_convert(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``int_to_float`` converts floating point value of expression ``value`` to size ``size`` potentially setting flags
 
@@ -2671,7 +2551,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FLOAT_CONV, value.index, size=size, flags=flags)
 
-	def round_to_int(self, size, value, flags=None):
+	def round_to_int(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``round_to_int`` rounds a floating point value to the nearest integer
 
@@ -2683,7 +2563,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_ROUND_TO_INT, value.index, size=size, flags=flags)
 
-	def floor(self, size, value, flags=None):
+	def floor(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``floor`` rounds a floating point value to an integer towards negative infinity
 
@@ -2695,7 +2575,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FLOOR, value.index, size=size, flags=flags)
 
-	def ceil(self, size, value, flags=None):
+	def ceil(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``ceil`` rounds a floating point value to an integer towards positive infinity
 
@@ -2707,7 +2587,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_CEIL, value.index, size=size, flags=flags)
 
-	def float_trunc(self, size, value, flags=None):
+	def float_trunc(self, size:int, value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``float_trunc`` rounds a floating point value to an integer towards zero
 
@@ -2719,7 +2599,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FTRUNC, value.index, size=size, flags=flags)
 
-	def float_compare_equal(self, size, a, b):
+	def float_compare_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``float_compare_equal`` returns floating point comparison expression of size ``size`` checking if
 		expression ``a`` is equal to expression ``b``
@@ -2733,7 +2613,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FCMP_E, a.index, b.index)
 
-	def float_compare_not_equal(self, size, a, b):
+	def float_compare_not_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``float_compare_not_equal`` returns floating point comparison expression of size ``size`` checking if
 		expression ``a`` is not equal to expression ``b``
@@ -2747,7 +2627,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FCMP_NE, a.index, b.index)
 
-	def float_compare_less_than(self, size, a, b):
+	def float_compare_less_than(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``float_compare_less_than`` returns floating point comparison expression of size ``size`` checking if
 		expression ``a`` is less than to expression ``b``
@@ -2761,7 +2641,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FCMP_LT, a.index, b.index)
 
-	def float_compare_less_equal(self, size, a, b):
+	def float_compare_less_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``float_compare_less_equal`` returns floating point comparison expression of size ``size`` checking if
 		expression ``a`` is less than or equal to expression ``b``
@@ -2775,7 +2655,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FCMP_LE, a.index, b.index)
 
-	def float_compare_greater_equal(self, size, a, b):
+	def float_compare_greater_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``float_compare_greater_equal`` returns floating point comparison expression of size ``size`` checking if
 		expression ``a`` is greater than or equal to expression ``b``
@@ -2789,7 +2669,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FCMP_GE, a.index, b.index)
 
-	def float_compare_greater_than(self, size, a, b):
+	def float_compare_greater_than(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``float_compare_greater_than`` returns floating point comparison expression of size ``size`` checking if
 		expression ``a`` is greater than or equal to expression ``b``
@@ -2803,7 +2683,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FCMP_GT, a.index, b.index)
 
-	def float_compare_unordered(self, size, a, b):
+	def float_compare_unordered(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``float_compare_unordered`` returns floating point comparison expression of size ``size`` checking if
 		expression ``a`` is unordered relative to expression ``b``
@@ -2817,7 +2697,7 @@ class LowLevelILFunction(object):
 		"""
 		return self.expr(LowLevelILOperation.LLIL_FCMP_UO, a.index, b.index)
 
-	def goto(self, label):
+	def goto(self, label:LowLevelILLabel) -> LowLevelILExpr:
 		"""
 		``goto`` returns a goto expression which jumps to the provided LowLevelILLabel.
 
@@ -2827,7 +2707,7 @@ class LowLevelILFunction(object):
 		"""
 		return LowLevelILExpr(core.BNLowLevelILGoto(self.handle, label.handle))
 
-	def if_expr(self, operand, t, f):
+	def if_expr(self, operand:LowLevelILExpr, t:LowLevelILLabel, f:LowLevelILLabel) -> LowLevelILExpr:
 		"""
 		``if_expr`` returns the ``if`` expression which depending on condition ``operand`` jumps to the LowLevelILLabel
 		``t`` when the condition expression ``operand`` is non-zero and ``f`` when it's zero.
@@ -2840,7 +2720,7 @@ class LowLevelILFunction(object):
 		"""
 		return LowLevelILExpr(core.BNLowLevelILIf(self.handle, operand.index, t.handle, f.handle))
 
-	def mark_label(self, label):
+	def mark_label(self, label:LowLevelILLabel) -> None:
 		"""
 		``mark_label`` assigns a LowLevelILLabel to the current IL address.
 
@@ -2849,35 +2729,44 @@ class LowLevelILFunction(object):
 		"""
 		core.BNLowLevelILMarkLabel(self.handle, label.handle)
 
-	def add_label_list(self, labels):
+	def add_label_map(self, labels:Mapping[int, LowLevelILLabel]) -> LowLevelILExpr:
 		"""
-		``add_label_list`` returns a label list expression for the given list of LowLevelILLabel objects.
+		``add_label_map`` returns a label list expression for the given list of LowLevelILLabel objects.
 
 		:param labels: the list of LowLevelILLabel to get a label list expression from
-		:type labels: list(LowLevelILLabel)
+		:type labels: dict(int, LowLevelILLabel)
 		:return: the label list expression
 		:rtype: LowLevelILExpr
 		"""
 		label_list = (ctypes.POINTER(core.BNLowLevelILLabel) * len(labels))()
-		for i in range(len(labels)):
-			label_list[i] = labels[i].handle
-		return LowLevelILExpr(core.BNLowLevelILAddLabelList(self.handle, label_list, len(labels)))
+		value_list = (ctypes.POINTER(ctypes.c_ulonglong) * len(labels))()
+		for i, (key, value) in enumerate(labels.items()):
+			value_list[i] = key
+			label_list[i] = value.handle
 
-	def add_operand_list(self, operands):
+		return LowLevelILExpr(core.BNLowLevelILAddLabelMap(self.handle, value_list, label_list, len(labels)))
+
+	def add_operand_list(self, operands:List[Union[ExpressionIndex, LowLevelILExpr]]) -> LowLevelILExpr:
 		"""
 		``add_operand_list`` returns an operand list expression for the given list of integer operands.
 
 		:param operands: list of operand numbers
-		:type operands: list(int)
+		:type operands: List(Union[ExpressionIndex, LowLevelILExpr])
 		:return: an operand list expression
 		:rtype: LowLevelILExpr
 		"""
 		operand_list = (ctypes.c_ulonglong * len(operands))()
 		for i in range(len(operands)):
-			operand_list[i] = operands[i]
+			op = operands[i]
+			if isinstance(op, LowLevelILExpr):
+				operand_list[i] = op.index
+			elif isinstance(op, int):
+				operand_list[i] = op
+			else:
+				raise Exception("Invalid operand type")
 		return LowLevelILExpr(core.BNLowLevelILAddOperandList(self.handle, operand_list, len(operands)))
 
-	def operand(self, n, expr):
+	def operand(self, n:int, expr:LowLevelILExpr) -> LowLevelILExpr:
 		"""
 		``operand`` sets the operand number of the expression ``expr`` and passes back ``expr`` without modification.
 
@@ -2889,7 +2778,7 @@ class LowLevelILFunction(object):
 		core.BNLowLevelILSetExprSourceOperand(self.handle, expr.index, n)
 		return expr
 
-	def finalize(self):
+	def finalize(self) -> None:
 		"""
 		``finalize`` ends the function and computes the list of basic blocks.
 
@@ -2897,7 +2786,7 @@ class LowLevelILFunction(object):
 		"""
 		core.BNFinalizeLowLevelILFunction(self.handle)
 
-	def add_label_for_address(self, arch, addr):
+	def add_label_for_address(self, arch:'architecture.Architecture', addr:int) -> None:
 		"""
 		``add_label_for_address`` adds a low-level IL label for the given architecture ``arch`` at the given virtual
 		address ``addr``
@@ -2909,7 +2798,7 @@ class LowLevelILFunction(object):
 			arch = arch.handle
 		core.BNAddLowLevelILLabelForAddress(self.handle, arch, addr)
 
-	def get_label_for_address(self, arch, addr):
+	def get_label_for_address(self, arch:'architecture.Architecture', addr:int) -> Optional[LowLevelILLabel]:
 		"""
 		``get_label_for_address`` returns the LowLevelILLabel for the given Architecture ``arch`` and IL address ``addr``.
 
@@ -2925,33 +2814,33 @@ class LowLevelILFunction(object):
 			return None
 		return LowLevelILLabel(label)
 
-	def get_ssa_instruction_index(self, instr):
+	def get_ssa_instruction_index(self, instr:InstructionIndex) -> InstructionIndex:
 		return core.BNGetLowLevelILSSAInstructionIndex(self.handle, instr)
 
-	def get_non_ssa_instruction_index(self, instr):
+	def get_non_ssa_instruction_index(self, instr:InstructionIndex) -> InstructionIndex:
 		return core.BNGetLowLevelILNonSSAInstructionIndex(self.handle, instr)
 
-	def get_ssa_reg_definition(self, reg_ssa):
+	def get_ssa_reg_definition(self, reg_ssa:SSARegister) -> Optional[LowLevelILInstruction]:
 		reg = self._arch.get_reg_index(reg_ssa.reg)
 		result = core.BNGetLowLevelILSSARegisterDefinition(self.handle, reg, reg_ssa.version)
 		if result >= core.BNGetLowLevelILInstructionCount(self.handle):
 			return None
 		return self[result]
 
-	def get_ssa_flag_definition(self, flag_ssa):
+	def get_ssa_flag_definition(self, flag_ssa:SSAFlag) -> Optional[LowLevelILInstruction]:
 		flag = self._arch.get_flag_index(flag_ssa.flag)
 		result = core.BNGetLowLevelILSSAFlagDefinition(self.handle, flag, flag_ssa.version)
 		if result >= core.BNGetLowLevelILInstructionCount(self.handle):
 			return None
 		return self[result]
 
-	def get_ssa_memory_definition(self, index):
+	def get_ssa_memory_definition(self, index:int) -> Optional[LowLevelILInstruction]:
 		result = core.BNGetLowLevelILSSAMemoryDefinition(self.handle, index)
 		if result >= core.BNGetLowLevelILInstructionCount(self.handle):
 			return None
 		return self[result]
 
-	def get_ssa_reg_uses(self, reg_ssa):
+	def get_ssa_reg_uses(self, reg_ssa:SSARegister) -> List[LowLevelILInstruction]:
 		reg = self._arch.get_reg_index(reg_ssa.reg)
 		count = ctypes.c_ulonglong()
 		instrs = core.BNGetLowLevelILSSARegisterUses(self.handle, reg, reg_ssa.version, count)
@@ -2961,7 +2850,7 @@ class LowLevelILFunction(object):
 		core.BNFreeILInstructionList(instrs)
 		return result
 
-	def get_ssa_flag_uses(self, flag_ssa):
+	def get_ssa_flag_uses(self, flag_ssa:SSAFlag) -> List[LowLevelILInstruction]:
 		flag = self._arch.get_flag_index(flag_ssa.flag)
 		count = ctypes.c_ulonglong()
 		instrs = core.BNGetLowLevelILSSAFlagUses(self.handle, flag, flag_ssa.version, count)
@@ -2971,7 +2860,7 @@ class LowLevelILFunction(object):
 		core.BNFreeILInstructionList(instrs)
 		return result
 
-	def get_ssa_memory_uses(self, index):
+	def get_ssa_memory_uses(self, index:int) -> List[LowLevelILInstruction]:
 		count = ctypes.c_ulonglong()
 		instrs = core.BNGetLowLevelILSSAMemoryUses(self.handle, index, count)
 		result = []
@@ -2980,19 +2869,19 @@ class LowLevelILFunction(object):
 		core.BNFreeILInstructionList(instrs)
 		return result
 
-	def get_ssa_reg_value(self, reg_ssa):
+	def get_ssa_reg_value(self, reg_ssa:SSARegister) -> 'variable.RegisterValue':
 		reg = self._arch.get_reg_index(reg_ssa.reg)
 		value = core.BNGetLowLevelILSSARegisterValue(self.handle, reg, reg_ssa.version)
-		result = binaryninja.function.RegisterValue(self._arch, value)
+		result = variable.RegisterValue(self._arch, value)
 		return result
 
-	def get_ssa_flag_value(self, flag_ssa):
+	def get_ssa_flag_value(self, flag_ssa:SSAFlag) -> 'variable.RegisterValue':
 		flag = self._arch.get_flag_index(flag_ssa.flag)
 		value = core.BNGetLowLevelILSSAFlagValue(self.handle, flag, flag_ssa.version)
-		result = binaryninja.function.RegisterValue(self._arch, value)
+		result = variable.RegisterValue(self._arch, value)
 		return result
 
-	def get_medium_level_il_instruction_index(self, instr):
+	def get_medium_level_il_instruction_index(self, instr:InstructionIndex) -> Optional[InstructionIndex]:
 		med_il = self.medium_level_il
 		if med_il is None:
 			return None
@@ -3001,7 +2890,7 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def get_medium_level_il_expr_index(self, expr):
+	def get_medium_level_il_expr_index(self, expr:int) -> Optional[int]:
 		med_il = self.medium_level_il
 		if med_il is None:
 			return None
@@ -3010,7 +2899,7 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def get_medium_level_il_expr_indexes(self, expr):
+	def get_medium_level_il_expr_indexes(self, expr:int) -> List[int]:
 		count = ctypes.c_ulonglong()
 		exprs = core.BNGetMediumLevelILExprIndexes(self.handle, expr, count)
 		result = []
@@ -3019,7 +2908,7 @@ class LowLevelILFunction(object):
 		core.BNFreeILInstructionList(exprs)
 		return result
 
-	def get_mapped_medium_level_il_instruction_index(self, instr):
+	def get_mapped_medium_level_il_instruction_index(self, instr:InstructionIndex) -> Optional[InstructionIndex]:
 		med_il = self.mapped_medium_level_il
 		if med_il is None:
 			return None
@@ -3028,7 +2917,7 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def get_mapped_medium_level_il_expr_index(self, expr):
+	def get_mapped_medium_level_il_expr_index(self, expr:ExpressionIndex) -> Optional[ExpressionIndex]:
 		med_il = self.mapped_medium_level_il
 		if med_il is None:
 			return None
@@ -3037,7 +2926,7 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def get_high_level_il_instruction_index(self, instr):
+	def get_high_level_il_instruction_index(self, instr:InstructionIndex) -> Optional[InstructionIndex]:
 		med_il = self.medium_level_il
 		if med_il is None:
 			return None
@@ -3046,7 +2935,7 @@ class LowLevelILFunction(object):
 			return None
 		return med_il.get_high_level_il_instruction_index(mlil_instr)
 
-	def get_high_level_il_expr_index(self, expr):
+	def get_high_level_il_expr_index(self, expr:ExpressionIndex) -> Optional[ExpressionIndex]:
 		med_il = self.medium_level_il
 		if med_il is None:
 			return None
@@ -3055,16 +2944,16 @@ class LowLevelILFunction(object):
 			return None
 		return med_il.get_high_level_il_expr_index(mlil_expr)
 
-	def create_graph(self, settings = None):
+	def create_graph(self, settings:Optional['function.DisassemblySettings']=None) -> flowgraph.CoreFlowGraph:
 		if settings is not None:
 			settings_obj = settings.handle
 		else:
 			settings_obj = None
-		return binaryninja.flowgraph.CoreFlowGraph(core.BNCreateLowLevelILFunctionGraph(self.handle, settings_obj))
+		return flowgraph.CoreFlowGraph(core.BNCreateLowLevelILFunctionGraph(self.handle, settings_obj))
 
 
 class LowLevelILBasicBlock(basicblock.BasicBlock):
-	def __init__(self, view, handle, owner):
+	def __init__(self, view:Optional['binaryview.BinaryView'], handle:core.BNBasicBlock, owner:'LowLevelILFunction'):
 		super(LowLevelILBasicBlock, self).__init__(handle, view)
 		self._il_function = owner
 
@@ -3101,22 +2990,17 @@ class LowLevelILBasicBlock(basicblock.BasicBlock):
 		return LowLevelILBasicBlock(view, handle, self._il_function)
 
 	@property
-	def il_function(self):
-		""" """
+	def il_function(self) -> LowLevelILFunction:
 		return self._il_function
 
-	@il_function.setter
-	def il_function(self, value):
-		self._il_function = value
 
-
-def LLIL_TEMP(n):
+def LLIL_TEMP(n:int) -> int:
 	return n | 0x80000000
 
 
-def LLIL_REG_IS_TEMP(n):
+def LLIL_REG_IS_TEMP(n:int) -> bool:
 	return (n & 0x80000000) != 0
 
 
-def LLIL_GET_TEMP_REG_INDEX(n):
+def LLIL_GET_TEMP_REG_INDEX(n:int) -> int:
 	return n & 0x7fffffff

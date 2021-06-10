@@ -21,27 +21,17 @@
 
 import abc
 import ctypes
-from json import loads, dumps
+from json import dumps
 import sys
 import traceback
-
-if sys.version_info >= (3, 0, 0):
-	from urllib.parse import urlencode
-else:
-	from urllib import urlencode
+from urllib.parse import urlencode
 
 # Binary Ninja Components
-import binaryninja._binaryninjacore as core
-
 import binaryninja
-from binaryninja import settings
-from binaryninja import with_metaclass
-from binaryninja import startup
-from binaryninja import log
-
-# 2-3 compatibility
-from binaryninja import pyNativeStr
-from binaryninja import range
+import binaryninja._binaryninjacore as core
+from . import settings
+from . import log
+from . import pyNativeStr
 
 
 def to_bytes(field):
@@ -285,7 +275,7 @@ class _DownloadProviderMetaclass(type):
 			raise AttributeError("attribute '%s' is read only" % name)
 
 
-class DownloadProvider(with_metaclass(_DownloadProviderMetaclass, object)):
+class DownloadProvider(metaclass=_DownloadProviderMetaclass):
 	name = None
 	instance_class = None
 	_registered_providers = []

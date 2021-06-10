@@ -21,13 +21,12 @@
 import ctypes
 
 # Binary Ninja components
-from binaryninja import _binaryninjacore as core
-from binaryninja.binaryview import BinaryView
-from binaryninja import types
+from . import _binaryninjacore as core
+from .binaryview import BinaryView
+from . import types
 
 # 2-3 compatibility
-from binaryninja import range
-from binaryninja import pyNativeStr
+from .compatibility import pyNativeStr
 
 
 def get_qualified_name(names):

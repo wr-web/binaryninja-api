@@ -19,1332 +19,59 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from __future__ import absolute_import
-import threading
-import traceback
 import ctypes
-import numbers
-import string
-from typing import List
+from typing import Optional, List
 
 # Binary Ninja components
-import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja import associateddatastore  # Required in the main scope due to being an argument for _FunctionAssociatedDataStore
-from binaryninja import highlight
-from binaryninja import log
-from binaryninja import types
-from binaryninja import decorators
-from binaryninja.enums import (AnalysisSkipReason, FunctionGraphType, BranchType, SymbolType, InstructionTextTokenType,
-	HighlightStandardColor, HighlightColorStyle, RegisterValueType, ImplicitRegisterExtend,
-	DisassemblyOption, IntegerDisplayType, InstructionTextTokenContext, VariableSourceType,
-	FunctionAnalysisSkipOverride, MediumLevelILOperation, DeadStoreElimination)
-
-# 2-3 compatibility
-from binaryninja import range
-
-
-class LookupTableEntry(object):
-	def __init__(self, from_values, to_value):
-		self._from_values = from_values
-		self._to_value = to_value
-
-	def __repr__(self):
-		return "[%s] -> %#x" % (', '.join(["%#x" % i for i in self.from_values]), self.to_value)
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self._from_values, self._to_value) == (other._from_values, other._to_value)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __hash__(self):
-		return hash((self._from_values, self._to_value))
-
-	@property
-	def from_values(self):
-		""" """
-		return self._from_values
-
-	@from_values.setter
-	def from_values(self, value):
-		""" """
-		self._from_values = value
-
-	@property
-	def to_value(self):
-		""" """
-		return self._to_value
-
-	@to_value.setter
-	def to_value(self, value):
-		""" """
-		self._to_value = value
-
-
-class RegisterValue(object):
-	def __init__(self, arch = None, value = None, confidence = types.max_confidence):
-		self._is_constant = False
-		self._value = None
-		self._arch = None
-		self._reg = None
-		self._is_constant = False
-		self._offset = None
-		if value is None:
-			self._type = RegisterValueType.UndeterminedValue
-		else:
-			self._type = RegisterValueType(value.state)
-			if value.state == RegisterValueType.EntryValue:
-				self._arch = arch
-				if arch is not None:
-					self._reg = arch.get_reg_name(value.value)
-				else:
-					self._reg = value.value
-			elif (value.state == RegisterValueType.ConstantValue) or (value.state == RegisterValueType.ConstantPointerValue):
-				self._value = value.value
-				self._is_constant = True
-			elif value.state == RegisterValueType.StackFrameOffset:
-				self._offset = value.value
-			elif value.state == RegisterValueType.ImportedAddressValue:
-				self._value = value.value
-		self._confidence = confidence
-
-	def __repr__(self):
-		if self._type == RegisterValueType.EntryValue:
-			return "<entry %s>" % self._reg
-		if self._type == RegisterValueType.ConstantValue:
-			return "<const %#x>" % self._value
-		if self._type == RegisterValueType.ConstantPointerValue:
-			return "<const ptr %#x>" % self._value
-		if self._type == RegisterValueType.StackFrameOffset:
-			return "<stack frame offset %#x>" % self._offset
-		if self._type == RegisterValueType.ReturnAddressValue:
-			return "<return address>"
-		if self._type == RegisterValueType.ImportedAddressValue:
-			return "<imported address from entry %#x>" % self._value
-		return "<undetermined>"
-
-	def __hash__(self):
-		if self._type in [RegisterValueType.ConstantValue, RegisterValueType.ConstantPointerValue, RegisterValueType.ImportedAddressValue, RegisterValueType.ReturnAddressValue]:
-			return hash(self._value)
-		elif self.type == RegisterValueType.EntryValue:
-			return hash(self._reg)
-		elif self._type == RegisterValueType.StackFrameOffset:
-			return hash(self._offset)
-
-	def __eq__(self, other):
-		if self._type in [RegisterValueType.ConstantValue, RegisterValueType.ConstantPointerValue, RegisterValueType.ImportedAddressValue, RegisterValueType.ReturnAddressValue] and isinstance(other, numbers.Integral):
-			return self._value == other
-		elif self._type in [RegisterValueType.ConstantValue, RegisterValueType.ConstantPointerValue, RegisterValueType.ImportedAddressValue, RegisterValueType.ReturnAddressValue] and hasattr(other, 'type') and other.type == self._type:
-			return self._value == other.value
-		elif self._type == RegisterValueType.EntryValue and hasattr(other, "type") and other.type == self._type:
-			return self._reg == other.reg
-		elif self._type == RegisterValueType.StackFrameOffset and hasattr(other, 'type') and other.type == self._type:
-			return self._offset == other.offset
-		elif self._type == RegisterValueType.StackFrameOffset and isinstance(other, numbers.Integral):
-			return self._offset == other
-		return NotImplemented
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def _to_api_object(self):
-		result = core.BNRegisterValue()
-		result.type = self._type
-		result._value = 0
-		if self._type == RegisterValueType.EntryValue:
-			if self._arch is not None:
-				result._value = self._arch.get_reg_index(self._reg)
-			else:
-				result._value = self._reg
-		elif (self._type == RegisterValueType.ConstantValue) or (self._type == RegisterValueType.ConstantPointerValue):
-			result._value = self._value
-		elif self._type == RegisterValueType.StackFrameOffset:
-			result._value = self._offset
-		elif self._type == RegisterValueType.ImportedAddressValue:
-			result._value = self._value
-		return result
-
-	@classmethod
-	def undetermined(self):
-		return RegisterValue()
-
-	@classmethod
-	def entry_value(self, arch, reg):
-		result = RegisterValue()
-		result._type = RegisterValueType.EntryValue
-		result._arch = arch
-		result._reg = reg
-		return result
-
-	@classmethod
-	def constant(self, value):
-		result = RegisterValue()
-		result._type = RegisterValueType.ConstantValue
-		result._value = value
-		result._is_constant = True
-		return result
-
-	@classmethod
-	def constant_ptr(self, value):
-		result = RegisterValue()
-		result._type = RegisterValueType.ConstantPointerValue
-		result._value = value
-		result._is_constant = True
-		return result
-
-	@classmethod
-	def stack_frame_offset(self, offset):
-		result = RegisterValue()
-		result._type = RegisterValueType.StackFrameOffset
-		result._offset = offset
-		return result
-
-	@classmethod
-	def imported_address(self, value):
-		result = RegisterValue()
-		result._type = RegisterValueType.ImportedAddressValue
-		result._value = value
-		return result
-
-	@classmethod
-	def return_address(self):
-		result = RegisterValue()
-		result._type = RegisterValueType.ReturnAddressValue
-		return result
-
-	@property
-	def is_constant(self):
-		"""Boolean for whether the RegisterValue is known to be constant (read-only)"""
-		return self._is_constant
-
-	@property
-	def type(self):
-		""":class:`~enums.RegisterValueType` (read-only)"""
-		return self._type
-
-	@property
-	def arch(self):
-		"""Architecture where it exists, None otherwise (read-only)"""
-		return self._arch
-
-	@property
-	def reg(self):
-		"""Register where the Architecture exists, None otherwise (read-only)"""
-		return self._reg
-
-	@property
-	def value(self):
-		"""Value where it exists, None otherwise (read-only)"""
-		return self._value
-
-	@property
-	def offset(self):
-		"""Offset where it exists, None otherwise (read-only)"""
-		return self._offset
-
-	@property
-	def confidence(self):
-		"""Confidence where it exists, None otherwise (read-only)"""
-		return self._confidence
-
-
-class ValueRange(object):
-	def __init__(self, start, end, step):
-		self._start = start
-		self._end = end
-		self._step = step
-
-	def __repr__(self):
-		if self.step == 1:
-			return "<range: %#x to %#x>" % (self.start, self.end)
-		return "<range: %#x to %#x, step %#x>" % (self.start, self.end, self.step)
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return self.start == other.start and self.end == other.end and self.step == other.step
-
-	def __contains__(self, other):
-		if not isinstance(other, numbers.Integral):
-			return NotImplemented
-		return other in range(self._start, self._end, self._step)
-
-	@property
-	def start(self):
-		""" """
-		return self._start
-
-	@start.setter
-	def start(self, value):
-		""" """
-		self._start = value
-
-	@property
-	def end(self):
-		""" """
-		return self._end
-
-	@end.setter
-	def end(self, value):
-		""" """
-		self._end = value
-
-	@property
-	def step(self):
-		""" """
-		return self._step
-
-	@step.setter
-	def step(self, value):
-		""" """
-		self._step = value
-
-
-class PossibleValueSet(object):
-	"""
-	`class PossibleValueSet` PossibleValueSet is used to define possible values
-	that a variable can take. It contains methods to instantiate different
-	value sets such as Constant, Signed/Unsigned Ranges, etc.
-	"""
-	def __init__(self, arch = None, value = None):
-		if value is None:
-			self._type = RegisterValueType.UndeterminedValue
-			return
-		self._type = RegisterValueType(value.state)
-		if value.state == RegisterValueType.EntryValue:
-			if arch is None:
-				self._reg = value.value
-			else:
-				self._reg = arch.get_reg_name(value.value)
-		elif value.state == RegisterValueType.ConstantValue:
-			self._value = value.value
-		elif value.state == RegisterValueType.ConstantPointerValue:
-			self._value = value.value
-		elif value.state == RegisterValueType.StackFrameOffset:
-			self._offset = value.value
-		elif value.state == RegisterValueType.SignedRangeValue:
-			self._offset = value.value
-			self._ranges = []
-			for i in range(0, value.count):
-				start = value.ranges[i].start
-				end = value.ranges[i].end
-				step = value.ranges[i].step
-				if start & (1 << 63):
-					start |= ~((1 << 63) - 1)
-				if end & (1 << 63):
-					end |= ~((1 << 63) - 1)
-				self._ranges.append(ValueRange(start, end, step))
-		elif value.state == RegisterValueType.UnsignedRangeValue:
-			self._offset = value.value
-			self._ranges = []
-			for i in range(0, value.count):
-				start = value.ranges[i].start
-				end = value.ranges[i].end
-				step = value.ranges[i].step
-				self._ranges.append(ValueRange(start, end, step))
-		elif value.state == RegisterValueType.LookupTableValue:
-			self._table = []
-			self._mapping = {}
-			for i in range(0, value.count):
-				from_list = []
-				for j in range(0, value.table[i].fromCount):
-					from_list.append(value.table[i].fromValues[j])
-					self._mapping[value.table[i].fromValues[j]] = value.table[i].toValue
-				self._table.append(LookupTableEntry(from_list, value.table[i].toValue))
-		elif (value.state == RegisterValueType.InSetOfValues) or (value.state == RegisterValueType.NotInSetOfValues):
-			self._values = set()
-			for i in range(0, value.count):
-				self._values.add(value.valueSet[i])
-		self._count = value.count
-
-	def __repr__(self):
-		if self._type == RegisterValueType.EntryValue:
-			return "<entry %s>" % self.reg
-		if self._type == RegisterValueType.ConstantValue:
-			return "<const %#x>" % self.value
-		if self._type == RegisterValueType.ConstantPointerValue:
-			return "<const ptr %#x>" % self.value
-		if self._type == RegisterValueType.StackFrameOffset:
-			return "<stack frame offset %#x>" % self._offset
-		if self._type == RegisterValueType.SignedRangeValue:
-			return "<signed ranges: %s>" % repr(self.ranges)
-		if self._type == RegisterValueType.UnsignedRangeValue:
-			return "<unsigned ranges: %s>" % repr(self.ranges)
-		if self._type == RegisterValueType.LookupTableValue:
-			return "<table: %s>" % ', '.join([repr(i) for i in self.table])
-		if self._type == RegisterValueType.InSetOfValues:
-			return "<in set(%s)>" % '[{}]'.format(', '.join(hex(i) for i in sorted(self.values)))
-		if self._type == RegisterValueType.NotInSetOfValues:
-			return "<not in set(%s)>" % '[{}]'.format(', '.join(hex(i) for i in sorted(self.values)))
-		if self._type == RegisterValueType.ReturnAddressValue:
-			return "<return address>"
-		return "<undetermined>"
-
-	def __contains__(self, other):
-		if self.type in [RegisterValueType.ConstantValue, RegisterValueType.ConstantPointerValue] and isinstance(other, numbers.Integral):
-			return self.value == other
-		if self.type in [RegisterValueType.ConstantValue, RegisterValueType.ConstantPointerValue] and hasattr(other, "value"):
-			return self.value == other.value
-		if not isinstance(other, numbers.Integral):
-			return NotImplemented
-		#Initial implementation only checks numbers, no set logic
-		if self.type == RegisterValueType.StackFrameOffset:
-			return NotImplemented
-		if self.type in [RegisterValueType.SignedRangeValue, RegisterValueType.UnsignedRangeValue]:
-			for rng in self.ranges:
-				if other in rng:
-					return True
-			return False
-		if self.type == RegisterValueType.InSetOfValues:
-			return other in self.values
-		if self.type == RegisterValueType.NotInSetOfValues:
-			return not other in self.values
-		return NotImplemented
-
-	def __eq__(self, other):
-		if self.type in [RegisterValueType.ConstantValue, RegisterValueType.ConstantPointerValue] and isinstance(other, numbers.Integral):
-			return self.value == other
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.type in [RegisterValueType.ConstantValue, RegisterValueType.ConstantPointerValue]:
-			return self.value == other.value
-		elif self.type == RegisterValueType.StackFrameOffset:
-			return self.offset == other.offset
-		elif self.type in [RegisterValueType.SignedRangeValue, RegisterValueType.UnsignedRangeValue]:
-			return self.ranges == other.ranges
-		elif self.type in [RegisterValueType.InSetOfValues, RegisterValueType.NotInSetOfValues]:
-			return self.values == other.values
-		elif self.type == RegisterValueType.UndeterminedValue and hasattr(other, 'type'):
-			return self.type == other.type
-		else:
-			return self == other
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def _to_api_object(self):
-		result = core.BNPossibleValueSet()
-		result.state = RegisterValueType(self.type)
-		if self.type == RegisterValueType.UndeterminedValue:
-			return result
-		elif self.type == RegisterValueType.ConstantValue:
-			result.value = self.value
-		elif self.type == RegisterValueType.ConstantPointerValue:
-			result.value = self.value
-		elif self.type == RegisterValueType.StackFrameOffset:
-			result.offset = self.value
-		elif self.type == RegisterValueType.SignedRangeValue:
-			result.offset = self.value
-			result.ranges = (core.BNValueRange * self.count)()
-			for i in range(0, self.count):
-				start = self.ranges[i].start
-				end = self.ranges[i].end
-				if start & (1 << 63):
-					start |= ~((1 << 63) - 1)
-				if end & (1 << 63):
-					end |= ~((1 << 63) - 1)
-				value_range = core.BNValueRange()
-				value_range.start = start
-				value_range.end = end
-				value_range.step = self.ranges[i].step
-				result.ranges[i] = value_range
-			result.count = self.count
-		elif self.type == RegisterValueType.UnsignedRangeValue:
-			result.offset = self.value
-			result.ranges = (core.BNValueRange * self.count)()
-			for i in range(0, self.count):
-				value_range = core.BNValueRange()
-				value_range.start = self.ranges[i].start
-				value_range.end = self.ranges[i].end
-				value_range.step = self.ranges[i].step
-				result.ranges[i] = value_range
-			result.count = self.count
-		elif self.type == RegisterValueType.LookupTableValue:
-			result.table = []
-			result.mapping = {}
-			for i in range(self.count):
-				from_list = []
-				for j in range(0, self.table[i].fromCount):
-					from_list.append(self.table[i].fromValues[j])
-					result.mapping[self.table[i].fromValues[j]] = result.table[i].toValue
-				result.table.append(LookupTableEntry(from_list, result.table[i].toValue))
-			result.count = self.count
-		elif (self.type == RegisterValueType.InSetOfValues) or (self.type == RegisterValueType.NotInSetOfValues):
-			values = (ctypes.c_longlong * self.count)()
-			i = 0
-			for value in self.values:
-				values[i] = value
-				i += 1
-			result.valueSet = ctypes.cast(values, ctypes.POINTER(ctypes.c_longlong))
-			result.count = self.count
-		return result
-
-	@property
-	def type(self):
-		""" """
-		return self._type
-
-	@type.setter
-	def type(self, value):
-		""" """
-		self._type = value
-
-	@property
-	def reg(self):
-		""" """
-		return self._reg
-
-	@reg.setter
-	def reg(self, value):
-		""" """
-		self._reg = value
-
-	@property
-	def value(self):
-		""" """
-		return self._value
-
-	@value.setter
-	def value(self, value):
-		""" """
-		self._value = value
-
-	@property
-	def offset(self):
-		""" """
-		return self._offset
-
-	@offset.setter
-	def offset(self, value):
-		""" """
-		self._offset = value
-
-	@property
-	def ranges(self):
-		""" """
-		return self._ranges
-
-	@ranges.setter
-	def ranges(self, value):
-		""" """
-		self._ranges = value
-
-	@property
-	def table(self):
-		""" """
-		return self._table
-
-	@table.setter
-	def table(self, value):
-		""" """
-		self._table = value
-
-	@property
-	def mapping(self):
-		""" """
-		return self._mapping
-
-	@mapping.setter
-	def mapping(self, value):
-		""" """
-		self._mapping = value
-
-	@property
-	def values(self):
-		""" """
-		return self._values
-
-	@values.setter
-	def values(self, value):
-		""" """
-		self._values = value
-
-	@property
-	def count(self):
-		""" """
-		return self._count
-
-	@count.setter
-	def count(self, value):
-		self._count = value
-
-	@classmethod
-	def undetermined(self):
-		"""
-		Create a PossibleValueSet object of type UndeterminedValue.
-
-		:return: PossibleValueSet object of type UndeterminedValue
-		:rtype: PossibleValueSet
-		"""
-		return PossibleValueSet()
-
-	@classmethod
-	def constant(self, value):
-		"""
-		Create a constant valued PossibleValueSet object.
-
-		:param int value: Integer value of the constant
-		:rtype: PossibleValueSet
-		"""
-		result = PossibleValueSet()
-		result.type = RegisterValueType.ConstantValue
-		result.value = value
-		return result
-
-	@classmethod
-	def constant_ptr(self, value):
-		"""
-		Create constant pointer valued PossibleValueSet object.
-
-		:param int value: Integer value of the constant pointer
-		:rtype: PossibleValueSet
-		"""
-		result = PossibleValueSet()
-		result.type = RegisterValueType.ConstantPointerValue
-		result.value = value
-		return result
-
-	@classmethod
-	def stack_frame_offset(self, offset):
-		"""
-		Create a PossibleValueSet object for a stack frame offset.
-
-		:param int value: Integer value of the offset
-		:rtype: PossibleValueSet
-		"""
-		result = PossibleValueSet()
-		result.type = RegisterValueType.StackFrameOffset
-		result.offset = offset
-		return result
-
-	@classmethod
-	def signed_range_value(self, ranges):
-		"""
-		Create a PossibleValueSet object for a signed range of values.
-
-		:param list(ValueRange) ranges: List of ValueRanges
-		:rtype: PossibleValueSet
-		:Example:
-
-			>>> v_1 = ValueRange(-5, -1, 1)
-			>>> v_2 = ValueRange(7, 10, 1)
-			>>> val = PossibleValueSet.signed_range_value([v_1, v_2])
-			<signed ranges: [<range: -0x5 to -0x1>, <range: 0x7 to 0xa>]>
-		"""
-		result = PossibleValueSet()
-		result.value = 0
-		result.type = RegisterValueType.SignedRangeValue
-		result.ranges = ranges
-		result.count = len(ranges)
-		return result
-
-	@classmethod
-	def unsigned_range_value(self, ranges):
-		"""
-		Create a PossibleValueSet object for a unsigned signed range of values.
-
-		:param list(ValueRange) ranges: List of ValueRanges
-		:rtype: PossibleValueSet
-		:Example:
-
-			>>> v_1 = ValueRange(0, 5, 1)
-			>>> v_2 = ValueRange(7, 10, 1)
-			>>> val = PossibleValueSet.unsigned_range_value([v_1, v_2])
-			<unsigned ranges: [<range: 0x0 to 0x5>, <range: 0x7 to 0xa>]>
-		"""
-		result = PossibleValueSet()
-		result.value = 0
-		result.type = RegisterValueType.UnsignedRangeValue
-		result.ranges = ranges
-		result.count = len(ranges)
-		return result
-
-	@classmethod
-	def in_set_of_values(self, values):
-		"""
-		Create a PossibleValueSet object for a value in a set of values.
-
-		:param list(int) values: List of integer values
-		:rtype: PossibleValueSet
-		"""
-		result = PossibleValueSet()
-		result.type = RegisterValueType.InSetOfValues
-		result.values = set(values)
-		result.count = len(values)
-		return result
-
-	@classmethod
-	def not_in_set_of_values(self, values):
-		"""
-		Create a PossibleValueSet object for a value NOT in a set of values.
-
-		:param list(int) values: List of integer values
-		:rtype: PossibleValueSet
-		"""
-		result = PossibleValueSet()
-		result.type = RegisterValueType.NotInSetOfValues
-		result.values = set(values)
-		result.count = len(values)
-		return result
-
-	@classmethod
-	def lookup_table_value(self, lookup_table, mapping):
-		"""
-		Create a PossibleValueSet object for a value which is a member of a
-		lookuptable.
-
-		:param list(LookupTableEntry) lookup_table: List of table entries
-		:param dict of (int, int) mapping: Mapping used for resolution
-		:rtype: PossibleValueSet
-		"""
-		result = PossibleValueSet()
-		result.type = RegisterValueType.LookupTableValue
-		result.table = lookup_table
-		result.mapping = mapping
-		return result
+from . import _binaryninjacore as core
+from .enums import (AnalysisSkipReason, FunctionGraphType, SymbolType, InstructionTextTokenType,
+	HighlightStandardColor, HighlightColorStyle, DisassemblyOption, IntegerDisplayType, InstructionTextTokenContext,
+	FunctionAnalysisSkipOverride)
+from . import associateddatastore  # Required in the main scope due to being an argument for _FunctionAssociatedDataStore
+from . import highlight
+from . import types
+from . import architecture
+from . import lowlevelil
+from . import mediumlevelil
+from . import highlevelil
+from . import binaryview
+from . import basicblock
+from . import variable
+from . import flowgraph
+from . import platform
+from . import callingconvention
+from .compatibility import cstr
 
 class ArchAndAddr(object):
-	def __init__(self, arch = None, addr = 0):
-		self._arch = binaryninja.architecture.CoreArchitecture._from_cache(arch)
+	def __init__(self, arch:'architecture.Architecture'=None, addr:int=0):
+		self._arch = architecture.CoreArchitecture._from_cache(arch)
 		self._addr = addr
 
 	def __repr__(self):
 		return "archandaddr <%s @ %#x>" % (self._arch.name, self._addr)
 
 	@property
-	def arch(self):
+	def arch(self) -> 'architecture.Architecture':
 		return self._arch
 
 	@property
-	def addr(self):
+	def addr(self) -> int:
 		return self._addr
-
-class StackVariableReference(object):
-	def __init__(self, src_operand, t, name, var, ref_ofs, size):
-		self._source_operand = src_operand
-		self._type = t
-		self._name = name
-		self._var = var
-		self._referenced_offset = ref_ofs
-		self._size = size
-		if self._source_operand == 0xffffffff:
-			self._source_operand = None
-
-	def __repr__(self):
-		if self._source_operand is None:
-			if self._referenced_offset != self._var.storage:
-				return "<ref to %s%+#x>" % (self._name, self._referenced_offset - self._var.storage)
-			return "<ref to %s>" % self._name
-		if self._referenced_offset != self._var.storage:
-			return "<operand %d ref to %s%+#x>" % (self._source_operand, self._name, self._var.storage)
-		return "<operand %d ref to %s>" % (self._source_operand, self._name)
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self._source_operand, self._type, self._name, self._var, self._referenced_offset, self._size) == \
-			(other._source_operand, other._type, other._name, other._var, other._referenced_offset, other._size)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __hash__(self):
-		return hash((self._source_operand, self._type, self._name, self._var, self._referenced_offset, self._size))
-
-	@property
-	def source_operand(self):
-		""" """
-		return self._source_operand
-
-	@source_operand.setter
-	def source_operand(self, value):
-		self._source_operand = value
-
-	@property
-	def type(self):
-		""" """
-		return self._type
-
-	@type.setter
-	def type(self, value):
-		self._type = value
-
-	@property
-	def name(self):
-		""" """
-		return self._name
-
-	@name.setter
-	def name(self, value):
-		self._name = value
-
-	@property
-	def var(self):
-		""" """
-		return self._var
-
-	@var.setter
-	def var(self, value):
-		self._var = value
-
-	@property
-	def referenced_offset(self):
-		""" """
-		return self._referenced_offset
-
-	@referenced_offset.setter
-	def referenced_offset(self, value):
-		self._referenced_offset = value
-
-	@property
-	def size(self):
-		""" """
-		return self._size
-
-	@size.setter
-	def size(self, value):
-		self._size = value
-
-@decorators.passive
-class Variable(object):
-	def __init__(self, func, source_type, index, storage, name = None, var_type = None, identifier = None):
-		self._function = func
-		self._source_type = source_type
-		self._index = index
-		self._storage = storage
-		self._identifier = identifier
-		self._name = name
-		self._type = var_type
-
-	def __repr__(self):
-		return "<var %s %s%s>" % (self.type.get_string_before_name(), self.name, self.type.get_string_after_name())
-
-	def __str__(self):
-		return self.name
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self.identifier, self.function) == (other.identifier, other.function)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __hash__(self):
-		return hash((self.identifier, self.function))
-
-	@property
-	def function(self):
-		"""Function where the variable is defined"""
-		return self._function
-
-	@function.setter
-	def function(self, value):
-		self._function = value
-
-	@property
-	def source_type(self):
-		""":class:`~enums.VariableSourceType`"""
-		if not isinstance(self._source_type, VariableSourceType):
-			self._source_type = VariableSourceType(self._source_type)
-
-		return self._source_type
-
-	@source_type.setter
-	def source_type(self, value):
-		self._source_type = value
-
-	@property
-	def index(self):
-		""" """
-		return self._index
-
-	@index.setter
-	def index(self, value):
-		self._index = value
-
-	@property
-	def storage(self):
-		"""Stack offset for StackVariableSourceType, register index for RegisterVariableSourceType"""
-		return self._storage
-
-	@storage.setter
-	def storage(self, value):
-		self._storage = value
-
-	@property
-	def identifier(self):
-		""" """
-		if self._identifier is None:
-			self._identifier = core.BNToVariableIdentifier(self.to_BNVariable())
-		return self._identifier
-
-	@identifier.setter
-	def identifier(self, value):
-		self._identifier = value
-
-	@property
-	def name(self):
-		"""Name of the variable, set to an empty string to delete"""
-		if self._name is None:
-			if self._function is not None:
-				self._name = core.BNGetVariableName(self._function.handle, self.to_BNVariable())
-		return self._name
-
-	@name.setter
-	def name(self, value):
-		self._name = value
-
-	@property
-	def type(self):
-		""" """
-		if self._type is None:
-			if self._function is not None:
-				var_type_conf = core.BNGetVariableType(self._function.handle, self.to_BNVariable())
-				if var_type_conf.type:
-					self._type = types.Type(var_type_conf.type, platform = self._function.platform, confidence = var_type_conf.confidence)
-		return self._type
-
-	@type.setter
-	def type(self, value):
-		self._type = value
-
-	def to_BNVariable(self):
-		v = core.BNVariable()
-		v.type = self.source_type
-		v.index = self._index
-		v.storage = self._storage
-		return v
-
-	@property
-	def dead_store_elimination(self):
-		if self._function is not None and self._identifier is not None:
-			return DeadStoreElimination(core.BNGetFunctionVariableDeadStoreElimination(self._function.handle, self.to_BNVariable()))
-		return None
-
-	@dead_store_elimination.setter
-	def dead_store_elimination(self, value):
-		core.BNSetFunctionVariableDeadStoreElimination(self._function.handle, self.to_BNVariable(), value)
-
-	@classmethod
-	def from_identifier(self, func, identifier, name=None, var_type=None):
-		var = core.BNFromVariableIdentifier(identifier)
-		return Variable(func, VariableSourceType(var.type), var.index, var.storage, name, var_type, identifier)
-
-class ConstantReference(object):
-	def __init__(self, val, size, ptr, intermediate):
-		self._value = val
-		self._size = size
-		self._pointer = ptr
-		self._intermediate = intermediate
-
-	def __repr__(self):
-		if self.pointer:
-			return "<constant pointer %#x>" % self.value
-		if self.size == 0:
-			return "<constant %#x>" % self.value
-		return "<constant %#x size %d>" % (self.value, self.size)
-
-	@property
-	def value(self):
-		""" """
-		return self._value
-
-	@value.setter
-	def value(self, value):
-		self._value = value
-
-	@property
-	def size(self):
-		""" """
-		return self._size
-
-	@size.setter
-	def size(self, value):
-		self._size = value
-
-	@property
-	def pointer(self):
-		""" """
-		return self._pointer
-
-	@pointer.setter
-	def pointer(self, value):
-		self._pointer = value
-
-	@property
-	def intermediate(self):
-		""" """
-		return self._intermediate
-
-	@intermediate.setter
-	def intermediate(self, value):
-		self._intermediate = value
-
-
-class UserVariableValueInfo(object):
-	def __init__(self, var, def_site, value):
-		self.var = var
-		self.def_site = def_site
-		self.value = value
-
-	def __repr__(self):
-		return "<user value for %s @ %s:%#x -> %s>" % (self.var, self.def_site.arch.name, self.def_site.addr, self.value)
-
-
-class IndirectBranchInfo(object):
-	def __init__(self, source_arch, source_addr, dest_arch, dest_addr, auto_defined):
-		self.source_arch = source_arch
-		self.source_addr = source_addr
-		self.dest_arch = dest_arch
-		self.dest_addr = dest_addr
-		self.auto_defined = auto_defined
-
-	def __repr__(self):
-		return "<branch %s:%#x -> %s:%#x>" % (self.source_arch.name, self.source_addr, self.dest_arch.name, self.dest_addr)
-
-
-class ParameterVariables(object):
-	def __init__(self, var_list, confidence = types.max_confidence, func = None):
-		self._vars = var_list
-		self._confidence = confidence
-		self._func = func
-
-	def __repr__(self):
-		return repr(self._vars)
-
-	def __len__(self):
-		return len(self._vars)
-
-	def __iter__(self):
-		for var in self._vars:
-			yield var
-
-	def __getitem__(self, idx):
-		return self._vars[idx]
-
-	def __setitem__(self, idx, value):
-		self._vars[idx] = value
-		if self._func is not None:
-			self._func.parameter_vars = self
-
-	def with_confidence(self, confidence):
-		return ParameterVariables(list(self._vars), confidence, self._func)
-
-	@property
-	def vars(self):
-		""" """
-		return self._vars
-
-	@vars.setter
-	def vars(self, value):
-		self._vars = value
-
-	@property
-	def confidence(self):
-		""" """
-		return self._confidence
-
-	@confidence.setter
-	def confidence(self, value):
-		self._confidence = value
-
-
-class ILReferenceSource(object):
-	def __init__(self, func, arch, addr, il_type, expr_id):
-		self._function = func
-		self._arch = arch
-		self._address = addr
-		self._il_type = il_type
-		self._expr_id = expr_id
-
-	def get_il_name(self, il_type):
-		if il_type == FunctionGraphType.NormalFunctionGraph:
-			return 'disassembly'
-		if il_type == FunctionGraphType.LowLevelILFunctionGraph:
-			return 'llil'
-		if il_type == FunctionGraphType.LiftedILFunctionGraph:
-			return 'lifted_llil'
-		if il_type == FunctionGraphType.LowLevelILSSAFormFunctionGraph:
-			return 'llil_ssa'
-		if il_type == FunctionGraphType.MediumLevelILFunctionGraph:
-			return 'mlil'
-		if il_type == FunctionGraphType.MediumLevelILSSAFormFunctionGraph:
-			return 'mlil_ssa'
-		if il_type == FunctionGraphType.MappedMediumLevelILFunctionGraph:
-			return 'mapped_mlil'
-		if il_type == FunctionGraphType.MappedMediumLevelILSSAFormFunctionGraph:
-			return 'mapped_mlil_ssa'
-		if il_type == FunctionGraphType.HighLevelILFunctionGraph:
-			return 'hlil'
-		if il_type == FunctionGraphType.HighLevelILSSAFormFunctionGraph:
-			return 'hlil_ssa'
-
-	def __repr__(self):
-		if self._arch:
-			return "<ref: %s@%#x, %s@%d>" %\
-				(self._arch.name, self._address, self.get_il_name(self._il_type), self.expr_id)
-		else:
-			return "<ref: %#x, %s@%d>" %\
-				(self._address, self.get_il_name(self._il_type), self.expr_id)
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self.function, self.arch, self.address, self.il_type, self.expr_id) ==\
-			(other.address, other.function, other.arch, other.il_type, other.expr_id)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __lt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.function < other.function:
-			return True
-		if self.function > other.function:
-			return False
-		if self.arch < other.arch:
-			return True
-		if self.arch > other.arch:
-			return False
-		if self.address < other.address:
-			return True
-		if self.address > other.address:
-			return False
-		if self.il_type < other.il_type:
-			return True
-		if self.il_type > other.il_type:
-			return False
-		return self.expr_id < other.expr_id
-
-	def __gt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.function > other.function:
-			return True
-		if self.function < other.function:
-			return False
-		if self.arch > other.arch:
-			return True
-		if self.arch < other.arch:
-			return False
-		if self.address > other.address:
-			return True
-		if self.address < other.address:
-			return False
-		if self.il_type > other.il_type:
-			return True
-		if self.il_type < other.il_type:
-			return False
-		return self.expr_id > other.expr_id
-
-	def __ge__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self == other) or (self > other)
-
-	def __le__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self == other) or (self < other)
-
-	def __hash__(self):
-		return hash((self._function, self._arch, self._address, self._il_type, self._expr_id))
-
-	@property
-	def function(self):
-		""" """
-		return self._function
-
-	@function.setter
-	def function(self, value):
-		self._function = value
-
-	@property
-	def arch(self):
-		""" """
-		return self._arch
-
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
-	@property
-	def address(self):
-		""" """
-		return self._address
-
-	@address.setter
-	def address(self, value):
-		self._address = value
-
-	@property
-	def il_type(self):
-		""" """
-		return self._il_type
-
-	@il_type.setter
-	def il_type(self, value):
-		self._il_type = value
-
-	@property
-	def expr_id(self):
-		""" """
-		return self._expr_id
-
-	@expr_id.setter
-	def expr_id(self, value):
-		self._expr_id = value
-
-
-class VariableReferenceSource(object):
-	def __init__(self, var, src):
-		self._var = var
-		self._src = src
-
-	def __repr__(self):
-		return "<var: %s, src: %s>" % (repr(self._var), repr(self._src))
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self.var == other.var) and (self.src == other.src)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __lt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.var < other.var:
-			return True
-		if self.var > other.var:
-			return False
-		return self.src < other.src
-
-	def __gt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.var > other.var:
-			return True
-		if self.var < other.var:
-			return False
-		return self.src > other.src
-
-	def __ge__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.var >= other.var:
-			return True
-		if self.var < other.var:
-			return False
-		return self.src >= other.src
-
-	def __le__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.var <= other.var:
-			return True
-		if self.var > other.var:
-			return False
-		return self.src <= other.src
-
-	@property
-	def var(self):
-		return self._var
-	@var.setter
-	def var(self, value):
-		self._var = value
-
-	@property
-	def src(self):
-		return self._src
-
-	@src.setter
-	def src(self, value):
-		self._src = value
 
 
 class _FunctionAssociatedDataStore(associateddatastore._AssociatedDataStore):
 	_defaults = {}
 
 
-class AddressRange(object):
-	def __init__(self, start, end):
-		self._start = start
-		self._end = end
-
-	def __repr__(self):
-		return "<%#x-%#x>" % (self._start, self._end)
-
-	def __len__(self):
-		return self._end - self.start
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self._start, self._end) == (other._start, other._end)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __hash__(self):
-		return hash((self._start, self._end))
-
-	@property
-	def length(self):
-		return self._end - self._start
-
-	@property
-	def start(self):
-		""" """
-		return self._start
-
-	@start.setter
-	def start(self, value):
-		self._start = value
-
-	@property
-	def end(self):
-		""" """
-		return self._end
-
-	@end.setter
-	def end(self, value):
-		self._end = value
-
-
 class Function(object):
 	_associated_data = {}
 
-	def __init__(self, view = None, handle = None):
+	def __init__(self, view:Optional['binaryview.BinaryView']=None, handle:core.BNFunction=None):
 		self._advanced_analysis_requests = 0
-		if handle is None:
-			self.handle = None
-			raise NotImplementedError("creation of standalone 'Function' objects is not implemented")
+		assert handle is not None, "creation of standalone 'Function' objects is not implemented"
 		self.handle = core.handle_of_type(handle, core.BNFunction)
 		if view is None:
-			self._view = binaryninja.binaryview.BinaryView(handle = core.BNGetFunctionData(self.handle))
+			self._view = binaryview.BinaryView(handle = core.BNGetFunctionData(self.handle))
 		else:
 			self._view = view
 		self._arch = None
@@ -1406,8 +133,9 @@ class Function(object):
 				raise IndexError("index out of range")
 			if i < 0:
 				i = len(self.basic_blocks) + i
-			block = binaryninja.basicblock.BasicBlock(core.BNNewBasicBlockReference(blocks[i]), self._view)
-			return block
+			core_block = core.BNNewBasicBlockReference(blocks[i])
+			assert core_block is not None
+			return basicblock.BasicBlock(core_block, self._view)
 		finally:
 			core.BNFreeBasicBlockList(blocks, count.value)
 
@@ -1416,7 +144,9 @@ class Function(object):
 		blocks = core.BNGetFunctionBasicBlockList(self.handle, count)
 		try:
 			for i in range(0, count.value):
-				yield binaryninja.basicblock.BasicBlock(core.BNNewBasicBlockReference(blocks[i]), self._view)
+				block = core.BNNewBasicBlockReference(blocks[i])
+				assert block is not None
+				yield basicblock.BasicBlock(block, self._view)
 		finally:
 			core.BNFreeBasicBlockList(blocks, count.value)
 
@@ -1456,15 +186,14 @@ class Function(object):
 		return self._view
 
 	@property
-	def arch(self):
+	def arch(self) -> 'architecture.CoreArchitecture':
 		"""Function architecture (read-only)"""
 		if self._arch:
 			return self._arch
 		else:
 			arch = core.BNGetFunctionArchitecture(self.handle)
-			if arch is None:
-				return None
-			self._arch = binaryninja.architecture.CoreArchitecture._from_cache(arch)
+			assert arch is not None
+			self._arch = architecture.CoreArchitecture._from_cache(arch)
 			return self._arch
 
 	@property
@@ -1476,7 +205,7 @@ class Function(object):
 			plat = core.BNGetFunctionPlatform(self.handle)
 			if plat is None:
 				return None
-			self._platform = binaryninja.platform.Platform(handle = plat)
+			self._platform = platform.Platform(handle = plat)
 			return self._platform
 
 	@property
@@ -1506,7 +235,7 @@ class Function(object):
 		range_list = core.BNGetFunctionAddressRanges(self.handle, count)
 		result = []
 		for i in range(0, count.value):
-			result.append(AddressRange(range_list[i].start, range_list[i].end))
+			result.append(variable.AddressRange(range_list[i].start, range_list[i].end))
 		core.BNFreeAddressRanges(range_list)
 		return result
 
@@ -1536,7 +265,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			bc.confidence = value.confidence
 		else:
-			bc.confidence = types.max_confidence
+			bc.confidence = core.max_confidence
 		core.BNSetUserFunctionCanReturn(self.handle, bc)
 
 	@property
@@ -1556,7 +285,9 @@ class Function(object):
 		blocks = core.BNGetFunctionBasicBlockList(self.handle, count)
 		result = []
 		for i in range(0, count.value):
-			result.append(binaryninja.basicblock.BasicBlock(core.BNNewBasicBlockReference(blocks[i]), self._view))
+			block = core.BNNewBasicBlockReference(blocks[i])
+			assert block is not None
+			result.append(basicblock.BasicBlock(block, self._view))
 		core.BNFreeBasicBlockList(blocks, count.value)
 		return result
 
@@ -1608,8 +339,10 @@ class Function(object):
 		tags = core.BNGetAddressTagReferences(self.handle, count)
 		result = []
 		for i in range(0, count.value):
-			arch = binaryninja.architecture.CoreArchitecture._from_cache(tags[i].arch)
-			tag = binaryninja.binaryview.Tag(core.BNNewTagReference(tags[i].tag))
+			arch = architecture.CoreArchitecture._from_cache(tags[i].arch)
+			core_tag = core.BNNewTagReference(tags[i].tag)
+			assert core_tag is not None
+			tag = binaryview.Tag(core_tag)
 			result.append((arch, tags[i].addr, tag))
 		core.BNFreeTagReferences(tags, count.value)
 		return result
@@ -1629,7 +362,9 @@ class Function(object):
 		tags = core.BNGetAddressTags(self.handle, arch.handle, addr, count)
 		result = []
 		for i in range(0, count.value):
-			result.append(binaryninja.binaryview.Tag(core.BNNewTagReference(tags[i])))
+			core_tag = core.BNNewTagReference(tags[i])
+			assert core_tag is not None
+			result.append(binaryview.Tag(core_tag))
 		core.BNFreeTagList(tags, count.value)
 		return result
 
@@ -1652,7 +387,7 @@ class Function(object):
 		``create_user_address_tag`` creates and adds a Tag object at a given
 		address. Since this adds a user tag, it will be added to the current
 		undo buffer. To create tags associated with an address that is not
-		inside of a function, use :py:meth:`create_user_data_tag <binaryninja.binaryview.BinaryView.create_user_data_tag>`.
+		inside of a function, use :py:meth:`create_user_data_tag <binaryview.BinaryView.create_user_data_tag>`.
 
 		:param int addr: Address at which to add the tag
 		:param TagType type: Tag Type for the Tag that is created
@@ -1749,7 +484,9 @@ class Function(object):
 		tags = core.BNGetFunctionTags(self.handle, count)
 		result = []
 		for i in range(0, count.value):
-			result.append(binaryninja.binaryview.Tag(core.BNNewTagReference(tags[i])))
+			core_tag = core.BNNewTagReference(tags[i])
+			assert core_tag is not None
+			result.append(binaryview.Tag(core_tag))
 		core.BNFreeTagList(tags, count.value)
 		return result
 
@@ -1831,63 +568,63 @@ class Function(object):
 		core.BNRemoveAutoFunctionTag(self.handle, tag.handle)
 
 	@property
-	def low_level_il(self):
+	def low_level_il(self) -> 'lowlevelil.LowLevelILFunction':
 		"""Deprecated property provided for compatibility. Use llil instead."""
-		return binaryninja.lowlevelil.LowLevelILFunction(self.arch, core.BNGetFunctionLowLevelIL(self.handle), self)
+		return lowlevelil.LowLevelILFunction(self.arch, core.BNGetFunctionLowLevelIL(self.handle), self)
 
 	@property
-	def llil(self):
+	def llil(self) -> 'lowlevelil.LowLevelILFunction':
 		"""returns LowLevelILFunction used to represent Function low level IL (read-only)"""
-		return binaryninja.lowlevelil.LowLevelILFunction(self.arch, core.BNGetFunctionLowLevelIL(self.handle), self)
+		return lowlevelil.LowLevelILFunction(self.arch, core.BNGetFunctionLowLevelIL(self.handle), self)
 
 	@property
-	def llil_if_available(self):
+	def llil_if_available(self) -> Optional['lowlevelil.LowLevelILFunction']:
 		"""returns LowLevelILFunction used to represent Function low level IL, or None if not loaded (read-only)"""
 		result = core.BNGetFunctionLowLevelILIfAvailable(self.handle)
 		if not result:
 			return None
-		return binaryninja.lowlevelil.LowLevelILFunction(self.arch, result, self)
+		return lowlevelil.LowLevelILFunction(self.arch, result, self)
 
 	@property
-	def lifted_il(self):
+	def lifted_il(self) -> 'lowlevelil.LowLevelILFunction':
 		"""returns LowLevelILFunction used to represent lifted IL (read-only)"""
-		return binaryninja.lowlevelil.LowLevelILFunction(self.arch, core.BNGetFunctionLiftedIL(self.handle), self)
+		return lowlevelil.LowLevelILFunction(self.arch, core.BNGetFunctionLiftedIL(self.handle), self)
 
 	@property
-	def lifted_il_if_available(self):
+	def lifted_il_if_available(self) -> Optional['lowlevelil.LowLevelILFunction']:
 		"""returns LowLevelILFunction used to represent lifted IL, or None if not loaded (read-only)"""
 		result = core.BNGetFunctionLiftedILIfAvailable(self.handle)
 		if not result:
 			return None
-		return binaryninja.lowlevelil.LowLevelILFunction(self.arch, result, self)
+		return lowlevelil.LowLevelILFunction(self.arch, result, self)
 
 	@property
-	def medium_level_il(self):
+	def medium_level_il(self) -> 'mediumlevelil.MediumLevelILFunction':
 		"""Deprecated property provided for compatibility. Use mlil instead."""
-		return binaryninja.mediumlevelil.MediumLevelILFunction(self.arch, core.BNGetFunctionMediumLevelIL(self.handle), self)
+		return mediumlevelil.MediumLevelILFunction(self.arch, core.BNGetFunctionMediumLevelIL(self.handle), self)
 
 	@property
-	def mlil(self):
+	def mlil(self) -> 'mediumlevelil.MediumLevelILFunction':
 		"""Function medium level IL (read-only)"""
-		return binaryninja.mediumlevelil.MediumLevelILFunction(self.arch, core.BNGetFunctionMediumLevelIL(self.handle), self)
+		return mediumlevelil.MediumLevelILFunction(self.arch, core.BNGetFunctionMediumLevelIL(self.handle), self)
 
 	@property
-	def mlil_if_available(self):
+	def mlil_if_available(self) -> Optional['mediumlevelil.MediumLevelILFunction']:
 		"""Function medium level IL, or None if not loaded (read-only)"""
 		result = core.BNGetFunctionMediumLevelILIfAvailable(self.handle)
 		if not result:
 			return None
-		return binaryninja.mediumlevelil.MediumLevelILFunction(self.arch, result, self)
+		return mediumlevelil.MediumLevelILFunction(self.arch, result, self)
 
 	@property
 	def high_level_il(self):
 		"""Deprecated property provided for compatibility. Use hlil instead."""
-		return binaryninja.highlevelil.HighLevelILFunction(self.arch, core.BNGetFunctionHighLevelIL(self.handle), self)
+		return highlevelil.HighLevelILFunction(self.arch, core.BNGetFunctionHighLevelIL(self.handle), self)
 
 	@property
 	def hlil(self):
 		"""Function high level IL (read-only)"""
-		return binaryninja.highlevelil.HighLevelILFunction(self.arch, core.BNGetFunctionHighLevelIL(self.handle), self)
+		return highlevelil.HighLevelILFunction(self.arch, core.BNGetFunctionHighLevelIL(self.handle), self)
 
 	@property
 	def hlil_if_available(self):
@@ -1895,7 +632,7 @@ class Function(object):
 		result = core.BNGetFunctionHighLevelILIfAvailable(self.handle)
 		if not result:
 			return None
-		return binaryninja.highlevelil.HighLevelILFunction(self.arch, result, self)
+		return highlevelil.HighLevelILFunction(self.arch, result, self)
 
 	@property
 	def function_type(self):
@@ -1916,7 +653,7 @@ class Function(object):
 		v = core.BNGetStackLayout(self.handle, count)
 		result = []
 		for i in range(0, count.value):
-			result.append(Variable(self, v[i].var.type, v[i].var.index, v[i].var.storage, v[i].name,
+			result.append(variable.Variable(self, v[i].var.type, v[i].var.index, v[i].var.storage, v[i].name,
 				types.Type(handle = core.BNNewTypeReference(v[i].type), platform = self.platform, confidence = v[i].typeConfidence)))
 		result.sort(key = lambda x: x.identifier)
 		core.BNFreeVariableNameAndTypeList(v, count.value)
@@ -1929,27 +666,10 @@ class Function(object):
 		v = core.BNGetFunctionVariables(self.handle, count)
 		result = []
 		for i in range(0, count.value):
-			result.append(Variable(self, v[i].var.type, v[i].var.index, v[i].var.storage, v[i].name,
+			result.append(variable.Variable(self, v[i].var.type, v[i].var.index, v[i].var.storage, v[i].name,
 				types.Type(handle = core.BNNewTypeReference(v[i].type), platform = self.platform, confidence = v[i].typeConfidence)))
 		result.sort(key = lambda x: x.identifier)
 		core.BNFreeVariableNameAndTypeList(v, count.value)
-		return result
-
-	def get_il_vars(self, il_type: FunctionGraphType) -> List[Variable]:
-		"""
-		Get a (read-only) list of the variables used in the given IL. Only
-		accepts ``MediumLevelILFunctionGraph`` or ``HighLevelILFunctionGraph``
-		for ``il_type``, otherwise nothing will be returned.
-		"""
-
-		count = ctypes.c_ulonglong()
-		v = core.BNGetFunctionILVariables(self.handle, il_type, count)
-
-		result = []
-		for i in range(0, count.value):
-			result.append(Variable(self, v[i].type, v[i].index, v[i].storage))
-
-		core.BNFreeVariableList(v, count.value)
 		return result
 
 	@property
@@ -1959,7 +679,7 @@ class Function(object):
 		branches = core.BNGetIndirectBranches(self.handle, count)
 		result = []
 		for i in range(0, count.value):
-			result.append(IndirectBranchInfo(binaryninja.architecture.CoreArchitecture._from_cache(branches[i].sourceArch), branches[i].sourceAddr, binaryninja.architecture.CoreArchitecture._from_cache(branches[i].destArch), branches[i].destAddr, branches[i].autoDefined))
+			result.append(variable.IndirectBranchInfo(architecture.CoreArchitecture._from_cache(branches[i].sourceArch), branches[i].sourceAddr, architecture.CoreArchitecture._from_cache(branches[i].destArch), branches[i].destAddr, branches[i].autoDefined))
 		core.BNFreeIndirectBranchList(branches)
 		return result
 
@@ -2045,7 +765,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			regs.confidence = value.confidence
 		else:
-			regs.confidence = types.max_confidence
+			regs.confidence = core.max_confidence
 		core.BNSetUserFunctionReturnRegisters(self.handle, regs)
 
 	@property
@@ -2054,7 +774,7 @@ class Function(object):
 		result = core.BNGetFunctionCallingConvention(self.handle)
 		if not result.convention:
 			return None
-		return binaryninja.callingconvention.CallingConvention(None, handle = result.convention, confidence = result.confidence)
+		return callingconvention.CallingConvention(None, handle = result.convention, confidence = result.confidence)
 
 	@calling_convention.setter
 	def calling_convention(self, value):
@@ -2073,10 +793,10 @@ class Function(object):
 		result = core.BNGetFunctionParameterVariables(self.handle)
 		var_list = []
 		for i in range(0, result.count):
-			var_list.append(Variable(self, result.vars[i].type, result.vars[i].index, result.vars[i].storage))
+			var_list.append(variable.Variable(self, result.vars[i].type, result.vars[i].index, result.vars[i].storage))
 		confidence = result.confidence
 		core.BNFreeParameterVariables(result)
-		return ParameterVariables(var_list, confidence, self)
+		return variable.ParameterVariables(var_list, confidence, self)
 
 	@parameter_vars.setter
 	def parameter_vars(self, value):
@@ -2096,7 +816,7 @@ class Function(object):
 		elif hasattr(value, 'confidence'):
 			var_conf.confidence = value.confidence
 		else:
-			var_conf.confidence = types.max_confidence
+			var_conf.confidence = core.max_confidence
 		core.BNSetUserFunctionParameterVariables(self.handle, var_conf)
 
 	@property
@@ -2112,7 +832,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			bc.confidence = value.confidence
 		else:
-			bc.confidence = types.max_confidence
+			bc.confidence = core.max_confidence
 		core.BNSetUserFunctionHasVariableArguments(self.handle, bc)
 
 	@property
@@ -2128,7 +848,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			oc.confidence = value.confidence
 		else:
-			oc.confidence = types.max_confidence
+			oc.confidence = core.max_confidence
 		core.BNSetUserFunctionStackAdjustment(self.handle, oc)
 
 	@property
@@ -2156,7 +876,7 @@ class Function(object):
 				adjust[i].confidence = value[reg_stack].confidence
 			else:
 				adjust[i].adjustment = value[reg_stack]
-				adjust[i].confidence = types.max_confidence
+				adjust[i].confidence = core.max_confidence
 			i += 1
 		core.BNSetUserFunctionRegisterStackAdjustments(self.handle, adjust, len(value))
 
@@ -2181,14 +901,14 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			regs.confidence = value.confidence
 		else:
-			regs.confidence = types.max_confidence
+			regs.confidence = core.max_confidence
 		core.BNSetUserFunctionClobberedRegisters(self.handle, regs)
 
 	@property
 	def global_pointer_value(self):
 		"""Discovered value of the global pointer register, if the function uses one (read-only)"""
 		result = core.BNGetFunctionGlobalPointerValue(self.handle)
-		return RegisterValue(self.arch, result.value, confidence = result.confidence)
+		return variable.RegisterValue(self.arch, result.value, confidence = result.confidence)
 
 	@property
 	def comment(self):
@@ -2268,7 +988,7 @@ class Function(object):
 		graph = core.BNGetUnresolvedStackAdjustmentGraph(self.handle)
 		if not graph:
 			return None
-		return binaryninja.flowgraph.CoreFlowGraph(graph)
+		return flowgraph.CoreFlowGraph(graph)
 
 	def mark_recent_use(self):
 		core.BNMarkFunctionAsRecentlyUsed(self.handle)
@@ -2442,7 +1162,7 @@ class Function(object):
 		:rtype: LowLevelILInstruction
 		:Example:
 
-			>>> func = bv.functions[0]
+			>>> func = next(bv.functions)
 			>>> func.get_low_level_il_at(func.start)
 			<il: push(rbp)>
 		"""
@@ -2465,7 +1185,7 @@ class Function(object):
 		:rtype: LowLevelILInstruction
 		:Example:
 
-			>>> func = bv.functions[0]
+			>>> func = next(bv.functions)
 			>>> func.get_llil_at(func.start)
 			<il: push(rbp)>
 		"""
@@ -2488,7 +1208,7 @@ class Function(object):
 		:rtype: list(LowLevelILInstruction)
 		:Example:
 
-			>>> func = bv.functions[0]
+			>>> func = next(bv.functions)
 			>>> func.get_llils_at(func.start)
 			[<il: push(rbp)>]
 		"""
@@ -2520,7 +1240,7 @@ class Function(object):
 		:param int addr: virtual address of the instruction to query
 		:param str reg: string value of native register to query
 		:param Architecture arch: (optional) Architecture for the given function
-		:rtype: binaryninja.function.RegisterValue
+		:rtype: variable.RegisterValue
 		:Example:
 
 			>>> func.get_reg_value_at(0x400dbe, 'rdi')
@@ -2530,7 +1250,7 @@ class Function(object):
 			arch = self.arch
 		reg = arch.get_reg_index(reg)
 		value = core.BNGetRegisterValueAtInstruction(self.handle, arch.handle, addr, reg)
-		result = RegisterValue(arch, value)
+		result = variable.RegisterValue(arch, value)
 		return result
 
 	def get_reg_value_after(self, addr, reg, arch=None):
@@ -2540,7 +1260,7 @@ class Function(object):
 		:param int addr: virtual address of the instruction to query
 		:param str reg: string value of native register to query
 		:param Architecture arch: (optional) Architecture for the given function
-		:rtype: binaryninja.function.RegisterValue
+		:rtype: variable.RegisterValue
 		:Example:
 
 			>>> func.get_reg_value_after(0x400dbe, 'rdi')
@@ -2550,7 +1270,7 @@ class Function(object):
 			arch = self.arch
 		reg = arch.get_reg_index(reg)
 		value = core.BNGetRegisterValueAfterInstruction(self.handle, arch.handle, addr, reg)
-		result = RegisterValue(arch, value)
+		result = variable.RegisterValue(arch, value)
 		return result
 
 	def get_stack_contents_at(self, addr, offset, size, arch=None):
@@ -2562,7 +1282,7 @@ class Function(object):
 		:param int offset: stack offset base of stack
 		:param int size: size of memory to query
 		:param Architecture arch: (optional) Architecture for the given function
-		:rtype: binaryninja.function.RegisterValue
+		:rtype: variable.RegisterValue
 
 		.. note:: Stack base is zero on entry into the function unless the architecture places the return address on the \
 		stack as in (x86/x86_64) where the stack base will start at address_size
@@ -2575,14 +1295,14 @@ class Function(object):
 		if arch is None:
 			arch = self.arch
 		value = core.BNGetStackContentsAtInstruction(self.handle, arch.handle, addr, offset, size)
-		result = RegisterValue(arch, value)
+		result = variable.RegisterValue(arch, value)
 		return result
 
 	def get_stack_contents_after(self, addr, offset, size, arch=None):
 		if arch is None:
 			arch = self.arch
 		value = core.BNGetStackContentsAfterInstruction(self.handle, arch.handle, addr, offset, size)
-		result = RegisterValue(arch, value)
+		result = variable.RegisterValue(arch, value)
 		return result
 
 	def get_parameter_at(self, addr, func_type, i, arch=None):
@@ -2591,14 +1311,14 @@ class Function(object):
 		if func_type is not None:
 			func_type = func_type.handle
 		value = core.BNGetParameterValueAtInstruction(self.handle, arch.handle, addr, func_type, i)
-		result = RegisterValue(arch, value)
+		result = variable.RegisterValue(arch, value)
 		return result
 
 	def get_parameter_at_low_level_il_instruction(self, instr, func_type, i):
 		if func_type is not None:
 			func_type = func_type.handle
 		value = core.BNGetParameterValueAtLowLevelILInstruction(self.handle, instr, func_type, i)
-		result = RegisterValue(self.arch, value)
+		result = variable.RegisterValue(self.arch, value)
 		return result
 
 	def get_regs_read_by(self, addr, arch=None):
@@ -2631,8 +1351,8 @@ class Function(object):
 		result = []
 		for i in range(0, count.value):
 			var_type = types.Type(core.BNNewTypeReference(refs[i].type), platform = self.platform, confidence = refs[i].typeConfidence)
-			result.append(StackVariableReference(refs[i].sourceOperand, var_type,
-				refs[i].name, Variable.from_identifier(self, refs[i].varIdentifier, refs[i].name, var_type),
+			result.append(variable.StackVariableReference(refs[i].sourceOperand, var_type,
+				refs[i].name, variable.Variable.from_identifier(self, refs[i].varIdentifier, refs[i].name, var_type),
 				refs[i].referencedOffset, refs[i].size))
 		core.BNFreeStackVariableReferenceList(refs, count.value)
 		return result
@@ -2644,7 +1364,7 @@ class Function(object):
 		refs = core.BNGetConstantsReferencedByInstruction(self.handle, arch.handle, addr, count)
 		result = []
 		for i in range(0, count.value):
-			result.append(ConstantReference(refs[i].value, refs[i].size, refs[i].pointer, refs[i].intermediate))
+			result.append(variable.ConstantReference(refs[i].value, refs[i].size, refs[i].pointer, refs[i].intermediate))
 		core.BNFreeConstantReferenceList(refs)
 		return result
 
@@ -2668,7 +1388,7 @@ class Function(object):
 		:rtype: list(LowLevelILInstruction)
 		:Example:
 
-			>>> func = bv.functions[0]
+			>>> func = next(bv.functions)
 			>>> func.get_lifted_ils_at(func.start)
 			[<il: push(rbp)>]
 		"""
@@ -2690,6 +1410,23 @@ class Function(object):
 		for i in range(0, count.value):
 			result.append(instrs[i])
 		core.BNFreeILInstructionList(instrs)
+		return result
+
+	def get_il_vars(self, il_type:FunctionGraphType) -> List['variable.Variable']:
+		"""
+		Get a (read-only) list of the variables used in the given IL. Only
+		accepts ``MediumLevelILFunctionGraph`` or ``HighLevelILFunctionGraph``
+		for ``il_type``, otherwise nothing will be returned.
+		"""
+
+		count = ctypes.c_ulonglong()
+		v = core.BNGetFunctionILVariables(self.handle, il_type, count)
+
+		result = []
+		for i in range(0, count.value):
+			result.append(variable.Variable(self, v[i].type, v[i].index, v[i].storage))
+
+		core.BNFreeVariableList(v, count.value)
 		return result
 
 	def get_lifted_il_flag_definitions_for_use(self, i, flag):
@@ -2725,7 +1462,7 @@ class Function(object):
 			settings_obj = settings.handle
 		else:
 			settings_obj = None
-		return binaryninja.flowgraph.CoreFlowGraph(core.BNCreateFunctionGraph(self.handle, graph_type, settings_obj))
+		return flowgraph.CoreFlowGraph(core.BNCreateFunctionGraph(self.handle, graph_type, settings_obj))
 
 	def apply_imported_types(self, sym, type=None):
 		core.BNApplyImportedTypes(self.handle, sym.handle, None if type is None else type.handle)
@@ -2758,18 +1495,18 @@ class Function(object):
 		branches = core.BNGetIndirectBranchesAt(self.handle, arch.handle, addr, count)
 		result = []
 		for i in range(count.value):
-			result.append(IndirectBranchInfo(binaryninja.architecture.CoreArchitecture._from_cache(branches[i].sourceArch), branches[i].sourceAddr, binaryninja.architecture.CoreArchitecture._from_cache(branches[i].destArch), branches[i].destAddr, branches[i].autoDefined))
+			result.append(variable.IndirectBranchInfo(architecture.CoreArchitecture._from_cache(branches[i].sourceArch), branches[i].sourceAddr, architecture.CoreArchitecture._from_cache(branches[i].destArch), branches[i].destAddr, branches[i].autoDefined))
 		core.BNFreeIndirectBranchList(branches)
 		return result
 
-	def get_block_annotations(self, addr, arch=None):
+	def get_block_annotations(self, addr:int, arch:'architecture.CoreArchitecture'=None) -> List[List['InstructionTextToken']]:
 		if arch is None:
 			arch = self.arch
 		count = ctypes.c_ulonglong(0)
 		lines = core.BNGetFunctionBlockAnnotations(self.handle, arch.handle, addr, count)
 		result = []
 		for i in range(count.value):
-			result.append(InstructionTextToken.get_instruction_lines(lines[i].tokens, lines[i].count))
+			result.append(InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count))
 		core.BNFreeInstructionTextLines(lines, count.value)
 		return result
 
@@ -2798,7 +1535,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			regs.confidence = value.confidence
 		else:
-			regs.confidence = types.max_confidence
+			regs.confidence = core.max_confidence
 		core.BNSetAutoFunctionReturnRegisters(self.handle, regs)
 
 	def set_auto_calling_convention(self, value):
@@ -2828,7 +1565,7 @@ class Function(object):
 		elif hasattr(value, 'confidence'):
 			var_conf.confidence = value.confidence
 		else:
-			var_conf.confidence = types.max_confidence
+			var_conf.confidence = core.max_confidence
 		core.BNSetAutoFunctionParameterVariables(self.handle, var_conf)
 
 	def set_auto_has_variable_arguments(self, value):
@@ -2837,7 +1574,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			bc.confidence = value.confidence
 		else:
-			bc.confidence = types.max_confidence
+			bc.confidence = core.max_confidence
 		core.BNSetAutoFunctionHasVariableArguments(self.handle, bc)
 
 	def set_auto_can_return(self, value):
@@ -2846,7 +1583,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			bc.confidence = value.confidence
 		else:
-			bc.confidence = types.max_confidence
+			bc.confidence = core.max_confidence
 		core.BNSetAutoFunctionCanReturn(self.handle, bc)
 
 	def set_auto_stack_adjustment(self, value):
@@ -2855,7 +1592,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			oc.confidence = value.confidence
 		else:
-			oc.confidence = types.max_confidence
+			oc.confidence = core.max_confidence
 		core.BNSetAutoFunctionStackAdjustment(self.handle, oc)
 
 	def set_auto_reg_stack_adjustments(self, value):
@@ -2868,7 +1605,7 @@ class Function(object):
 				adjust[i].confidence = value[reg_stack].confidence
 			else:
 				adjust[i].adjustment = value[reg_stack]
-				adjust[i].confidence = types.max_confidence
+				adjust[i].confidence = core.max_confidence
 			i += 1
 		core.BNSetAutoFunctionRegisterStackAdjustments(self.handle, adjust, len(value))
 
@@ -2881,7 +1618,7 @@ class Function(object):
 		if hasattr(value, 'confidence'):
 			regs.confidence = value.confidence
 		else:
-			regs.confidence = types.max_confidence
+			regs.confidence = core.max_confidence
 		core.BNSetAutoFunctionClobberedRegisters(self.handle, regs)
 
 	def get_int_display_type(self, instr_addr, value, operand, arch=None):
@@ -2936,7 +1673,7 @@ class Function(object):
 		block = core.BNGetFunctionBasicBlockAtAddress(self.handle, arch.handle, addr)
 		if not block:
 			return None
-		return binaryninja.basicblock.BasicBlock(block, self._view)
+		return basicblock.BasicBlock(block, self._view)
 
 	def get_instr_highlight(self, addr, arch=None):
 		"""
@@ -3059,7 +1796,7 @@ class Function(object):
 		found_var = core.BNVariableNameAndType()
 		if not core.BNGetStackVariableAtFrameOffset(self.handle, arch.handle, addr, offset, found_var):
 			return None
-		result = Variable(self, found_var.var.type, found_var.var.index, found_var.var.storage,
+		result = variable.Variable(self, found_var.var.type, found_var.var.index, found_var.var.storage,
 			found_var.name, types.Type(handle = core.BNNewTypeReference(found_var.type), platform = self.platform,
 			confidence = found_var.typeConfidence))
 		core.BNFreeVariableNameAndType(found_var)
@@ -3074,14 +1811,14 @@ class Function(object):
 		for i in range(0, count.value):
 			addr = lines[i].addr
 			color = highlight.HighlightColor._from_core_struct(lines[i].highlight)
-			tokens = InstructionTextToken.get_instruction_lines(lines[i].tokens, lines[i].count)
+			tokens = InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count)
 			result.append(DisassemblyTextLine(tokens, addr, color = color))
 		core.BNFreeDisassemblyTextLines(lines, count.value)
 		return result
 
 	def get_reg_value_at_exit(self, reg):
 		result = core.BNGetFunctionRegisterValueAtExit(self.handle, self.arch.get_reg_index(reg))
-		return RegisterValue(self.arch, result.value, confidence = result.confidence)
+		return variable.RegisterValue(self.arch, result.value, confidence = result.confidence)
 
 	def set_auto_call_stack_adjustment(self, addr, adjust, arch=None):
 		if arch is None:
@@ -3279,11 +2016,11 @@ class Function(object):
 		i = 0
 		for i in range(count.value):
 			var_val = var_values[i]
-			var = Variable(self, var_val.var.type, var_val.var.index, var_val.var.storage)
+			var = variable.Variable(self, var_val.var.type, var_val.var.index, var_val.var.storage)
 			if var not in result:
 				result[var] = {}
 			def_site = ArchAndAddr(var_val.defSite.arch, var_val.defSite.address)
-			result[var][def_site] = PossibleValueSet(def_site.arch, var_val.value)
+			result[var][def_site] = variable.PossibleValueSet(def_site.arch, var_val.value)
 		core.BNFreeUserVariableValues(var_values)
 		return result
 
@@ -3300,7 +2037,7 @@ class Function(object):
 
 	def request_debug_report(self, name):
 		"""
-		``request_debug_report`` can generate interanl debug reports for a variety of analysis.
+		``request_debug_report`` can generate internal debug reports for a variety of analysis.
 		Current list of possible values include:
 
 		- mlil_translator
@@ -3328,15 +2065,15 @@ class Function(object):
 		result = []
 		for i in range(0, count.value):
 			if refs[i].func:
-				func = binaryninja.function.Function(self, core.BNNewFunctionReference(refs[i].func))
+				func = Function(self.view, core.BNNewFunctionReference(refs[i].func))
 			else:
 				func = None
 			if refs[i].arch:
-				arch = binaryninja.architecture.CoreArchitecture._from_cache(refs[i].arch)
+				arch = architecture.CoreArchitecture._from_cache(refs[i].arch)
 			else:
 				arch = None
 			addr = refs[i].addr
-			result.append(binaryninja.architecture.ReferenceSource(func, arch, addr))
+			result.append(binaryview.ReferenceSource(func, arch, addr))
 		core.BNFreeCodeReferences(refs, count.value)
 		return result
 
@@ -3411,15 +2148,15 @@ class Function(object):
 		result = []
 		for i in range(0, count.value):
 			if refs[i].func:
-				func = binaryninja.function.Function(self, core.BNNewFunctionReference(refs[i].func))
+				func = Function(self.view, core.BNNewFunctionReference(refs[i].func))
 			else:
 				func = None
 			if refs[i].arch:
-				arch = binaryninja.architecture.CoreArchitecture._from_cache(refs[i].arch)
+				arch = architecture.CoreArchitecture._from_cache(refs[i].arch)
 			else:
 				arch = None
 
-			result.append(binaryninja.ILReferenceSource(
+			result.append(variable.ILReferenceSource(
 				func, arch, refs[i].addr, refs[i].type, refs[i].exprId))
 		core.BNFreeILReferences(refs, count.value)
 		return result
@@ -3438,7 +2175,7 @@ class Function(object):
 		:param int length: optional length of query
 		:param Architecture arch: optional architecture of query
 		:return: list of variable reference sources
-		:rtype: list(VariableReferenceSource)
+		:rtype: list(variable.VariableReferenceSource)
 		"""
 		result = []
 		count = ctypes.c_ulonglong(0)
@@ -3447,18 +2184,18 @@ class Function(object):
 		else:
 			refs = core.BNGetMediumLevelILVariableReferencesInRange(self.handle, self.arch.handle, addr, length, count)
 		for i in range(0, count.value):
-			var = Variable(self, refs[i].var.type, refs[i].var.index, refs[i].var.storage)
+			var = variable.Variable(self, refs[i].var.type, refs[i].var.index, refs[i].var.storage)
 			if refs[i].source.func:
-				func = binaryninja.function.Function(self, core.BNNewFunctionReference(refs[i].source.func))
+				func = Function(self.view, core.BNNewFunctionReference(refs[i].source.func))
 			else:
 				func = None
 			if refs[i].source.arch:
-				arch = binaryninja.architecture.CoreArchitecture._from_cache(refs[i].source.arch)
+				arch = architecture.CoreArchitecture._from_cache(refs[i].source.arch)
 			else:
 				arch = None
 
-			src = ILReferenceSource(func, arch, refs[i].source.addr, refs[i].source.type, refs[i].source.exprId)
-			result.append(VariableReferenceSource(var, src))
+			src = variable.ILReferenceSource(func, arch, refs[i].source.addr, refs[i].source.type, refs[i].source.exprId)
+			result.append(variable.VariableReferenceSource(var, src))
 		core.BNFreeVariableReferenceSourceList(refs, count.value)
 		return result
 
@@ -3470,7 +2207,7 @@ class Function(object):
 
 		:param Variable var: Variable for which to query the xref
 		:return: List of IL References for the given variable
-		:rtype: list(ILReferenceSource)
+		:rtype: list(variable.ILReferenceSource)
 		:Example:
 
 			>>> var = current_hlil[0].operands[0]
@@ -3485,14 +2222,14 @@ class Function(object):
 		result = []
 		for i in range(0, count.value):
 			if refs[i].func:
-				func = binaryninja.function.Function(self, core.BNNewFunctionReference(refs[i].func))
+				func = Function(self.view, core.BNNewFunctionReference(refs[i].func))
 			else:
 				func = None
 			if refs[i].arch:
-				arch = binaryninja.architecture.CoreArchitecture._from_cache(refs[i].arch)
+				arch = architecture.CoreArchitecture._from_cache(refs[i].arch)
 			else:
 				arch = None
-			result.append(binaryninja.ILReferenceSource(
+			result.append(variable.ILReferenceSource(
 				func, arch, refs[i].addr, refs[i].type, refs[i].exprId))
 		core.BNFreeILReferences(refs, count.value)
 		return result
@@ -3508,7 +2245,7 @@ class Function(object):
 		:param int length: optional length of query
 		:param Architecture arch: optional architecture of query
 		:return: list of variables reference sources
-		:rtype: list(VariableReferenceSource)
+		:rtype: list(variable.VariableReferenceSource)
 		"""
 		result = []
 		count = ctypes.c_ulonglong(0)
@@ -3517,18 +2254,18 @@ class Function(object):
 		else:
 			refs = core.BNGetHighLevelILVariableReferencesInRange(self.handle, self.arch.handle, addr, length, count)
 		for i in range(0, count.value):
-			var = Variable(self, refs[i].var.type, refs[i].var.index, refs[i].var.storage)
+			var = variable.Variable(self, refs[i].var.type, refs[i].var.index, refs[i].var.storage)
 			if refs[i].source.func:
-				func = binaryninja.function.Function(self, core.BNNewFunctionReference(refs[i].source.func))
+				func = Function(self.view, core.BNNewFunctionReference(refs[i].source.func))
 			else:
 				func = None
 			if refs[i].source.arch:
-				arch = binaryninja.architecture.CoreArchitecture._from_cache(refs[i].source.arch)
+				arch = architecture.CoreArchitecture._from_cache(refs[i].source.arch)
 			else:
 				arch = None
 
-			src = ILReferenceSource(func, arch, refs[i].source.addr, refs[i].source.type, refs[i].source.exprId)
-			result.append(VariableReferenceSource(var, src))
+			src = variable.ILReferenceSource(func, arch, refs[i].source.addr, refs[i].source.type, refs[i].source.exprId)
+			result.append(variable.VariableReferenceSource(var, src))
 		core.BNFreeVariableReferenceSourceList(refs, count.value)
 		return result
 
@@ -3667,276 +2404,261 @@ class DisassemblySettings(object):
 		core.BNSetDisassemblySettingsOption(self.handle, option, state)
 
 
-class RegisterInfo(object):
-	def __init__(self, full_width_reg, size, offset=0, extend=ImplicitRegisterExtend.NoExtend, index=None):
-		self._full_width_reg = full_width_reg
-		self._offset = offset
-		self._size = size
-		self._extend = extend
-		self._index = index
-
-	def __repr__(self):
-		if self._extend == ImplicitRegisterExtend.ZeroExtendToFullWidth:
-			extend = ", zero extend"
-		elif self._extend == ImplicitRegisterExtend.SignExtendToFullWidth:
-			extend = ", sign extend"
+class DisassemblyTextRenderer(object):
+	def __init__(self, func = None, settings = None, handle = None):
+		if handle is None:
+			if func is None:
+				raise ValueError("function required for disassembly")
+			settings_obj = None
+			if settings is not None:
+				settings_obj = settings.handle
+			if isinstance(func, Function):
+				self.handle = core.BNCreateDisassemblyTextRenderer(func.handle, settings_obj)
+			elif isinstance(func, lowlevelil.LowLevelILFunction):
+				self.handle = core.BNCreateLowLevelILDisassemblyTextRenderer(func.handle, settings_obj)
+			elif isinstance(func, mediumlevelil.MediumLevelILFunction):
+				self.handle = core.BNCreateMediumLevelILDisassemblyTextRenderer(func.handle, settings_obj)
+			elif isinstance(func, highlevelil.HighLevelILFunction):
+				self.handle = core.BNCreateHighLevelILDisassemblyTextRenderer(func.handle, settings_obj)
+			else:
+				raise TypeError("invalid function object")
 		else:
-			extend = ""
-		return "<reg: size %d, offset %d in %s%s>" % (self._size, self._offset, self._full_width_reg, extend)
+			self.handle = handle
+
+	def __del__(self):
+		core.BNFreeDisassemblyTextRenderer(self.handle)
 
 	@property
-	def full_width_reg(self):
-		""" """
-		return self._full_width_reg
-
-	@full_width_reg.setter
-	def full_width_reg(self, value):
-		self._full_width_reg = value
+	def function(self):
+		return Function(handle = core.BNGetDisassemblyTextRendererFunction(self.handle))
 
 	@property
-	def offset(self):
-		""" """
-		return self._offset
-
-	@offset.setter
-	def offset(self, value):
-		self._offset = value
-
-	@property
-	def size(self):
-		""" """
-		return self._size
-
-	@size.setter
-	def size(self, value):
-		self._size = value
+	def il_function(self):
+		llil = core.BNGetDisassemblyTextRendererLowLevelILFunction(self.handle)
+		if llil:
+			return lowlevelil.LowLevelILFunction(handle = llil)
+		mlil = core.BNGetDisassemblyTextRendererMediumLevelILFunction(self.handle)
+		if mlil:
+			return mediumlevelil.MediumLevelILFunction(handle = mlil)
+		hlil = core.BNGetDisassemblyTextRendererHighLevelILFunction(self.handle)
+		if hlil:
+			return highlevelil.HighLevelILFunction(handle = hlil)
+		return None
 
 	@property
-	def extend(self):
-		""" """
-		return self._extend
+	def basic_block(self):
+		result = core.BNGetDisassemblyTextRendererBasicBlock(self.handle)
+		if result:
+			return basicblock.BasicBlock(handle = result)
+		return None
 
-	@extend.setter
-	def extend(self, value):
-		self._extend = value
-
-	@property
-	def index(self):
-		""" """
-		return self._index
-
-	@index.setter
-	def index(self, value):
-		self._index = value
-
-
-class RegisterStackInfo(object):
-	def __init__(self, storage_regs, top_relative_regs, stack_top_reg, index=None):
-		self._storage_regs = storage_regs
-		self._top_relative_regs = top_relative_regs
-		self._stack_top_reg = stack_top_reg
-		self._index = index
-
-	def __repr__(self):
-		return "<reg stack: %d regs, stack top in %s>" % (len(self._storage_regs), self._stack_top_reg)
+	@basic_block.setter
+	def basic_block(self, block):
+		if block is not None:
+			core.BNSetDisassemblyTextRendererBasicBlock(self.handle, block.handle)
+		else:
+			core.BNSetDisassemblyTextRendererBasicBlock(self.handle, None)
 
 	@property
-	def storage_regs(self):
-		""" """
-		return self._storage_regs
-
-	@storage_regs.setter
-	def storage_regs(self, value):
-		self._storage_regs = value
-
-	@property
-	def top_relative_regs(self):
-		""" """
-		return self._top_relative_regs
-
-	@top_relative_regs.setter
-	def top_relative_regs(self, value):
-		self._top_relative_regs = value
-
-	@property
-	def stack_top_reg(self):
-		""" """
-		return self._stack_top_reg
-
-	@stack_top_reg.setter
-	def stack_top_reg(self, value):
-		self._stack_top_reg = value
-
-	@property
-	def index(self):
-		""" """
-		return self._index
-
-	@index.setter
-	def index(self, value):
-		self._index = value
-
-
-class IntrinsicInput(object):
-	def __init__(self, type_obj, name=""):
-		self._name = name
-		self._type = type_obj
-
-	def __repr__(self):
-		if len(self._name) == 0:
-			return "<input: %s>" % str(self._type)
-		return "<input: %s %s>" % (str(self._type), self._name)
-
-	@property
-	def name(self):
-		""" """
-		return self._name
-
-	@name.setter
-	def name(self, value):
-		self._name = value
-
-	@property
-	def type(self):
-		""" """
-		return self._type
-
-	@type.setter
-	def type(self, value):
-		self._type = value
-
-
-class IntrinsicInfo(object):
-	def __init__(self, inputs, outputs, index=None):
-		self._inputs = inputs
-		self._outputs = outputs
-		self._index = index
-
-	def __repr__(self):
-		return "<intrinsic: %s -> %s>" % (repr(self._inputs), repr(self._outputs))
-
-	@property
-	def inputs(self):
-		""" """
-		return self._inputs
-
-	@inputs.setter
-	def inputs(self, value):
-		self._inputs = value
-
-	@property
-	def outputs(self):
-		""" """
-		return self._outputs
-
-	@outputs.setter
-	def outputs(self, value):
-		self._outputs = value
-
-	@property
-	def index(self):
-		""" """
-		return self._index
-
-	@index.setter
-	def index(self, value):
-		self._index = value
-
-
-class InstructionBranch(object):
-	def __init__(self, branch_type, target = 0, arch = None):
-		self._type = branch_type
-		self._target = target
-		self._arch = arch
-
-	def __repr__(self):
-		branch_type = self._type
-		if self._arch is not None:
-			return "<%s: %s@%#x>" % (branch_type.name, self._arch.name, self._target)
-		return "<%s: %#x>" % (branch_type, self._target)
-
-	@property
-	def type(self):
-		""" """
-		return self._type
-
-	@type.setter
-	def type(self, value):
-		self._type = value
-
-	@property
-	def target(self):
-		""" """
-		return self._target
-
-	@target.setter
-	def target(self, value):
-		self._target = value
-
-	@property
-	def arch(self):
-		""" """
-		return self._arch
+	def arch(self) -> 'architecture.CoreArchitecture':
+		return architecture.CoreArchitecture._from_cache(handle = core.BNGetDisassemblyTextRendererArchitecture(self.handle))
 
 	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
-
-class InstructionInfo(object):
-	def __init__(self):
-		self.length = 0
-		self.arch_transition_by_target_addr = False
-		self.branch_delay = False
-		self.branches = []
-
-	def add_branch(self, branch_type, target = 0, arch = None):
-		self._branches.append(InstructionBranch(branch_type, target, arch))
-
-	def __len__(self):
-		return self._length
-
-	def __repr__(self):
-		branch_delay = ""
-		if self._branch_delay:
-			branch_delay = ", delay slot"
-		return "<instr: %d bytes%s, %s>" % (self._length, branch_delay, repr(self._branches))
+	def arch(self, arch='architecture.CoreArchitecture') -> None:
+		core.BNSetDisassemblyTextRendererArchitecture(self.handle, arch.handle)
 
 	@property
-	def length(self):
-		""" """
-		return self._length
+	def settings(self):
+		return DisassemblySettings(handle = core.BNGetDisassemblyTextRendererSettings(self.handle))
 
-	@length.setter
-	def length(self, value):
-		self._length = value
-
-	@property
-	def arch_transition_by_target_addr(self):
-		""" """
-		return self._arch_transition_by_target_addr
-
-	@arch_transition_by_target_addr.setter
-	def arch_transition_by_target_addr(self, value):
-		self._arch_transition_by_target_addr = value
+	@settings.setter
+	def settings(self, settings):
+		if settings is not None:
+			core.BNSetDisassemblyTextRendererSettings(self.handle, settings.handle)
+		core.BNSetDisassemblyTextRendererSettings(self.handle, None)
 
 	@property
-	def branch_delay(self):
-		""" """
-		return self._branch_delay
-
-	@branch_delay.setter
-	def branch_delay(self, value):
-		self._branch_delay = value
+	def il(self):
+		return core.BNIsILDisassemblyTextRenderer(self.handle)
 
 	@property
-	def branches(self):
-		""" """
-		return self._branches
+	def has_data_flow(self):
+		return core.BNDisassemblyTextRendererHasDataFlow(self.handle)
 
-	@branches.setter
-	def branches(self, value):
-		self._branches = value
+	def get_instruction_annotations(self, addr):
+		count = ctypes.c_ulonglong()
+		tokens = core.BNGetDisassemblyTextRendererInstructionAnnotations(self.handle, addr, count)
+		assert tokens is not None
+		result = InstructionTextToken._from_core_struct(tokens, count.value)
+		core.BNFreeInstructionText(tokens, count.value)
+		return result
+
+	def get_instruction_text(self, addr):
+		count = ctypes.c_ulonglong()
+		length = ctypes.c_ulonglong()
+		lines = ctypes.POINTER(core.BNDisassemblyTextLine)()
+		if not core.BNGetDisassemblyTextRendererInstructionText(self.handle, addr, length, lines, count):
+			return None, 0
+		il_function = self.il_function
+		result = []
+		for i in range(0, count.value):
+			addr = lines[i].addr
+			if (lines[i].instrIndex != 0xffffffffffffffff) and (il_function is not None):
+				il_instr = il_function[lines[i].instrIndex]
+			else:
+				il_instr = None
+			color = highlight.HighlightColor._from_core_struct(lines[i].highlight)
+			tokens = InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count)
+			result.append(DisassemblyTextLine(tokens, addr, il_instr, color))
+		core.BNFreeDisassemblyTextLines(lines, count.value)
+		return (result, length.value)
+
+	def get_disassembly_text(self, addr):
+		count = ctypes.c_ulonglong()
+		length = ctypes.c_ulonglong()
+		length.value = 0
+		lines = ctypes.POINTER(core.BNDisassemblyTextLine)()
+		ok = core.BNGetDisassemblyTextRendererLines(self.handle, addr, length, lines, count)
+		if not ok:
+			return None, 0
+		il_function = self.il_function
+		result = []
+		for i in range(0, count.value):
+			addr = lines[i].addr
+			if (lines[i].instrIndex != 0xffffffffffffffff) and (il_function is not None):
+				il_instr = il_function[lines[i].instrIndex]
+			else:
+				il_instr = None
+			color = highlight.HighlightColor._from_core_struct(lines[i].highlight)
+			tokens = InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count)
+			result.append(DisassemblyTextLine(tokens, addr, il_instr, color))
+		core.BNFreeDisassemblyTextLines(lines, count.value)
+		return (result, length.value)
+
+	def post_process_lines(self, addr, length, in_lines, indent_spaces=""):
+		if isinstance(in_lines, str):
+			in_lines = in_lines.split('\n')
+		line_buf = (core.BNDisassemblyTextLine * len(in_lines))()
+		for i in range(0, len(in_lines)):
+			line = in_lines[i]
+			if isinstance(line, str):
+				line = DisassemblyTextLine([InstructionTextToken(InstructionTextTokenType.TextToken, line)])
+			if not isinstance(line, DisassemblyTextLine):
+				line = DisassemblyTextLine(line)
+			if line.address is None:
+				if len(line.tokens) > 0:
+					line_buf[i].addr = line.tokens[0].address
+				else:
+					line_buf[i].addr = 0
+			else:
+				line_buf[i].addr = line.address
+			if line.il_instruction is not None:
+				line_buf[i].instrIndex = line.il_instruction.instr_index
+			else:
+				line_buf[i].instrIndex = 0xffffffffffffffff
+			color = line.highlight
+			if not isinstance(color, HighlightStandardColor) and not isinstance(color, highlight.HighlightColor):
+				raise ValueError("Specified color is not one of HighlightStandardColor, highlight.HighlightColor")
+			if isinstance(color, HighlightStandardColor):
+				color = highlight.HighlightColor(color)
+			line_buf[i].highlight = color._get_core_struct()
+			line_buf[i].count = len(line.tokens)
+			line_buf[i].tokens = InstructionTextToken._get_core_struct(line.tokens)
+		count = ctypes.c_ulonglong()
+		lines = ctypes.POINTER(core.BNDisassemblyTextLine)()
+		lines = core.BNPostProcessDisassemblyTextRendererLines(self.handle, addr, length, line_buf, len(in_lines), count, indent_spaces)
+		il_function = self.il_function
+		result = []
+		for i in range(0, count.value):
+			addr = lines[i].addr
+			if (lines[i].instrIndex != 0xffffffffffffffff) and (il_function is not None):
+				il_instr = il_function[lines[i].instrIndex]
+			else:
+				il_instr = None
+			color = highlight.HighlightColor._from_core_struct(lines[i].highlight)
+			tokens = InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count)
+			result.append(DisassemblyTextLine(tokens, addr, il_instr, color))
+		core.BNFreeDisassemblyTextLines(lines, count.value)
+		return result
+
+	def reset_deduplicated_comments(self):
+		core.BNResetDisassemblyTextRendererDeduplicatedComments(self.handle)
+
+	def add_symbol_token(self, tokens, addr, size, operand = None):
+		if operand is None:
+			operand = 0xffffffff
+		count = ctypes.c_ulonglong()
+		new_tokens = ctypes.POINTER(core.BNInstructionTextToken)()
+		if not core.BNGetDisassemblyTextRendererSymbolTokens(self.handle, addr, size, operand, new_tokens, count):
+			return False
+		assert new_tokens is not None
+		result = InstructionTextToken._from_core_struct(new_tokens, count.value)
+		tokens += result
+		core.BNFreeInstructionText(new_tokens, count.value)
+		return True
+
+	def add_stack_var_reference_tokens(self, tokens, ref):
+		stack_ref = core.BNStackVariableReference()
+		if ref.source_operand is None:
+			stack_ref.sourceOperand = 0xffffffff
+		else:
+			stack_ref.sourceOperand = ref.source_operand
+		if ref.type is None:
+			stack_ref.type = None
+			stack_ref.typeConfidence = 0
+		else:
+			stack_ref.type = ref.type.handle
+			stack_ref.typeConfidence = ref.type.confidence
+		stack_ref.name = ref.name
+		stack_ref.varIdentifier = ref.var.identifier
+		stack_ref.referencedOffset = ref.referenced_offset
+		stack_ref.size = ref.size
+		count = ctypes.c_ulonglong()
+		new_tokens = core.BNGetDisassemblyTextRendererStackVariableReferenceTokens(self.handle, stack_ref, count)
+		assert new_tokens is not None
+		result = InstructionTextToken._from_core_struct(new_tokens, count.value)
+		tokens += result
+		core.BNFreeInstructionText(new_tokens, count.value)
+
+	@classmethod
+	def is_integer_token(cls, token):
+		return core.BNIsIntegerToken(token)
+
+	def add_integer_token(self, tokens, int_token, addr, arch = None):
+		if arch is not None:
+			arch = arch.handle
+		in_token_obj = InstructionTextToken._get_core_struct([int_token])
+		count = ctypes.c_ulonglong()
+		new_tokens = core.BNGetDisassemblyTextRendererIntegerTokens(self.handle, in_token_obj, arch, addr, count)
+		assert new_tokens is not None
+		result = InstructionTextToken._from_core_struct(new_tokens, count.value)
+		tokens += result
+		core.BNFreeInstructionText(new_tokens, count.value)
+
+	def wrap_comment(self, lines, cur_line, comment, has_auto_annotations, leading_spaces = "  ", indent_spaces = ""):
+		cur_line_obj = core.BNDisassemblyTextLine()
+		cur_line_obj.addr = cur_line.address
+		if cur_line.il_instruction is None:
+			cur_line_obj.instrIndex = 0xffffffffffffffff
+		else:
+			cur_line_obj.instrIndex = cur_line.il_instruction.instr_index
+		cur_line_obj.highlight = cur_line.highlight._get_core_struct()
+		cur_line_obj.tokens = InstructionTextToken._get_core_struct(cur_line.tokens)
+		cur_line_obj.count = len(cur_line.tokens)
+		count = ctypes.c_ulonglong()
+		new_lines = core.BNDisassemblyTextRendererWrapComment(self.handle, cur_line_obj, count, comment,
+			has_auto_annotations, leading_spaces, indent_spaces)
+		il_function = self.il_function
+		for i in range(0, count.value):
+			addr = new_lines[i].addr
+			if (new_lines[i].instrIndex != 0xffffffffffffffff) and (il_function is not None):
+				il_instr = il_function[new_lines[i].instrIndex]
+			else:
+				il_instr = None
+			color = highlight.HighlightColor._from_core_struct(new_lines[i].highlight)
+			tokens = InstructionTextToken._from_core_struct(new_lines[i].tokens, new_lines[i].count)
+			lines.append(DisassemblyTextLine(tokens, addr, il_instr, color))
+		core.BNFreeDisassemblyTextLines(new_lines, count.value)
 
 
 class InstructionTextToken(object):
@@ -3988,7 +2710,7 @@ class InstructionTextToken(object):
 
 	"""
 	def __init__(self, token_type, text, value = 0, size = 0, operand = 0xffffffff,
-		context = InstructionTextTokenContext.NoTokenContext, address = 0, confidence = types.max_confidence, typeNames=[], width=0):
+		context = InstructionTextTokenContext.NoTokenContext, address = 0, confidence = core.max_confidence, typeNames=[], width=0):
 		self._type = InstructionTextTokenType(token_type)
 		self._text = text
 		self._value = value
@@ -4003,27 +2725,8 @@ class InstructionTextToken(object):
 			self._width = len(self._text)
 
 	@classmethod
-	def get_instruction_lines(cls, tokens, count=0):
-		""" Helper method for converting between core.BNInstructionTextToken and InstructionTextToken lists """
-		if isinstance(tokens, list):
-			result = (core.BNInstructionTextToken * len(tokens))()
-			for j in range(len(tokens)):
-				result[j].type = tokens[j].type
-				result[j].text = tokens[j].text
-				result[j].width = tokens[j].width
-				result[j].value = tokens[j].value
-				result[j].size = tokens[j].size
-				result[j].operand = tokens[j].operand
-				result[j].context = tokens[j].context
-				result[j].confidence = tokens[j].confidence
-				result[j].address = tokens[j].address
-				result[j].namesCount = len(tokens[j].typeNames)
-				result[j].typeNames = (ctypes.c_char_p * len(tokens[j].typeNames))()
-				for i in range(len(tokens[j].typeNames)):
-					result[j].typeNames[i] = binaryninja.cstr(tokens[j].typeNames[i])
-			return result
-
-		result = []
+	def _from_core_struct(cls, tokens:ctypes.pointer[core.BNInstructionTextToken], count:int) -> List['InstructionTextToken']:
+		result:List['InstructionTextToken'] = []
 		for j in range(count):
 			token_type = InstructionTextTokenType(tokens[j].type)
 			text = tokens[j].text
@@ -4044,6 +2747,27 @@ class InstructionTextToken(object):
 					typeNames.append(tokens[j].typeNames[i])
 			result.append(InstructionTextToken(token_type, text, value, size, operand, context, address, confidence, typeNames, width))
 		return result
+
+	@classmethod
+	def _get_core_struct(cls, tokens:List['InstructionTextToken']) -> ctypes.Array[core.BNInstructionTextToken]:
+		""" Helper method for converting between core.BNInstructionTextToken and InstructionTextToken lists """
+		result = (core.BNInstructionTextToken * len(tokens))()
+		for j in range(len(tokens)):
+			result[j].type = tokens[j].type
+			result[j].text = tokens[j].text
+			result[j].width = tokens[j].width
+			result[j].value = tokens[j].value
+			result[j].size = tokens[j].size
+			result[j].operand = tokens[j].operand
+			result[j].context = tokens[j].context
+			result[j].confidence = tokens[j].confidence
+			result[j].address = tokens[j].address
+			result[j].namesCount = len(tokens[j].typeNames)
+			result[j].typeNames = (ctypes.c_char_p * len(tokens[j].typeNames))()
+			for i in range(len(tokens[j].typeNames)):
+				result[j].typeNames[i] = cstr(tokens[j].typeNames[i])
+		return result
+
 
 	def __str__(self):
 		return self._text
@@ -4135,257 +2859,3 @@ class InstructionTextToken(object):
 	@property
 	def width(self):
 		return self._width
-
-
-
-class DisassemblyTextRenderer(object):
-	def __init__(self, func = None, settings = None, handle = None):
-		if handle is None:
-			if func is None:
-				raise ValueError("function required for disassembly")
-			settings_obj = None
-			if settings is not None:
-				settings_obj = settings.handle
-			if isinstance(func, Function):
-				self.handle = core.BNCreateDisassemblyTextRenderer(func.handle, settings_obj)
-			elif isinstance(func, binaryninja.lowlevelil.LowLevelILFunction):
-				self.handle = core.BNCreateLowLevelILDisassemblyTextRenderer(func.handle, settings_obj)
-			elif isinstance(func, binaryninja.mediumlevelil.MediumLevelILFunction):
-				self.handle = core.BNCreateMediumLevelILDisassemblyTextRenderer(func.handle, settings_obj)
-			elif isinstance(func, binaryninja.highlevelil.HighLevelILFunction):
-				self.handle = core.BNCreateHighLevelILDisassemblyTextRenderer(func.handle, settings_obj)
-			else:
-				raise TypeError("invalid function object")
-		else:
-			self.handle = handle
-
-	def __del__(self):
-		core.BNFreeDisassemblyTextRenderer(self.handle)
-
-	@property
-	def function(self):
-		return Function(handle = core.BNGetDisassemblyTextRendererFunction(self.handle))
-
-	@property
-	def il_function(self):
-		llil = core.BNGetDisassemblyTextRendererLowLevelILFunction(self.handle)
-		if llil:
-			return binaryninja.lowlevelil.LowLevelILFunction(handle = llil)
-		mlil = core.BNGetDisassemblyTextRendererMediumLevelILFunction(self.handle)
-		if mlil:
-			return binaryninja.mediumlevelil.MediumLevelILFunction(handle = mlil)
-		hlil = core.BNGetDisassemblyTextRendererHighLevelILFunction(self.handle)
-		if hlil:
-			return binaryninja.highlevelil.HighLevelILFunction(handle = hlil)
-		return None
-
-	@property
-	def basic_block(self):
-		result = core.BNGetDisassemblyTextRendererBasicBlock(self.handle)
-		if result:
-			return binaryninja.basicblock.BasicBlock(handle = result)
-		return None
-
-	@basic_block.setter
-	def basic_block(self, block):
-		if block is not None:
-			core.BNSetDisassemblyTextRendererBasicBlock(self.handle, block.handle)
-		else:
-			core.BNSetDisassemblyTextRendererBasicBlock(self.handle, None)
-
-	@property
-	def arch(self):
-		return binaryninja.architecture.CoreArchitecture._from_cache(handle = core.BNGetDisassemblyTextRendererArchitecture(self.handle))
-
-	@arch.setter
-	def arch(self, arch):
-		core.BNSetDisassemblyTextRendererArchitecture(self.handle, arch.handle)
-
-	@property
-	def settings(self):
-		return DisassemblySettings(handle = core.BNGetDisassemblyTextRendererSettings(self.handle))
-
-	@settings.setter
-	def settings(self, settings):
-		if settings is not None:
-			core.BNSetDisassemblyTextRendererSettings(self.handle, settings.handle)
-		core.BNSetDisassemblyTextRendererSettings(self.handle, None)
-
-	@property
-	def il(self):
-		return core.BNIsILDisassemblyTextRenderer(self.handle)
-
-	@property
-	def has_data_flow(self):
-		return core.BNDisassemblyTextRendererHasDataFlow(self.handle)
-
-	def get_instruction_annotations(self, addr):
-		count = ctypes.c_ulonglong()
-		tokens = core.BNGetDisassemblyTextRendererInstructionAnnotations(self.handle, addr, count)
-		result = InstructionTextToken.get_instruction_lines(tokens, count.value)
-		core.BNFreeInstructionText(tokens, count.value)
-		return result
-
-	def get_instruction_text(self, addr):
-		count = ctypes.c_ulonglong()
-		length = ctypes.c_ulonglong()
-		lines = ctypes.POINTER(core.BNDisassemblyTextLine)()
-		if not core.BNGetDisassemblyTextRendererInstructionText(self.handle, addr, length, lines, count):
-			return None, 0
-		il_function = self.il_function
-		result = []
-		for i in range(0, count.value):
-			addr = lines[i].addr
-			if (lines[i].instrIndex != 0xffffffffffffffff) and (il_function is not None):
-				il_instr = il_function[lines[i].instrIndex]
-			else:
-				il_instr = None
-			color = highlight.HighlightColor._from_core_struct(lines[i].highlight)
-			tokens = InstructionTextToken.get_instruction_lines(lines[i].tokens, lines[i].count)
-			result.append(DisassemblyTextLine(tokens, addr, il_instr, color))
-		core.BNFreeDisassemblyTextLines(lines, count.value)
-		return (result, length.value)
-
-	def get_disassembly_text(self, addr):
-		count = ctypes.c_ulonglong()
-		length = ctypes.c_ulonglong()
-		length.value = 0
-		lines = ctypes.POINTER(core.BNDisassemblyTextLine)()
-		ok = core.BNGetDisassemblyTextRendererLines(self.handle, addr, length, lines, count)
-		if not ok:
-			return None, 0
-		il_function = self.il_function
-		result = []
-		for i in range(0, count.value):
-			addr = lines[i].addr
-			if (lines[i].instrIndex != 0xffffffffffffffff) and (il_function is not None):
-				il_instr = il_function[lines[i].instrIndex]
-			else:
-				il_instr = None
-			color = highlight.HighlightColor._from_core_struct(lines[i].highlight)
-			tokens = InstructionTextToken.get_instruction_lines(lines[i].tokens, lines[i].count)
-			result.append(DisassemblyTextLine(tokens, addr, il_instr, color))
-		core.BNFreeDisassemblyTextLines(lines, count.value)
-		return (result, length.value)
-
-	def post_process_lines(self, addr, length, in_lines, indent_spaces=""):
-		if isinstance(in_lines, str):
-			in_lines = in_lines.split('\n')
-		line_buf = (core.BNDisassemblyTextLine * len(in_lines))()
-		for i in range(0, len(in_lines)):
-			line = in_lines[i]
-			if isinstance(line, str):
-				line = DisassemblyTextLine([InstructionTextToken(InstructionTextTokenType.TextToken, line)])
-			if not isinstance(line, DisassemblyTextLine):
-				line = DisassemblyTextLine(line)
-			if line.address is None:
-				if len(line.tokens) > 0:
-					line_buf[i].addr = line.tokens[0].address
-				else:
-					line_buf[i].addr = 0
-			else:
-				line_buf[i].addr = line.address
-			if line.il_instruction is not None:
-				line_buf[i].instrIndex = line.il_instruction.instr_index
-			else:
-				line_buf[i].instrIndex = 0xffffffffffffffff
-			color = line.highlight
-			if not isinstance(color, HighlightStandardColor) and not isinstance(color, highlight.HighlightColor):
-				raise ValueError("Specified color is not one of HighlightStandardColor, highlight.HighlightColor")
-			if isinstance(color, HighlightStandardColor):
-				color = highlight.HighlightColor(color)
-			line_buf[i].highlight = color._get_core_struct()
-			line_buf[i].count = len(line.tokens)
-			line_buf[i].tokens = InstructionTextToken.get_instruction_lines(line.tokens)
-		count = ctypes.c_ulonglong()
-		lines = ctypes.POINTER(core.BNDisassemblyTextLine)()
-		lines = core.BNPostProcessDisassemblyTextRendererLines(self.handle, addr, length, line_buf, len(in_lines), count, indent_spaces)
-		il_function = self.il_function
-		result = []
-		for i in range(0, count.value):
-			addr = lines[i].addr
-			if (lines[i].instrIndex != 0xffffffffffffffff) and (il_function is not None):
-				il_instr = il_function[lines[i].instrIndex]
-			else:
-				il_instr = None
-			color = highlight.HighlightColor._from_core_struct(lines[i].highlight)
-			tokens = InstructionTextToken.get_instruction_lines(lines[i].tokens, lines[i].count)
-			result.append(DisassemblyTextLine(tokens, addr, il_instr, color))
-		core.BNFreeDisassemblyTextLines(lines, count.value)
-		return result
-
-	def reset_deduplicated_comments(self):
-		core.BNResetDisassemblyTextRendererDeduplicatedComments(self.handle)
-
-	def add_symbol_token(self, tokens, addr, size, operand = None):
-		if operand is None:
-			operand = 0xffffffff
-		count = ctypes.c_ulonglong()
-		new_tokens = ctypes.POINTER(core.BNInstructionTextToken)()
-		if not core.BNGetDisassemblyTextRendererSymbolTokens(self.handle, addr, size, operand, new_tokens, count):
-			return False
-		result = binaryninja.function.InstructionTextToken.get_instruction_lines(new_tokens, count.value)
-		tokens += result
-		core.BNFreeInstructionText(new_tokens, count.value)
-		return True
-
-	def add_stack_var_reference_tokens(self, tokens, ref):
-		stack_ref = core.BNStackVariableReference()
-		if ref.source_operand is None:
-			stack_ref.sourceOperand = 0xffffffff
-		else:
-			stack_ref.sourceOperand = ref.source_operand
-		if ref.type is None:
-			stack_ref.type = None
-			stack_ref.typeConfidence = 0
-		else:
-			stack_ref.type = ref.type.handle
-			stack_ref.typeConfidence = ref.type.confidence
-		stack_ref.name = ref.name
-		stack_ref.varIdentifier = ref.var.identifier
-		stack_ref.referencedOffset = ref.referenced_offset
-		stack_ref.size = ref.size
-		count = ctypes.c_ulonglong()
-		new_tokens = core.BNGetDisassemblyTextRendererStackVariableReferenceTokens(self.handle, stack_ref, count)
-		result = InstructionTextToken.get_instruction_lines(new_tokens, count.value)
-		tokens += result
-		core.BNFreeInstructionText(new_tokens, count.value)
-
-	@classmethod
-	def is_integer_token(self, token):
-		return core.BNIsIntegerToken(token)
-
-	def add_integer_token(self, tokens, int_token, addr, arch = None):
-		if arch is not None:
-			arch = arch.handle
-		in_token_obj = InstructionTextToken.get_instruction_lines([int_token])
-		count = ctypes.c_ulonglong()
-		new_tokens = core.BNGetDisassemblyTextRendererIntegerTokens(self.handle, in_token_obj, arch, addr, count)
-		result = InstructionTextToken.get_instruction_lines(new_tokens, count.value)
-		tokens += result
-		core.BNFreeInstructionText(new_tokens, count.value)
-
-	def wrap_comment(self, lines, cur_line, comment, has_auto_annotations, leading_spaces = "  ", indent_spaces = ""):
-		cur_line_obj = core.BNDisassemblyTextLine()
-		cur_line_obj.addr = cur_line.address
-		if cur_line.il_instruction is None:
-			cur_line_obj.instrIndex = 0xffffffffffffffff
-		else:
-			cur_line_obj.instrIndex = cur_line.il_instruction.instr_index
-		cur_line_obj.highlight = cur_line.highlight._get_core_struct()
-		cur_line_obj.tokens = InstructionTextToken.get_instruction_lines(cur_line.tokens)
-		cur_line_obj.count = len(cur_line.tokens)
-		count = ctypes.c_ulonglong()
-		new_lines = core.BNDisassemblyTextRendererWrapComment(self.handle, cur_line_obj, count, comment,
-			has_auto_annotations, leading_spaces, indent_spaces)
-		il_function = self.il_function
-		for i in range(0, count.value):
-			addr = new_lines[i].addr
-			if (new_lines[i].instrIndex != 0xffffffffffffffff) and (il_function is not None):
-				il_instr = il_function[new_lines[i].instrIndex]
-			else:
-				il_instr = None
-			color = highlight.HighlightColor._from_core_struct(new_lines[i].highlight)
-			tokens = InstructionTextToken.get_instruction_lines(new_lines[i].tokens, new_lines[i].count)
-			lines.append(DisassemblyTextLine(tokens, addr, il_instr, color))
-		core.BNFreeDisassemblyTextLines(new_lines, count.value)

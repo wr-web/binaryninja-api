@@ -23,20 +23,16 @@ from __future__ import absolute_import
 import ctypes
 
 # Binary Ninja components
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import MetadataType
-
-# 2-3 compatibility
-from binaryninja import range
-from binaryninja import pyNativeStr
-import numbers
+from . import _binaryninjacore as core
+from .enums import MetadataType
+from .compatibility import pyNativeStr
 
 
 class Metadata(object):
 	def __init__(self, value=None, signed=None, raw=None, handle=None):
 		if handle is not None:
 			self.handle = handle
-		elif isinstance(value, numbers.Integral):
+		elif isinstance(value, int):
 			if signed:
 				self.handle = core.BNCreateMetadataSignedIntegerData(value)
 			else:

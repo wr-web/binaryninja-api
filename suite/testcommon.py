@@ -1229,7 +1229,7 @@ class VerifyBuilder(Builder):
         return [x.start for x in bv.functions]
 
     def get_comments(self, bv):
-        return bv.functions[0].comments
+        return next(bv.functions).comments
 
     def test_possiblevalueset_parse(self):
         """ Failed to parse PossibleValueSet from string"""
@@ -1339,9 +1339,10 @@ class VerifyBuilder(Builder):
                 # Make some modifications to the binary view
 
                 # Add a comment
-                bv.functions[0].set_comment(bv.functions[0].start, "Function start")
+                f = next(bv.functions)
+                f.set_comment(f.start, "Function start")
                 # Add a new function
-                bv.add_function(bv.functions[0].start + 4)
+                bv.add_function(f.start + 4)
                 temp_name = next(tempfile._get_candidate_names()) + ".bndb"
 
                 comments = self.get_comments(bv)
@@ -1372,7 +1373,8 @@ class VerifyBuilder(Builder):
                 bv.update_analysis_and_wait()
 
                 bv.begin_undo_actions()
-                bv.functions[0].set_comment(bv.functions[0].start, "Function start")
+                f = next(bv.functions)
+                f.set_comment(f.start, "Function start")
                 bv.commit_undo_actions()
 
                 bv.update_analysis_and_wait()
@@ -1380,7 +1382,7 @@ class VerifyBuilder(Builder):
                 functions = self.get_functions(bv)
 
                 bv.begin_undo_actions()
-                bv.functions[0].set_comment(bv.functions[0].start, "Function start!")
+                f.set_comment(f.start, "Function start!")
                 bv.commit_undo_actions()
 
                 bv.begin_undo_actions()
@@ -1418,7 +1420,7 @@ class VerifyBuilder(Builder):
             # in the core. If we directly free the view, the teardown will happen in a worker thread and
             # we will not be able to get a reliable object count. By keeping a reference in a different
             # object in the core, the teardown will occur immediately upon freeing the other object.
-            graph = bv.functions[0].create_graph()
+            graph = next(bv.functions).create_graph()
             bv.file.close()
             del bv
             import gc
@@ -1431,7 +1433,7 @@ class VerifyBuilder(Builder):
             # Analyze the binary again
             bv = binja.BinaryViewType['ELF'].open(file_name)
             bv.update_analysis_and_wait()
-            graph = bv.functions[0].create_graph()
+            graph = next(bv.functions).create_graph()
             bv.file.close()
             del bv
             gc.collect()
@@ -1467,7 +1469,8 @@ class VerifyBuilder(Builder):
                 assert(bv.get_load_settings("Mach-O").get_integer("loader.macho.universalImageOffset") == 0x1000)
 
                 # save temp bndb for round trip testing
-                bv.functions[0].set_comment(bv.functions[0].start, "Function start")
+                f = next(bv.functions)
+                f.set_comment(f.start, "Function start")
                 comments = self.get_comments(bv)
                 functions = self.get_functions(bv)
                 temp_name = next(tempfile._get_candidate_names()) + ".bndb"
@@ -1526,7 +1529,8 @@ class VerifyBuilder(Builder):
                 assert(bv.get_load_settings("Mach-O").get_integer("loader.macho.universalImageOffset") == 0x4c000)
 
                 # save temp bndb for round trip testing
-                bv.functions[0].set_comment(bv.functions[0].start, "Function start")
+                f = next(bv.functions)
+                f.set_comment(f.start, "Function start")
                 comments = self.get_comments(bv)
                 functions = self.get_functions(bv)
                 temp_name = next(tempfile._get_candidate_names()) + ".bndb"

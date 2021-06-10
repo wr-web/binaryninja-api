@@ -22,14 +22,11 @@ import ctypes
 import traceback
 
 # Binary Ninja components
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import FormInputFieldType, MessageBoxIcon, MessageBoxButtonSet, MessageBoxButtonResult, ReportType
-from binaryninja import binaryview
-from binaryninja import log
-from binaryninja import flowgraph
-
-# 2-3 compatibility
-from binaryninja import range
+from . import _binaryninjacore as core
+from .enums import FormInputFieldType, MessageBoxIcon, MessageBoxButtonSet, MessageBoxButtonResult, ReportType
+from . import binaryview
+from . import log
+from . import flowgraph
 
 
 class LabelField(object):

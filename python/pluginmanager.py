@@ -24,10 +24,8 @@ from datetime import datetime
 
 # Binary Ninja components
 import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import PluginType, PluginStatus
-# 2-3 compatibility
-from binaryninja import range
+from . import _binaryninjacore as core
+from .enums import PluginType
 
 
 class RepoPlugin(object):

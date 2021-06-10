@@ -21,23 +21,291 @@
 import traceback
 import ctypes
 import abc
+from typing import Union
 
 # Binary Ninja components
-from binaryninja import _binaryninjacore as core
-from binaryninja.enums import (Endianness, ImplicitRegisterExtend, BranchType,
-	InstructionTextTokenType, LowLevelILFlagCondition, FlagRole)
 import binaryninja
-from binaryninja import log
-from binaryninja import lowlevelil
-from binaryninja import types
-from binaryninja import databuffer
-from binaryninja import platform
-from binaryninja import callingconvention
+from . import _binaryninjacore as core
+from .enums import (Endianness, ImplicitRegisterExtend, BranchType,
+	LowLevelILFlagCondition, FlagRole)
+from . import log
+from . import lowlevelil
+from . import types
+from . import databuffer
+from . import platform
+from . import callingconvention
 
-# 2-3 compatibility
-from binaryninja import range
-from binaryninja import with_metaclass
-import numbers
+
+class RegisterInfo(object):
+	def __init__(self, full_width_reg, size, offset=0, extend=ImplicitRegisterExtend.NoExtend, index=None):
+		self._full_width_reg = full_width_reg
+		self._offset = offset
+		self._size = size
+		self._extend = extend
+		self._index = index
+
+	def __repr__(self):
+		if self._extend == ImplicitRegisterExtend.ZeroExtendToFullWidth:
+			extend = ", zero extend"
+		elif self._extend == ImplicitRegisterExtend.SignExtendToFullWidth:
+			extend = ", sign extend"
+		else:
+			extend = ""
+		return "<reg: size %d, offset %d in %s%s>" % (self._size, self._offset, self._full_width_reg, extend)
+
+	@property
+	def full_width_reg(self):
+		""" """
+		return self._full_width_reg
+
+	@full_width_reg.setter
+	def full_width_reg(self, value):
+		self._full_width_reg = value
+
+	@property
+	def offset(self):
+		""" """
+		return self._offset
+
+	@offset.setter
+	def offset(self, value):
+		self._offset = value
+
+	@property
+	def size(self):
+		""" """
+		return self._size
+
+	@size.setter
+	def size(self, value):
+		self._size = value
+
+	@property
+	def extend(self):
+		""" """
+		return self._extend
+
+	@extend.setter
+	def extend(self, value):
+		self._extend = value
+
+	@property
+	def index(self):
+		""" """
+		return self._index
+
+	@index.setter
+	def index(self, value):
+		self._index = value
+
+
+class RegisterStackInfo(object):
+	def __init__(self, storage_regs, top_relative_regs, stack_top_reg, index=None):
+		self._storage_regs = storage_regs
+		self._top_relative_regs = top_relative_regs
+		self._stack_top_reg = stack_top_reg
+		self._index = index
+
+	def __repr__(self):
+		return "<reg stack: %d regs, stack top in %s>" % (len(self._storage_regs), self._stack_top_reg)
+
+	@property
+	def storage_regs(self):
+		""" """
+		return self._storage_regs
+
+	@storage_regs.setter
+	def storage_regs(self, value):
+		self._storage_regs = value
+
+	@property
+	def top_relative_regs(self):
+		""" """
+		return self._top_relative_regs
+
+	@top_relative_regs.setter
+	def top_relative_regs(self, value):
+		self._top_relative_regs = value
+
+	@property
+	def stack_top_reg(self):
+		""" """
+		return self._stack_top_reg
+
+	@stack_top_reg.setter
+	def stack_top_reg(self, value):
+		self._stack_top_reg = value
+
+	@property
+	def index(self):
+		""" """
+		return self._index
+
+	@index.setter
+	def index(self, value):
+		self._index = value
+
+
+class IntrinsicInput(object):
+	def __init__(self, type_obj, name=""):
+		self._name = name
+		self._type = type_obj
+
+	def __repr__(self):
+		if len(self._name) == 0:
+			return "<input: %s>" % str(self._type)
+		return "<input: %s %s>" % (str(self._type), self._name)
+
+	@property
+	def name(self):
+		""" """
+		return self._name
+
+	@name.setter
+	def name(self, value):
+		self._name = value
+
+	@property
+	def type(self):
+		""" """
+		return self._type
+
+	@type.setter
+	def type(self, value):
+		self._type = value
+
+
+class IntrinsicInfo(object):
+	def __init__(self, inputs, outputs, index=None):
+		self._inputs = inputs
+		self._outputs = outputs
+		self._index = index
+
+	def __repr__(self):
+		return "<intrinsic: %s -> %s>" % (repr(self._inputs), repr(self._outputs))
+
+	@property
+	def inputs(self):
+		""" """
+		return self._inputs
+
+	@inputs.setter
+	def inputs(self, value):
+		self._inputs = value
+
+	@property
+	def outputs(self):
+		""" """
+		return self._outputs
+
+	@outputs.setter
+	def outputs(self, value):
+		self._outputs = value
+
+	@property
+	def index(self):
+		""" """
+		return self._index
+
+	@index.setter
+	def index(self, value):
+		self._index = value
+
+
+class InstructionBranch(object):
+	def __init__(self, branch_type, target = 0, arch = None):
+		self._type = branch_type
+		self._target = target
+		self._arch = arch
+
+	def __repr__(self):
+		branch_type = self._type
+		if self._arch is not None:
+			return "<%s: %s@%#x>" % (branch_type.name, self._arch.name, self._target)
+		return "<%s: %#x>" % (branch_type, self._target)
+
+	@property
+	def type(self):
+		""" """
+		return self._type
+
+	@type.setter
+	def type(self, value):
+		self._type = value
+
+	@property
+	def target(self):
+		""" """
+		return self._target
+
+	@target.setter
+	def target(self, value):
+		self._target = value
+
+	@property
+	def arch(self):
+		""" """
+		return self._arch
+
+	@arch.setter
+	def arch(self, value):
+		self._arch = value
+
+
+class InstructionInfo(object):
+	def __init__(self):
+		self.length = 0
+		self.arch_transition_by_target_addr = False
+		self.branch_delay = False
+		self.branches = []
+
+	def add_branch(self, branch_type, target = 0, arch = None):
+		self._branches.append(InstructionBranch(branch_type, target, arch))
+
+	def __len__(self):
+		return self._length
+
+	def __repr__(self):
+		branch_delay = ""
+		if self._branch_delay:
+			branch_delay = ", delay slot"
+		return "<instr: %d bytes%s, %s>" % (self._length, branch_delay, repr(self._branches))
+
+	@property
+	def length(self):
+		""" """
+		return self._length
+
+	@length.setter
+	def length(self, value):
+		self._length = value
+
+	@property
+	def arch_transition_by_target_addr(self):
+		""" """
+		return self._arch_transition_by_target_addr
+
+	@arch_transition_by_target_addr.setter
+	def arch_transition_by_target_addr(self, value):
+		self._arch_transition_by_target_addr = value
+
+	@property
+	def branch_delay(self):
+		""" """
+		return self._branch_delay
+
+	@branch_delay.setter
+	def branch_delay(self, value):
+		self._branch_delay = value
+
+	@property
+	def branches(self):
+		""" """
+		return self._branches
+
+	@branches.setter
+	def branches(self, value):
+		self._branches = value
 
 
 class _ArchitectureMetaClass(type):
@@ -79,7 +347,7 @@ class _ArchitectureMetaClass(type):
 		arch.handle = core.BNRegisterArchitecture(cls.name, arch._cb)
 
 
-class Architecture(with_metaclass(_ArchitectureMetaClass, object)):
+class Architecture(metaclass=_ArchitectureMetaClass):
 	"""
 	``class Architecture`` is the parent class for all CPU architectures. Subclasses of Architecture implement assembly,
 	disassembly, IL lifting, and patching.
@@ -369,9 +637,9 @@ class Architecture(with_metaclass(_ArchitectureMetaClass, object)):
 				info = self.__class__.intrinsics[intrinsic]
 				for i in range(0, len(info.inputs)):
 					if isinstance(info.inputs[i], types.Type):
-						info.inputs[i] = binaryninja.function.IntrinsicInput(info.inputs[i])
+						info.inputs[i] = IntrinsicInput(info.inputs[i])
 					elif isinstance(info.inputs[i], tuple):
-						info.inputs[i] = binaryninja.function.IntrinsicInput(info.inputs[i][0], info.inputs[i][1])
+						info.inputs[i] = IntrinsicInput(info.inputs[i][0], info.inputs[i][1])
 				info.index = intrinsic_index
 				self._intrinsics[intrinsic] = intrinsic_index
 				self._intrinsics_by_index[intrinsic_index] = (intrinsic, info)
@@ -550,7 +818,7 @@ class Architecture(with_metaclass(_ArchitectureMetaClass, object)):
 			tokens = info[0]
 			length[0] = info[1]
 			count[0] = len(tokens)
-			token_buf = binaryninja.function.InstructionTextToken.get_instruction_lines(tokens)
+			token_buf = binaryninja.function.InstructionTextToken._get_core_struct(tokens)
 			result[0] = token_buf
 			ptr = ctypes.cast(token_buf, ctypes.c_void_p)
 			self._pending_token_lists[ptr.value] = (ptr.value, token_buf)
@@ -1566,7 +1834,7 @@ class Architecture(with_metaclass(_ArchitectureMetaClass, object)):
 		"""
 		return core.BNGetArchitectureFlagName(self.handle, flag)
 
-	def get_reg_index(self, reg):
+	def get_reg_index(self, reg:Union[str, 'lowlevelil.ILRegister', int]) -> int:
 		if isinstance(reg, str):
 			return self.regs[reg].index
 		elif isinstance(reg, lowlevelil.ILRegister):
@@ -1580,7 +1848,7 @@ class Architecture(with_metaclass(_ArchitectureMetaClass, object)):
 			return reg_stack.index
 		return reg_stack
 
-	def get_flag_index(self, flag):
+	def get_flag_index(self, flag:Union[str, 'lowlevelil.ILFlag', int]):
 		if isinstance(flag, str):
 			return self._flags[flag]
 		elif isinstance(flag, lowlevelil.ILFlag):
@@ -1604,7 +1872,7 @@ class Architecture(with_metaclass(_ArchitectureMetaClass, object)):
 		:return: the name of the semantic flag class
 		:rtype: str
 		"""
-		if not isinstance(class_index, numbers.Integral):
+		if not isinstance(class_index, int):
 			raise ValueError("argument 'class_index' must be an integer")
 		try:
 			return self._semantic_flag_classes_by_index[class_index]
@@ -1626,7 +1894,7 @@ class Architecture(with_metaclass(_ArchitectureMetaClass, object)):
 		:return: the name of the semantic flag group
 		:rtype: str
 		"""
-		if not isinstance(group_index, numbers.Integral):
+		if not isinstance(group_index, int):
 			raise ValueError("argument 'group_index' must be an integer")
 		try:
 			return self._semantic_flag_groups_by_index[group_index]
@@ -2105,7 +2373,7 @@ class CoreArchitecture(Architecture):
 			name = core.BNGetArchitectureRegisterName(self.handle, regs[i])
 			info = core.BNGetArchitectureRegisterInfo(self.handle, regs[i])
 			full_width_reg = core.BNGetArchitectureRegisterName(self.handle, info.fullWidthRegister)
-			self.regs[name] = binaryninja.function.RegisterInfo(full_width_reg, info.size, info.offset,
+			self.regs[name] = RegisterInfo(full_width_reg, info.size, info.offset,
 				ImplicitRegisterExtend(info.extend), regs[i])
 			self._all_regs[name] = regs[i]
 			self._regs_by_index[regs[i]] = name
@@ -2270,7 +2538,7 @@ class CoreArchitecture(Architecture):
 			for j in range(0, info.topRelativeCount):
 				top_rel.append(core.BNGetArchitectureRegisterName(self.handle, info.firstTopRelativeReg + j))
 			top = core.BNGetArchitectureRegisterName(self.handle, info.stackTopReg)
-			self.reg_stacks[name] = binaryninja.function.RegisterStackInfo(storage, top_rel, top, regs[i])
+			self.reg_stacks[name] = RegisterStackInfo(storage, top_rel, top, regs[i])
 			self._all_reg_stacks[name] = regs[i]
 			self._reg_stacks_by_index[regs[i]] = name
 		core.BNFreeRegisterList(regs)
@@ -2288,7 +2556,7 @@ class CoreArchitecture(Architecture):
 			for j in range(0, input_count.value):
 				input_name = inputs[j].name
 				type_obj = types.Type(core.BNNewTypeReference(inputs[j].type), confidence = inputs[j].typeConfidence)
-				input_list.append(binaryninja.function.IntrinsicInput(type_obj, input_name))
+				input_list.append(IntrinsicInput(type_obj, input_name))
 			core.BNFreeNameAndTypeList(inputs, input_count.value)
 			output_count = ctypes.c_ulonglong()
 			outputs = core.BNGetArchitectureIntrinsicOutputs(self.handle, intrinsics[i], output_count)
@@ -2296,7 +2564,7 @@ class CoreArchitecture(Architecture):
 			for j in range(0, output_count.value):
 				output_list.append(types.Type(core.BNNewTypeReference(outputs[j].type), confidence = outputs[j].confidence))
 			core.BNFreeOutputTypeList(outputs, output_count.value)
-			self.intrinsics[name] = binaryninja.function.IntrinsicInfo(input_list, output_list)
+			self.intrinsics[name] = IntrinsicInfo(input_list, output_list)
 			self._intrinsics[name] = intrinsics[i]
 			self._intrinsics_by_index[intrinsics[i]] = (name, self.intrinsics[name])
 		core.BNFreeRegisterList(intrinsics)
@@ -2333,7 +2601,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(buf, data, len(data))
 		if not core.BNGetInstructionInfo(self.handle, buf, addr, len(data), info):
 			return None
-		result = binaryninja.function.InstructionInfo()
+		result = InstructionInfo()
 		result.length = info.length
 		result.arch_transition_by_target_addr = info.archTransitionByTargetAddr
 		result.branch_delay = info.branchDelay
@@ -2369,7 +2637,7 @@ class CoreArchitecture(Architecture):
 		tokens = ctypes.POINTER(core.BNInstructionTextToken)()
 		if not core.BNGetInstructionText(self.handle, buf, addr, length, tokens, count):
 			return None, 0
-		result = binaryninja.function.InstructionTextToken.get_instruction_lines(tokens, count.value)
+		result = binaryninja.function.InstructionTextToken._from_core_struct(tokens, count.value)
 		core.BNFreeInstructionText(tokens, count.value)
 		return result, length.value
 

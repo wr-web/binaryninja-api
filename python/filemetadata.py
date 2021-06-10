@@ -24,11 +24,11 @@ import ctypes
 
 # Binary Ninja Components
 import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja import associateddatastore #required for _FileMetadataAssociatedDataStore
-from binaryninja import log
-from binaryninja.enums import SaveOption
-from binaryninja import pyNativeStr
+from . import _binaryninjacore as core
+from .enums import SaveOption
+from . import associateddatastore #required for _FileMetadataAssociatedDataStore
+from . import log
+from . import pyNativeStr
 
 class NavigationHandler(object):
 	def _register(self, handle):
@@ -381,7 +381,7 @@ class FileMetadata(object):
 		:Example:
 
 			>>> import random
-			>>> bv.navigate(bv.view, random.choice(bv.functions).start)
+			>>> bv.navigate(bv.view, random.choice(list(bv.functions)).start)
 			True
 		"""
 		return core.BNNavigate(self.handle, str(view), offset)

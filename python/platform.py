@@ -18,17 +18,14 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+import os
 import ctypes
 
 # Binary Ninja components
 import binaryninja
-from binaryninja import _binaryninjacore as core
-from binaryninja import types
+from . import _binaryninjacore as core
+from . import types
 
-# 2-3 compatibility
-from binaryninja import range
-from binaryninja import with_metaclass
-import os
 
 
 class _PlatformMetaClass(type):
@@ -88,7 +85,7 @@ class _PlatformMetaClass(type):
 		return result
 
 
-class Platform(with_metaclass(_PlatformMetaClass, object)):
+class Platform(metaclass=_PlatformMetaClass):
 	"""
 	``class Platform`` contains all information related to the execution environment of the binary, mainly the
 	calling conventions used.
@@ -398,7 +395,7 @@ class Platform(with_metaclass(_PlatformMetaClass, object)):
 
 		if filename is None:
 			filename = "input"
-		if not (isinstance(source, str) or isinstance(source, unicode)):
+		if not isinstance(source, str):
 			raise AttributeError("Source must be a string")
 		dir_buf = (ctypes.c_char_p * len(include_dirs))()
 		for i in range(0, len(include_dirs)):

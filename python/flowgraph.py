@@ -24,20 +24,17 @@ import traceback
 
 # Binary Ninja components
 import binaryninja
-from binaryninja.enums import (BranchType, InstructionTextTokenType, HighlightStandardColor, FlowGraphOption,
+from . import _binaryninjacore as core
+from .enums import (BranchType, InstructionTextTokenType, HighlightStandardColor, FlowGraphOption,
 	EdgePenStyle, ThemeColor)
-from binaryninja import _binaryninjacore as core
-from binaryninja import function
-from binaryninja import binaryview
-from binaryninja import lowlevelil
-from binaryninja import mediumlevelil
-from binaryninja import highlevelil
-from binaryninja import basicblock
-from binaryninja import log
-from binaryninja import highlight
-
-# 2-3 compatibility
-from binaryninja import range
+from . import function
+from . import binaryview
+from . import lowlevelil
+from . import mediumlevelil
+from . import highlevelil
+from . import basicblock
+from . import log
+from . import highlight
 
 
 class FlowGraphEdge(object):
@@ -131,10 +128,10 @@ class FlowGraphNode(object):
 			for i in range(0, count.value):
 				addr = lines[i].addr
 				if (lines[i].instrIndex != 0xffffffffffffffff) and (block is not None) and hasattr(block, 'il_function'):
-					il_instr = block.il_function[lines[i].instrIndex]
+					il_instr = block.__dict__['il_function'][lines[i].instrIndex]
 				else:
 					il_instr = None
-				tokens = function.InstructionTextToken.get_instruction_lines(lines[i].tokens, lines[i].count)
+				tokens = function.InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count)
 				yield function.DisassemblyTextLine(tokens, addr, il_instr)
 		finally:
 			core.BNFreeDisassemblyTextLines(lines, count.value)
@@ -209,11 +206,11 @@ class FlowGraphNode(object):
 		for i in range(0, count.value):
 			addr = lines[i].addr
 			if (lines[i].instrIndex != 0xffffffffffffffff) and (block is not None) and hasattr(block, 'il_function'):
-				il_instr = block.il_function[lines[i].instrIndex]
+				il_instr = block.__dict__['il_function'][lines[i].instrIndex]
 			else:
 				il_instr = None
 			color = highlight.HighlightColor._from_core_struct(lines[i].highlight)
-			tokens = function.InstructionTextToken.get_instruction_lines(lines[i].tokens, lines[i].count)
+			tokens = function.InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count)
 			result.append(function.DisassemblyTextLine(tokens, addr, il_instr, color))
 		core.BNFreeDisassemblyTextLines(lines, count.value)
 		return result
@@ -247,7 +244,7 @@ class FlowGraphNode(object):
 				color = highlight.HighlightColor(color)
 			line_buf[i].highlight = color._get_core_struct()
 			line_buf[i].count = len(line.tokens)
-			line_buf[i].tokens = function.InstructionTextToken.get_instruction_lines(line.tokens)
+			line_buf[i].tokens = function.InstructionTextToken._get_core_struct(line.tokens)
 		core.BNSetFlowGraphNodeLines(self.handle, line_buf, len(lines))
 
 	@property

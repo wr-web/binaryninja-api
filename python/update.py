@@ -22,15 +22,11 @@ import traceback
 import ctypes
 
 # Binary Ninja components
-from binaryninja import _binaryninjacore as core
-from binaryninja import log
-
 import binaryninja
-from binaryninja.enums import UpdateResult
+from . import _binaryninjacore as core
+from .enums import UpdateResult
+from . import log
 
-# 2-3 compatibility
-from binaryninja import range
-from binaryninja import with_metaclass
 
 
 class _UpdateChannelMetaClass(type):
@@ -113,7 +109,7 @@ class UpdateProgressCallback(object):
 			log.log_error(traceback.format_exc())
 
 
-class UpdateChannel(with_metaclass(_UpdateChannelMetaClass, object)):
+class UpdateChannel(metaclass=_UpdateChannelMetaClass):
 	def __init__(self, name, desc, ver):
 		self._name = name
 		self._description = desc

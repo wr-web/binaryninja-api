@@ -54,8 +54,9 @@ def get_bininfo(bv):
 
 	contents += "| Start | Name   |\n"
 	contents += "|------:|:-------|\n"
-	for i in range(min(10, len(bv.functions))):
-		contents += "| 0x%x | %s |\n" % (bv.functions[i].start, bv.functions[i].symbol.full_name)
+	functions = list(bv.functions)
+	for i in range(min(10, len(functions))):
+		contents += "| 0x%x | %s |\n" % (functions[i].start, functions[i].symbol.full_name)
 
 	contents += "### First 10 Strings ###\n"
 	contents += "| Start | Length | String |\n"

@@ -22,11 +22,11 @@
 import atexit
 import sys
 import ctypes
-from time import gmtime
+from time import gmtime, struct_time
 import os
+from typing import Mapping, Optional
 
 from binaryninja.compatibility import *
-
 
 # Binary Ninja components
 import binaryninja._binaryninjacore as core
@@ -63,6 +63,7 @@ from binaryninja.settings import *
 from binaryninja.metadata import *
 from binaryninja.flowgraph import *
 from binaryninja.datarender import *
+from binaryninja.variable import *
 
 
 def shutdown():
@@ -131,13 +132,13 @@ def _init_plugins():
 _destruct_callbacks = _DestructionCallbackHandler()
 
 
-def disable_default_log():
+def disable_default_log() -> None:
 	'''Disable default logging in headless mode for the current session. By default, logging in headless operation is controlled by the 'python.log.minLevel' settings.'''
 	global _enable_default_log
 	_enable_default_log = False
 	close_logs()
 
-def bundled_plugin_path():
+def bundled_plugin_path() -> Optional[str]:
 	"""
 		``bundled_plugin_path`` returns a string containing the current plugin path inside the `install path <https://docs.binary.ninja/getting-started.html#binary-path>`_
 
@@ -146,7 +147,7 @@ def bundled_plugin_path():
 	"""
 	return core.BNGetBundledPluginDirectory()
 
-def user_plugin_path():
+def user_plugin_path() -> Optional[str]:
 	"""
 		``user_plugin_path`` returns a string containing the current plugin path inside the `user directory <https://docs.binary.ninja/getting-started.html#user-folder>`_
 
@@ -155,7 +156,7 @@ def user_plugin_path():
 	"""
 	return core.BNGetUserPluginDirectory()
 
-def user_directory():
+def user_directory() -> Optional[str]:
 	"""
 		``user_directory`` returns a string containing the path to the `user directory <https://docs.binary.ninja/getting-started.html#user-folder>`_
 
@@ -164,7 +165,7 @@ def user_directory():
 	"""
 	return core.BNGetUserDirectory()
 
-def core_version():
+def core_version() -> Optional[str]:
 	"""
 		``core_version`` returns a string containing the current version
 
@@ -173,7 +174,7 @@ def core_version():
 	"""
 	return core.BNGetVersionString()
 
-def core_build_id():
+def core_build_id() -> int:
 	"""
 		``core_build_id`` returns a integer containing the current build id
 
@@ -182,7 +183,7 @@ def core_build_id():
 	"""
 	return core.BNGetBuildId()
 
-def core_serial():
+def core_serial() -> Optional[str]:
 	"""
 		``core_serial`` returns a string containing the current serial number
 
@@ -191,28 +192,28 @@ def core_serial():
 	"""
 	return core.BNGetSerialNumber()
 
-def core_expires():
+def core_expires() -> struct_time:
 	'''License Expiration'''
 	return gmtime(core.BNGetLicenseExpirationTime())
 
-def core_product():
+def core_product() -> Optional[str]:
 	'''Product string from the license file'''
 	return core.BNGetProduct()
 
-def core_product_type():
+def core_product_type() -> Optional[str]:
 	'''Product type from the license file'''
 	return core.BNGetProductType()
 
-def core_license_count():
+def core_license_count() -> int:
 	'''License count from the license file'''
 	return core.BNGetLicenseCount()
 
-def core_ui_enabled():
+def core_ui_enabled() -> bool:
 	'''Indicates that a UI exists and the UI has invoked BNInitUI'''
 	return core.BNIsUIEnabled()
 
 
-def core_set_license(licenseData):
+def core_set_license(licenseData:str) -> None:
 	'''
 		``core_set_license`` is used to initialize the core with a license file that doesn't necessarily reside on a file system. This is especially useful for headless environments such as docker where loading the license file via an environment variable allows for greater security of the license file itself.
 
@@ -224,13 +225,13 @@ def core_set_license(licenseData):
 			>>> import os
 			>>> core_set_license(os.environ['BNLICENSE']) #Do this before creating any BinaryViews
 			>>> with open_view("/bin/ls") as bv:
-			...		print(len(bv.functions))
+			...		print(len(list(bv.functions)))
 			128
 	'''
 	core.BNSetLicense(licenseData)
 
 
-def get_memory_usage_info():
+def get_memory_usage_info() -> Mapping[str, int]:
 	count = ctypes.c_ulonglong()
 	info = core.BNGetMemoryUsageInfo(count)
 	result = {}
@@ -240,7 +241,7 @@ def get_memory_usage_info():
 	return result
 
 
-def open_view(*args, **kwargs):
+def open_view(*args, **kwargs) -> Optional[BinaryView]:
 	"""
 	`open_view` is a convenience wrapper for :py:class:`get_view_of_file_with_options` that opens a BinaryView object.
 
@@ -256,7 +257,7 @@ def open_view(*args, **kwargs):
 	:Example:
 		>>> from binaryninja import *
 		>>> with open_view("/bin/ls") as bv:
-		...     print(len(bv.functions))
+		...     print(len(list(bv.functions)))
 		...
 		128
 

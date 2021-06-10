@@ -18,24 +18,15 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-import struct
-import traceback
 import ctypes
-import abc
-import numbers
 
 # Binary Ninja components
-from binaryninja import _binaryninjacore as core
 import binaryninja
-from binaryninja import log
-from binaryninja import types
-from binaryninja import metadata
-from binaryninja import platform
-from binaryninja import architecture
+from . import _binaryninjacore as core
+from . import types
+from . import metadata
+from . import platform
 
-# 2-3 compatibility
-from binaryninja import range
-from binaryninja import with_metaclass
 
 class TypeLibrary(object):
 	def __init__(self, handle):
