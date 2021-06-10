@@ -7,7 +7,25 @@
 #include "uitypes.h"
 #include "viewframe.h"
 
-using VariableList = std::vector<std::pair<BinaryNinja::Variable, BinaryNinja::VariableNameAndType>>;
+enum class VariableListItemType {
+    LocalVariable,
+};
+
+class VariableListItem {
+    FunctionRef m_func;
+    VariableListItemType m_type;
+
+    BinaryNinja::Variable m_var;
+    BinaryNinja::VariableNameAndType m_nat;
+
+public:
+    VariableListItem(FunctionRef func, BinaryNinja::Variable var,
+        BinaryNinja::VariableNameAndType nat);
+
+    QString label() const;
+};
+
+using VariableList = std::vector<VariableListItem>;
 
 class BINARYNINJAUIAPI VariableListModel : public QAbstractListModel {
     Q_OBJECT
@@ -23,13 +41,15 @@ public:
     void setFunction(FunctionRef func);
 
     virtual QVariant data(const QModelIndex& i, int role) const override;
-    virtual QModelIndex index(int row, int col, const QModelIndex& parent = QModelIndex()) const override;
+    virtual QModelIndex index(int row, int col,
+        const QModelIndex& parent = QModelIndex()) const override;
 
     virtual int columnCount(const QModelIndex& parent = QModelIndex()) const override;
     virtual int rowCount(const QModelIndex& parent = QModelIndex()) const override;
 
     Qt::ItemFlags flags(const QModelIndex& index) const override;
-    virtual QVariant headerData(int column, Qt::Orientation orientation, int role) const override;
+    virtual QVariant headerData(int column, Qt::Orientation orientation,
+        int role) const override;
 };
 
 class BINARYNINJAUIAPI VariableListView
