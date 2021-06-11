@@ -15,6 +15,7 @@ enum class VariableListItemType {
 class VariableListItem {
     FunctionRef m_func;
     VariableListItemType m_type;
+    std::string m_name;
 
     BinaryNinja::Variable m_var;
     BinaryNinja::DataVariable m_dataVar;
@@ -23,7 +24,8 @@ class VariableListItem {
 public:
     VariableListItem(FunctionRef func, BinaryNinja::Variable var,
         BinaryNinja::VariableNameAndType nat);
-    VariableListItem(FunctionRef func, BinaryNinja::DataVariable dataVar);
+    VariableListItem(FunctionRef func, BinaryNinja::DataVariable dataVar,
+        std::string name);
 
     QString label() const;
 };
