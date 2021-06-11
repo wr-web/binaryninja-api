@@ -18,26 +18,55 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
+from enum import Flag
 import traceback
 import ctypes
 import abc
-from typing import Union
+from typing import Generator, Union, List, Optional, Mapping, Tuple
 
 # Binary Ninja components
 import binaryninja
 from . import _binaryninjacore as core
 from .enums import (Endianness, ImplicitRegisterExtend, BranchType,
-	LowLevelILFlagCondition, FlagRole)
+	LowLevelILFlagCondition, FlagRole, LowLevelILOperation)
 from . import log
 from . import lowlevelil
 from . import types
 from . import databuffer
 from . import platform
 from . import callingconvention
+from . import typelibrary
+from . import function
+from . import binaryview
+
+RegisterIndex = int
+RegisterStackIndex = int
+FlagIndex = int
+SemanticClassIndex = int
+SemanticGroupIndex = int
+IntrinsicIndex = int
+FlagWriteTypeIndex = int
+
+RegisterName = str
+RegisterStackName = str
+FlagName = str
+SemanticClassName = str
+SemanticGroupName = str
+IntrinsicName = str
+FlagWriteTypeName = str
+
+RegisterType = Union[str, 'lowlevelil.ILRegister', int]
+FlagType = Union[str, 'lowlevelil.ILFlag', int]
+RegisterStackType = Union[str, 'lowlevelil.ILRegisterStack', int]
+SemanticClassType = Union[str, 'lowlevelil.ILSemanticFlagClass', int]
+SemanticGroupType = Union[str, 'lowlevelil.ILSemanticFlagGroup', int]
+IntrinsicType = Union[str, 'lowlevelil.ILIntrinsic', int]
+
 
 
 class RegisterInfo(object):
-	def __init__(self, full_width_reg, size, offset=0, extend=ImplicitRegisterExtend.NoExtend, index=None):
+	def __init__(self, full_width_reg:str, size:int, offset:int=0,
+		extend:ImplicitRegisterExtend=ImplicitRegisterExtend.NoExtend, index:int=None):
 		self._full_width_reg = full_width_reg
 		self._offset = offset
 		self._size = size
@@ -54,48 +83,43 @@ class RegisterInfo(object):
 		return "<reg: size %d, offset %d in %s%s>" % (self._size, self._offset, self._full_width_reg, extend)
 
 	@property
-	def full_width_reg(self):
-		""" """
+	def full_width_reg(self) -> str:
 		return self._full_width_reg
 
 	@full_width_reg.setter
-	def full_width_reg(self, value):
+	def full_width_reg(self, value:str) -> None:
 		self._full_width_reg = value
 
 	@property
-	def offset(self):
-		""" """
+	def offset(self) -> int:
 		return self._offset
 
 	@offset.setter
-	def offset(self, value):
+	def offset(self, value:int) -> None:
 		self._offset = value
 
 	@property
-	def size(self):
-		""" """
+	def size(self) -> int:
 		return self._size
 
 	@size.setter
-	def size(self, value):
+	def size(self, value:int) -> None:
 		self._size = value
 
 	@property
-	def extend(self):
-		""" """
+	def extend(self) -> ImplicitRegisterExtend:
 		return self._extend
 
 	@extend.setter
-	def extend(self, value):
+	def extend(self, value:ImplicitRegisterExtend) -> None:
 		self._extend = value
 
 	@property
-	def index(self):
-		""" """
+	def index(self) -> Optional[int]:
 		return self._index
 
 	@index.setter
-	def index(self, value):
+	def index(self, value:int) -> None:
 		self._index = value
 
 
@@ -309,19 +333,7 @@ class InstructionInfo(object):
 
 
 class _ArchitectureMetaClass(type):
-
-	@property
-	def list(self):
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		archs = core.BNGetArchitectureList(count)
-		result = []
-		for i in range(0, count.value):
-			result.append(CoreArchitecture._from_cache(archs[i]))
-		core.BNFreeArchitectureList(archs)
-		return result
-
-	def __iter__(self):
+	def __iter__(self) -> Generator['Architecture', None, None]:
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
 		archs = core.BNGetArchitectureList(count)
@@ -331,20 +343,12 @@ class _ArchitectureMetaClass(type):
 		finally:
 			core.BNFreeArchitectureList(archs)
 
-	def __getitem__(cls, name):
+	def __getitem__(cls:'_ArchitectureMetaClass', name:str) -> 'Architecture':
 		binaryninja._init_plugins()
 		arch = core.BNGetArchitectureByName(name)
 		if arch is None:
 			raise KeyError("'%s' is not a valid architecture" % str(name))
 		return CoreArchitecture._from_cache(arch)
-
-	def register(cls):
-		binaryninja._init_plugins()
-		if cls.name is None:
-			raise ValueError("architecture 'name' is not defined")
-		arch = cls()
-		cls._registered_cb = arch._cb
-		arch.handle = core.BNRegisterArchitecture(cls.name, arch._cb)
 
 
 class Architecture(metaclass=_ArchitectureMetaClass):
@@ -388,7 +392,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 	global_regs = []
 	system_regs = []
 	flags = []
-	flag_write_types = []
+	flag_write_types:List[FlagWriteTypeName] = []
 	semantic_flag_classes = []
 	semantic_flag_groups = []
 	flag_roles = {}
@@ -485,25 +489,25 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		self._cb.invertBranch = self._cb.invertBranch.__class__(self._invert_branch)
 		self._cb.skipAndReturnValue = self._cb.skipAndReturnValue.__class__(self._skip_and_return_value)
 
-		self.__dict__["endianness"] = self.__class__.endianness
-		self.__dict__["address_size"] = self.__class__.address_size
-		self.__dict__["default_int_size"] = self.__class__.default_int_size
-		self.__dict__["instr_alignment"] = self.__class__.instr_alignment
-		self.__dict__["max_instr_length"] = self.__class__.max_instr_length
-		self.__dict__["opcode_display_length"] = self.__class__.opcode_display_length
-		self.__dict__["stack_pointer"] = self.__class__.stack_pointer
-		self.__dict__["link_reg"] = self.__class__.link_reg
+		self.endianness = self.__class__.endianness
+		self.address_size = self.__class__.address_size
+		self.default_int_size = self.__class__.default_int_size
+		self.instr_alignment = self.__class__.instr_alignment
+		self.max_instr_length = self.__class__.max_instr_length
+		self.opcode_display_length = self.__class__.opcode_display_length
+		self.stack_pointer = self.__class__.stack_pointer
+		self.link_reg = self.__class__.link_reg
 
-		self._all_regs = {}
-		self._full_width_regs = {}
-		self._regs_by_index = {}
-		self.__dict__["regs"] = self.__class__.regs
+		self._all_regs:Mapping[RegisterName, RegisterIndex] = {}
+		self._full_width_regs:Mapping[RegisterName, RegisterIndex] = {}
+		self._regs_by_index:Mapping[RegisterIndex, RegisterName] = {}
+		self.regs:Mapping[RegisterName, RegisterInfo] = self.__class__.regs
 		reg_index = 0
 
 		# Registers used for storage in register stacks must be sequential, so allocate these in order first
-		self._all_reg_stacks = {}
-		self._reg_stacks_by_index = {}
-		self.__dict__["reg_stacks"] = self.__class__.reg_stacks
+		self._all_reg_stacks:Mapping[RegisterStackName, RegisterStackIndex] = {}
+		self._reg_stacks_by_index:Mapping[RegisterStackIndex, RegisterStackName] = {}
+		self.reg_stacks:Mapping[RegisterStackName, RegisterStackInfo] = self.__class__.reg_stacks
 		reg_stack_index = 0
 		for reg_stack in self.reg_stacks:
 			info = self.reg_stacks[reg_stack]
@@ -538,9 +542,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			if info.full_width_reg not in self._full_width_regs:
 				self._full_width_regs[info.full_width_reg] = self._all_regs[info.full_width_reg]
 
-		self._flags = {}
-		self._flags_by_index = {}
-		self.__dict__["flags"] = self.__class__.flags
+		self._flags:Mapping[FlagName, FlagIndex] = {}
+		self._flags_by_index:Mapping[FlagIndex, FlagName] = {}
+		self.flags:List[FlagName] = self.__class__.flags
 		flag_index = 0
 		for flag in self.__class__.flags:
 			if flag not in self._flags:
@@ -548,9 +552,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 				self._flags_by_index[flag_index] = flag
 				flag_index += 1
 
-		self._flag_write_types = {}
-		self._flag_write_types_by_index = {}
-		self.__dict__["flag_write_types"] = self.__class__.flag_write_types
+		self._flag_write_types:Mapping[FlagWriteTypeName, FlagWriteTypeIndex] = {}
+		self._flag_write_types_by_index:Mapping[FlagWriteTypeIndex, FlagWriteTypeName] = {}
+		self.flag_write_types:List[FlagName] = self.__class__.flag_write_types
 		write_type_index = 1
 		for write_type in self.__class__.flag_write_types:
 			if write_type not in self._flag_write_types:
@@ -558,9 +562,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 				self._flag_write_types_by_index[write_type_index] = write_type
 				write_type_index += 1
 
-		self._semantic_flag_classes = {}
-		self._semantic_flag_classes_by_index = {}
-		self.__dict__["semantic_flag_classes"] = self.__class__.semantic_flag_classes
+		self._semantic_flag_classes:Mapping[SemanticClassName, SemanticClassIndex] = {}
+		self._semantic_flag_classes_by_index:Mapping[SemanticClassIndex, SemanticClassName] = {}
+		self.semantic_flag_classes:List[SemanticClassName] = self.__class__.semantic_flag_classes
 		semantic_class_index = 1
 		for sem_class in self.__class__.semantic_flag_classes:
 			if sem_class not in self._semantic_flag_classes:
@@ -568,9 +572,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 				self._semantic_flag_classes_by_index[semantic_class_index] = sem_class
 				semantic_class_index += 1
 
-		self._semantic_flag_groups = {}
-		self._semantic_flag_groups_by_index = {}
-		self.__dict__["semantic_flag_groups"] = self.__class__.semantic_flag_groups
+		self._semantic_flag_groups:Mapping[SemanticGroupName, SemanticGroupIndex] = {}
+		self._semantic_flag_groups_by_index:Mapping[SemanticGroupIndex, SemanticGroupName] = {}
+		self.semantic_flag_groups:List[SemanticGroupName] = self.__class__.semantic_flag_groups
 		semantic_group_index = 0
 		for sem_group in self.__class__.semantic_flag_groups:
 			if sem_group not in self._semantic_flag_groups:
@@ -578,26 +582,26 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 				self._semantic_flag_groups_by_index[semantic_group_index] = sem_group
 				semantic_group_index += 1
 
-		self._flag_roles = {}
-		self.__dict__["flag_roles"] = self.__class__.flag_roles
+		self._flag_roles:Mapping[FlagIndex, FlagRole] = {}
+		self.flag_roles:Mapping[FlagName, FlagRole] = self.__class__.flag_roles
 		for flag in self.__class__.flag_roles:
 			role = self.__class__.flag_roles[flag]
 			if isinstance(role, str):
 				role = FlagRole[role]
 			self._flag_roles[self._flags[flag]] = role
 
-		self.__dict__["flags_required_for_flag_condition"] = self.__class__.flags_required_for_flag_condition
+		self.flags_required_for_flag_condition:Mapping['lowlevelil.LowLevelILFlagCondition', List[FlagName]] = self.__class__.flags_required_for_flag_condition
 
-		self._flags_required_by_semantic_flag_group = {}
-		self.__dict__["flags_required_for_semantic_flag_group"] = self.__class__.flags_required_for_semantic_flag_group
+		self._flags_required_by_semantic_flag_group:Mapping[SemanticGroupIndex, List[FlagIndex]] = {}
+		self.flags_required_for_semantic_flag_group:Mapping[SemanticGroupName, List[SemanticGroupName]] = self.__class__.flags_required_for_semantic_flag_group
 		for group in self.__class__.flags_required_for_semantic_flag_group:
-			flags = []
+			flags:List[FlagIndex] = []
 			for flag in self.__class__.flags_required_for_semantic_flag_group[group]:
 				flags.append(self._flags[flag])
 			self._flags_required_by_semantic_flag_group[self._semantic_flag_groups[group]] = flags
 
 		self._flag_conditions_for_semantic_flag_group = {}
-		self.__dict__["flag_conditions_for_semantic_flag_group"] = self.__class__.flag_conditions_for_semantic_flag_group
+		self.flag_conditions_for_semantic_flag_group = self.__class__.flag_conditions_for_semantic_flag_group
 		for group in self.__class__.flag_conditions_for_semantic_flag_group:
 			class_cond = {}
 			for sem_class in self.__class__.flag_conditions_for_semantic_flag_group[group]:
@@ -608,7 +612,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			self._flag_conditions_for_semantic_flag_group[self._semantic_flag_groups[group]] = class_cond
 
 		self._flags_written_by_flag_write_type = {}
-		self.__dict__["flags_written_by_flag_write_type"] = self.__class__.flags_written_by_flag_write_type
+		self.flags_written_by_flag_write_type = self.__class__.flags_written_by_flag_write_type
 		for write_type in self.__class__.flags_written_by_flag_write_type:
 			flags = []
 			for flag in self.__class__.flags_written_by_flag_write_type[write_type]:
@@ -616,7 +620,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			self._flags_written_by_flag_write_type[self._flag_write_types[write_type]] = flags
 
 		self._semantic_class_for_flag_write_type = {}
-		self.__dict__["semantic_class_for_flag_write_type"] = self.__class__.semantic_class_for_flag_write_type
+		self.semantic_class_for_flag_write_type = self.__class__.semantic_class_for_flag_write_type
 		for write_type in self.__class__.semantic_class_for_flag_write_type:
 			sem_class = self.__class__.semantic_class_for_flag_write_type[write_type]
 			if sem_class in self._semantic_flag_classes:
@@ -625,12 +629,12 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 				sem_class_index = 0
 			self._semantic_class_for_flag_write_type[self._flag_write_types[write_type]] = sem_class_index
 
-		self.__dict__["global_regs"] = self.__class__.global_regs
-		self.__dict__["system_regs"] = self.__class__.system_regs
+		self.global_regs = self.__class__.global_regs
+		self.system_regs = self.__class__.system_regs
 
-		self._intrinsics = {}
-		self._intrinsics_by_index = {}
-		self.__dict__["intrinsics"] = self.__class__.intrinsics
+		self._intrinsics:Mapping[IntrinsicName, IntrinsicIndex] = {}
+		self._intrinsics_by_index:Mapping[IntrinsicIndex, Tuple[IntrinsicName, IntrinsicInfo]] = {}
+		self.intrinsics = self.__class__.intrinsics
 		intrinsic_index = 0
 		for intrinsic in self.__class__.intrinsics.keys():
 			if intrinsic not in self._intrinsics:
@@ -678,13 +682,17 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			except AttributeError:
 				raise AttributeError("attribute '%s' is read only" % name)
 
-	@property
-	def list(self):
-		"""Allow tab completion to discover metaclass list property"""
-		pass
+	@classmethod
+	def register(cls) -> None:
+		binaryninja._init_plugins()
+		if cls.name is None:
+			raise ValueError("architecture 'name' is not defined")
+		arch = cls()
+		cls._registered_cb = arch._cb
+		arch.handle = core.BNRegisterArchitecture(cls.name, arch._cb)
 
 	@property
-	def full_width_regs(self):
+	def full_width_regs(self) -> List[RegisterName]:
 		"""List of full width register strings (read-only)"""
 		count = ctypes.c_ulonglong()
 		regs = core.BNGetFullWidthArchitectureRegisters(self.handle, count)
@@ -695,7 +703,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		return result
 
 	@property
-	def calling_conventions(self):
+	def calling_conventions(self) -> Mapping[str, 'callingconvention.CallingConvention']:
 		"""Dict of CallingConvention objects (read-only)"""
 		count = ctypes.c_ulonglong()
 		cc = core.BNGetArchitectureCallingConventions(self.handle, count)
@@ -707,24 +715,24 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		return result
 
 	@property
-	def standalone_platform(self):
+	def standalone_platform(self) -> 'platform.Platform':
 		"""Architecture standalone platform (read-only)"""
 		pl = core.BNGetArchitectureStandalonePlatform(self.handle)
 		return platform.Platform(self, pl)
 
 	@property
-	def type_libraries(self):
+	def type_libraries(self) -> List['typelibrary.TypeLibrary']:
 		"""Architecture type libraries"""
 		count = ctypes.c_ulonglong(0)
 		result = []
 		handles = core.BNGetArchitectureTypeLibraries(self.handle, count)
 		for i in range(0, count.value):
-			result.append(binaryninja.typelibrary.TypeLibrary(core.BNNewTypeLibraryReference(handles[i])))
+			result.append(typelibrary.TypeLibrary(core.BNNewTypeLibraryReference(handles[i])))
 		core.BNFreeTypeLibraryList(handles, count.value)
 		return result
 
 	@property
-	def can_assemble(self):
+	def can_assemble(self) -> bool:
 		"""returns if the architecture can assemble instructions (read-only)"""
 		return core.BNCanArchitectureAssemble(self.handle)
 
@@ -818,7 +826,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			tokens = info[0]
 			length[0] = info[1]
 			count[0] = len(tokens)
-			token_buf = binaryninja.function.InstructionTextToken._get_core_struct(tokens)
+			token_buf = function.InstructionTextToken._get_core_struct(tokens)
 			result[0] = token_buf
 			ptr = ctypes.cast(token_buf, ctypes.c_void_p)
 			self._pending_token_lists[ptr.value] = (ptr.value, token_buf)
@@ -868,7 +876,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			log.log_error(traceback.format_exc())
 			return core.BNAllocString("")
 
-	def _get_flag_write_type_name(self, ctxt, write_type):
+	def _get_flag_write_type_name(self, ctxt, write_type:int):
 		try:
 			if write_type in self._flag_write_types_by_index:
 				return core.BNAllocString(self._flag_write_types_by_index[write_type])
@@ -985,16 +993,13 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			count[0] = 0
 			return None
 
-	def _get_flag_role(self, ctxt, flag, sem_class):
-		try:
-			if sem_class in self._semantic_flag_classes_by_index:
-				sem_class = self._semantic_flag_classes_by_index[sem_class]
-			else:
-				sem_class = None
-			return self.get_flag_role(flag, sem_class)
-		except KeyError:
-			log.log_error(traceback.format_exc())
-			return FlagRole.SpecialFlagRole
+	def _get_flag_role(self, ctxt, flag:FlagIndex, sem_class:Optional[SemanticClassName]=None):
+		if sem_class in self._semantic_flag_classes:
+			assert sem_class is not None
+			_sem_class = self._semantic_flag_classes[sem_class]
+		else:
+			_sem_class = None
+		return self.get_flag_role(flag, _sem_class)
 
 	def _get_flags_required_for_flag_condition(self, ctxt, cond, sem_class, count):
 		try:
@@ -1171,6 +1176,8 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			result[0].extend = ImplicitRegisterExtend.NoExtend
 
 	def _get_stack_pointer_register(self, ctxt):
+		if self.stack_pointer is None:
+			return None
 		try:
 			return self._all_regs[self.stack_pointer]
 		except KeyError:
@@ -1482,234 +1489,10 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			log.log_error(traceback.format_exc())
 			return False
 
-	def perform_get_associated_arch_by_address(self, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_associated_arch_by_address`.
-		"""
+	def get_associated_arch_by_address(self, addr:int) -> Tuple['Architecture', int]:
 		return self, addr
 
-	@abc.abstractmethod
-	def perform_get_instruction_info(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_instruction_info`.
-
-		:param str data: bytes to decode
-		:param int addr: virtual address of the byte to be decoded
-		:return: a :py:class:`InstructionInfo` object containing the length and branch types for the given instruction
-		:rtype: InstructionInfo
-		"""
-		raise NotImplementedError
-
-	@abc.abstractmethod
-	def perform_get_instruction_text(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_instruction_text`.
-
-		:param str data: bytes to decode
-		:param int addr: virtual address of the byte to be decoded
-		:return: a tuple of list(InstructionTextToken) and length of instruction decoded
-		:rtype: tuple(list(InstructionTextToken), int)
-		"""
-		raise NotImplementedError
-
-	@abc.abstractmethod
-	def perform_get_instruction_low_level_il(self, data, addr, il):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_instruction_low_level_il`.
-
-		:param str data: bytes to be interpreted as low-level IL instructions
-		:param int addr: virtual address of start of ``data``
-		:param LowLevelILFunction il: LowLevelILFunction object to append LowLevelILExpr objects to
-		:rtype: length of bytes read on success, None on failure
-		"""
-		raise NotImplementedError
-
-	@abc.abstractmethod
-	def perform_get_flag_write_low_level_il(self, op, size, write_type, flag, operands, il):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_flag_write_low_level_il`.
-
-		:param LowLevelILOperation op:
-		:param int size:
-		:param int write_type:
-		:param int flag:
-		:param operands:
-		:type operands: list(str) or list(int)
-		:param LowLevelILFunction il:
-		:rtype: LowLevelILExpr
-		"""
-		flag = self.get_flag_index(flag)
-		if flag not in self._flag_roles:
-			return il.unimplemented()
-		return self.get_default_flag_write_low_level_il(op, size, self._flag_roles[flag], operands, il)
-
-	@abc.abstractmethod
-	def perform_get_flag_condition_low_level_il(self, cond, sem_class, il):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_flag_condition_low_level_il`.
-
-		:param LowLevelILFlagCondition cond: Flag condition to be computed
-		:param str sem_class: Semantic class to be used (None for default semantics)
-		:param LowLevelILFunction il: LowLevelILFunction object to append LowLevelILExpr objects to
-		:rtype: LowLevelILExpr
-		"""
-		return self.get_default_flag_condition_low_level_il(cond, sem_class, il)
-
-	@abc.abstractmethod
-	def perform_get_semantic_flag_group_low_level_il(self, sem_group, il):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_semantic_flag_group_low_level_il`.
-
-		:param str sem_group: Semantic group to be computed
-		:param LowLevelILFunction il: LowLevelILFunction object to append LowLevelILExpr objects to
-		:rtype: LowLevelILExpr
-		"""
-		return il.unimplemented()
-
-	@abc.abstractmethod
-	def perform_assemble(self, code, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`assemble`.
-
-		:param str code: string representation of the instructions to be assembled
-		:param int addr: virtual address that the instructions will be loaded at
-		:return: the bytes for the assembled instructions or error string
-		:rtype: (a tuple of instructions and empty string) or (or None and error string)
-		"""
-		raise NotImplementedError("Architecture does not implement an assembler.\n")
-
-	@abc.abstractmethod
-	def perform_is_never_branch_patch_available(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`is_never_branch_patch_available`.
-
-		.. note:: Architecture subclasses should implement this method.
-
-		.. warning:: This method should never be called directly.
-
-		:param str data: bytes to be checked
-		:param int addr: the virtual address of the instruction to be patched
-		:return: True if the instruction can be patched, False otherwise
-		:rtype: bool
-		"""
-		return False
-
-	@abc.abstractmethod
-	def perform_is_always_branch_patch_available(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`is_always_branch_patch_available`.
-
-		:param str data: bytes to be checked
-		:param int addr: the virtual address of the instruction to be patched
-		:return: True if the instruction can be patched, False otherwise
-		:rtype: bool
-		"""
-		return False
-
-	@abc.abstractmethod
-	def perform_is_invert_branch_patch_available(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`is_invert_branch_patch_available`.
-
-		:param int addr: the virtual address of the instruction to be patched
-		:return: True if the instruction can be patched, False otherwise
-		:rtype: bool
-		"""
-		return False
-
-	@abc.abstractmethod
-	def perform_is_skip_and_return_zero_patch_available(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`is_skip_and_return_zero_patch_available`.
-
-		:param str data: bytes to be checked
-		:param int addr: the virtual address of the instruction to be patched
-		:return: True if the instruction can be patched, False otherwise
-		:rtype: bool
-		"""
-		return False
-
-	@abc.abstractmethod
-	def perform_is_skip_and_return_value_patch_available(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`is_skip_and_return_value_patch_available`.
-
-		:param str data: bytes to be checked
-		:param int addr: the virtual address of the instruction to be patched
-		:return: True if the instruction can be patched, False otherwise
-		:rtype: bool
-		"""
-		return False
-
-	@abc.abstractmethod
-	def perform_convert_to_nop(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`convert_to_nop`.
-
-		:param str data: bytes at virtual address ``addr``
-		:param int addr: the virtual address of the instruction to be patched
-		:return: nop sequence of same length as ``data`` or None
-		:rtype: str or None
-		"""
-		return None
-
-	@abc.abstractmethod
-	def perform_always_branch(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`always_branch`.
-
-		:param str data: bytes to be checked
-		:param int addr: the virtual address of the instruction to be patched
-		:return: The bytes of the replacement unconditional branch instruction
-		:rtype: str
-		"""
-		return None
-
-	@abc.abstractmethod
-	def perform_invert_branch(self, data, addr):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`invert_branch`.
-
-		:param str data: bytes to be checked
-		:param int addr: the virtual address of the instruction to be patched
-		:return: The bytes of the replacement unconditional branch instruction
-		:rtype: str
-		"""
-		return None
-
-	@abc.abstractmethod
-	def perform_skip_and_return_value(self, data, addr, value):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`skip_and_return_value`.
-
-		:param str data: bytes to be checked
-		:param int addr: the virtual address of the instruction to be patched
-		:param int value: value to be returned
-		:return: The bytes of the replacement unconditional branch instruction
-		:rtype: str
-		"""
-		return None
-
-	def perform_get_flag_role(self, flag, sem_class):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_flag_role`.
-		"""
-		if flag in self._flag_roles:
-			return self._flag_roles[flag]
-		return FlagRole.SpecialFlagRole
-
-	def perform_get_flags_required_for_flag_condition(self, cond, sem_class):
-		"""
-		Deprecated method provided for compatibility. Architecture plugins should override :func:`get_flags_required_for_flag_condition`.
-		"""
-		if cond in self.flags_required_for_flag_condition:
-			return self.flags_required_for_flag_condition[cond]
-		return []
-
-	def get_associated_arch_by_address(self, addr):
-		return self.perform_get_associated_arch_by_address(addr)
-
-	def get_instruction_info(self, data, addr):
+	def get_instruction_info(self, data:bytes, addr:int) -> Optional[InstructionInfo]:
 		"""
 		``get_instruction_info`` returns an InstructionInfo object for the instruction at the given virtual address
 		``addr`` with data ``data``.
@@ -1739,9 +1522,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		:return: the InstructionInfo for the current instruction
 		:rtype: InstructionInfo
 		"""
-		return self.perform_get_instruction_info(data, addr)
+		raise NotImplementedError
 
-	def get_instruction_text(self, data, addr):
+	def get_instruction_text(self, data:bytes, addr:int) -> Tuple[List['function.InstructionTextToken'], int]:
 		"""
 		``get_instruction_text`` returns a tuple containing a list of decoded InstructionTextToken objects and the bytes used at the given virtual
 		address ``addr`` with data ``data``.
@@ -1753,15 +1536,15 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		:return: a tuple containing the InstructionTextToken list and length of bytes decoded
 		:rtype: tuple(list(InstructionTextToken), int)
 		"""
-		return self.perform_get_instruction_text(data, addr)
+		raise NotImplementedError
 
-	def get_instruction_low_level_il_instruction(self, bv, addr):
+	def get_instruction_low_level_il_instruction(self, bv:'binaryview.BinaryView', addr:int) -> 'lowlevelil.LowLevelILInstruction':
 		il = lowlevelil.LowLevelILFunction(self)
 		data = bv.read(addr, self.max_instr_length)
 		self.get_instruction_low_level_il(data, addr, il)
 		return il[0]
 
-	def get_instruction_low_level_il(self, data, addr, il):
+	def get_instruction_low_level_il(self, data:bytes, addr:int, il:'lowlevelil.LowLevelILFunction') -> int:
 		"""
 		``get_instruction_low_level_il`` appends LowLevelILExpr objects to ``il`` for the instruction at the given
 		virtual address ``addr`` with data ``data``.
@@ -1777,9 +1560,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		:return: the length of the current instruction
 		:rtype: int
 		"""
-		return self.perform_get_instruction_low_level_il(data, addr, il)
+		raise NotImplementedError
 
-	def get_low_level_il_from_bytes(self, data, addr):
+	def get_low_level_il_from_bytes(self, data:bytes, addr:int) -> 'lowlevelil.LowLevelILInstruction':
 		"""
 		``get_low_level_il_from_bytes`` converts the instruction in bytes to ``il`` at the given virtual address
 
@@ -1797,17 +1580,17 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		self.get_instruction_low_level_il(data, addr, func)
 		return func[0]
 
-	def get_reg_name(self, reg):
+	def get_reg_name(self, reg:RegisterIndex) -> RegisterName:
 		"""
-		``get_reg_name`` gets a register name from a register number.
+		``get_reg_name`` gets a register name from a register index.
 
-		:param int reg: register number
-		:return: the corresponding register string
-		:rtype: str
+		:param RegisterIndex reg: register index
+		:return: the corresponding register name
+		:rtype: RegisterName
 		"""
 		return core.BNGetArchitectureRegisterName(self.handle, reg)
 
-	def get_reg_stack_name(self, reg_stack):
+	def get_reg_stack_name(self, reg_stack:RegisterStackIndex) -> RegisterStackName:
 		"""
 		``get_reg_stack_name`` gets a register stack name from a register stack number.
 
@@ -1817,45 +1600,54 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		"""
 		return core.BNGetArchitectureRegisterStackName(self.handle, reg_stack)
 
-	def get_reg_stack_for_reg(self, reg):
-		reg = self.get_reg_index(reg)
-		result = core.BNGetArchitectureRegisterStackForRegister(self.handle, reg)
+	def get_reg_stack_for_reg(self, reg:RegisterName) -> Optional[RegisterStackName]:
+		_reg = self.get_reg_index(reg)
+		result = core.BNGetArchitectureRegisterStackForRegister(self.handle, _reg)
 		if result == 0xffffffff:
 			return None
 		return self.get_reg_stack_name(result)
 
-	def get_flag_name(self, flag):
+	def get_flag_name(self, flag:FlagIndex) -> FlagName:
 		"""
-		``get_flag_name`` gets a flag name from a flag number.
+		``get_flag_name`` gets a flag name from a flag index.
 
-		:param int reg: register number
-		:return: the corresponding register string
+		:param int flag: flag index
+		:return: the corresponding flag name string
 		:rtype: str
 		"""
 		return core.BNGetArchitectureFlagName(self.handle, flag)
 
-	def get_reg_index(self, reg:Union[str, 'lowlevelil.ILRegister', int]) -> int:
+	def get_reg_index(self, reg:RegisterType) -> RegisterIndex:
 		if isinstance(reg, str):
-			return self.regs[reg].index
+			try:
+				index = self.regs[reg].index
+				assert index is not None
+				return index
+			except KeyError:
+				log.log_error(f"Failed to map string {reg} to register index: ")
+				log.log_error(traceback.format_exc())
+				return 0
 		elif isinstance(reg, lowlevelil.ILRegister):
 			return reg.index
 		return reg
 
-	def get_reg_stack_index(self, reg_stack):
+	def get_reg_stack_index(self, reg_stack:RegisterStackType) -> RegisterStackIndex:
 		if isinstance(reg_stack, str):
-			return self.reg_stacks[reg_stack].index
+			index = self.reg_stacks[reg_stack].index
+			assert index is not None
+			return index
 		elif isinstance(reg_stack, lowlevelil.ILRegisterStack):
 			return reg_stack.index
 		return reg_stack
 
-	def get_flag_index(self, flag:Union[str, 'lowlevelil.ILFlag', int]):
+	def get_flag_index(self, flag:FlagType) -> FlagIndex:
 		if isinstance(flag, str):
 			return self._flags[flag]
 		elif isinstance(flag, lowlevelil.ILFlag):
 			return flag.index
 		return flag
 
-	def get_semantic_flag_class_index(self, sem_class):
+	def get_semantic_flag_class_index(self, sem_class:Optional[SemanticClassType]) -> SemanticClassIndex:
 		if sem_class is None:
 			return 0
 		elif isinstance(sem_class, str):
@@ -1864,7 +1656,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			return sem_class.index
 		return sem_class
 
-	def get_semantic_flag_class_name(self, class_index):
+	def get_semantic_flag_class_name(self, class_index:SemanticClassIndex) -> SemanticClassName:
 		"""
 		``get_semantic_flag_class_name`` gets the name of a semantic flag class from the index.
 
@@ -1879,14 +1671,14 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		except KeyError:
 			raise AttributeError("argument class_index is not a valid class index")
 
-	def get_semantic_flag_group_index(self, sem_group):
+	def get_semantic_flag_group_index(self, sem_group:SemanticGroupType) -> SemanticGroupIndex:
 		if isinstance(sem_group, str):
 			return self._semantic_flag_groups[sem_group]
 		elif isinstance(sem_group, lowlevelil.ILSemanticFlagGroup):
 			return sem_group.index
 		return sem_group
 
-	def get_semantic_flag_group_name(self, group_index):
+	def get_semantic_flag_group_name(self, group_index:SemanticGroupIndex) -> SemanticGroupName:
 		"""
 		``get_semantic_flag_group_name`` gets the name of a semantic flag group from the index.
 
@@ -1901,7 +1693,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		except KeyError:
 			raise AttributeError("argument group_index is not a valid group index")
 
-	def get_intrinsic_name(self, intrinsic):
+	def get_intrinsic_name(self, intrinsic:IntrinsicIndex) -> IntrinsicName:
 		"""
 		``get_intrinsic_name`` gets an intrinsic name from an intrinsic number.
 
@@ -1911,14 +1703,14 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		"""
 		return core.BNGetArchitectureIntrinsicName(self.handle, intrinsic)
 
-	def get_intrinsic_index(self, intrinsic):
+	def get_intrinsic_index(self, intrinsic:IntrinsicType) -> IntrinsicIndex:
 		if isinstance(intrinsic, str):
 			return self._intrinsics[intrinsic]
 		elif isinstance(intrinsic, lowlevelil.ILIntrinsic):
 			return intrinsic.index
 		return intrinsic
 
-	def get_flag_write_type_name(self, write_type):
+	def get_flag_write_type_name(self, write_type:FlagWriteTypeIndex) -> FlagWriteTypeName:
 		"""
 		``get_flag_write_type_name`` gets the flag write type name for the given flag.
 
@@ -1928,27 +1720,27 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		"""
 		return core.BNGetArchitectureFlagWriteTypeName(self.handle, write_type)
 
-	def get_flag_by_name(self, flag):
+	def get_flag_by_name(self, flag:FlagName) -> FlagIndex:
 		"""
 		``get_flag_by_name`` get flag name for flag index.
 
-		:param int flag: flag index
-		:return: flag name for flag index
-		:rtype: str
+		:param str flag: flag name
+		:return: flag index for flag name
+		:rtype: FlagIndex
 		"""
 		return self._flags[flag]
 
-	def get_flag_write_type_by_name(self, write_type):
+	def get_flag_write_type_by_name(self, write_type:FlagWriteTypeName) -> FlagWriteTypeIndex:
 		"""
 		``get_flag_write_type_by_name`` gets the flag write type name for the flag write type.
 
-		:param int write_type: flag write type
+		:param str write_type: flag write type
 		:return: flag write type
-		:rtype: str
+		:rtype: int
 		"""
 		return self._flag_write_types[write_type]
 
-	def get_semantic_flag_class_by_name(self, sem_class):
+	def get_semantic_flag_class_by_name(self, sem_class:SemanticClassName) -> SemanticClassIndex:
 		"""
 		``get_semantic_flag_class_by_name`` gets the semantic flag class index by name.
 
@@ -1958,17 +1750,17 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		"""
 		return self._semantic_flag_classes[sem_class]
 
-	def get_semantic_flag_group_by_name(self, sem_group):
+	def get_semantic_flag_group_by_name(self, sem_group:SemanticGroupName) -> SemanticGroupIndex:
 		"""
 		``get_semantic_flag_group_by_name`` gets the semantic flag group index by name.
 
-		:param int sem_group: semantic flag group
+		:param SemanticGroupName sem_group: semantic flag group name
 		:return: semantic flag group index
-		:rtype: str
+		:rtype: int
 		"""
 		return self._semantic_flag_groups[sem_group]
 
-	def get_flag_role(self, flag, sem_class = None):
+	def get_flag_role(self, flag:FlagIndex, sem_class:Optional[SemanticClassIndex]= None) -> FlagRole:
 		"""
 		``get_flag_role`` gets the role of a given flag.
 
@@ -1977,9 +1769,12 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		:return: flag role
 		:rtype: FlagRole
 		"""
-		return self.perform_get_flag_role(flag, sem_class)
+		if flag in self._flag_roles:
+			return self._flag_roles[flag]
+		return FlagRole.SpecialFlagRole
 
-	def get_flag_write_low_level_il(self, op, size, write_type, flag, operands, il):
+	def get_flag_write_low_level_il(self, op:LowLevelILOperation, size:int, write_type:Optional[FlagWriteTypeName], flag:FlagType,
+		operands:List['lowlevelil.ILRegisterType'], il:'lowlevelil.LowLevelILFunction') -> 'lowlevelil.LowLevelILExpr':
 		"""
 		:param LowLevelILOperation op:
 		:param int size:
@@ -1989,9 +1784,13 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		:param LowLevelILFunction il:
 		:rtype: LowLevelILExpr
 		"""
-		return self.perform_get_flag_write_low_level_il(op, size, write_type, flag, operands, il)
+		flag = self.get_flag_index(flag)
+		if flag not in self._flag_roles:
+			return il.unimplemented()
+		return self.get_default_flag_write_low_level_il(op, size, self._flag_roles[flag], operands, il)
 
-	def get_default_flag_write_low_level_il(self, op, size, role, operands, il):
+	def get_default_flag_write_low_level_il(self, op:'lowlevelil.LowLevelILOperation', size:int, role:FlagRole,
+		operands:List['lowlevelil.ILRegisterType'], il:'lowlevelil.LowLevelILFunction') -> 'lowlevelil.LowLevelILExpr':
 		"""
 		:param LowLevelILOperation op:
 		:param int size:
@@ -2003,49 +1802,56 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		"""
 		operand_list = (core.BNRegisterOrConstant * len(operands))()
 		for i in range(len(operands)):
-			if isinstance(operands[i], str):
+			operand = operands[i]
+			if isinstance(operand, str):
 				operand_list[i].constant = False
-				operand_list[i].reg = self.regs[operands[i]].index
-			elif isinstance(operands[i], lowlevelil.ILRegister):
+				operand_list[i].reg = self.regs[operand].index
+			elif isinstance(operand, lowlevelil.ILRegister):
 				operand_list[i].constant = False
-				operand_list[i].reg = operands[i].index
+				operand_list[i].reg = operand.index
 			else:
 				operand_list[i].constant = True
-				operand_list[i].value = operands[i]
+				operand_list[i].value = operand
 		return lowlevelil.LowLevelILExpr(core.BNGetDefaultArchitectureFlagWriteLowLevelIL(self.handle, op, size,
 			role, operand_list, len(operand_list), il.handle))
 
-	def get_flag_condition_low_level_il(self, cond, sem_class, il):
+	def get_flag_condition_low_level_il(self, cond:'lowlevelil.LowLevelILFlagCondition', sem_class:Optional[SemanticClassType],
+		il:'lowlevelil.LowLevelILFunction') -> 'lowlevelil.LowLevelILExpr':
 		"""
 		:param LowLevelILFlagCondition cond: Flag condition to be computed
-		:param str sem_class: Semantic class to be used (None for default semantics)
+		:param SemanticClassType sem_class: Semantic class to be used (None for default semantics)
 		:param LowLevelILFunction il: LowLevelILFunction object to append LowLevelILExpr objects to
 		:rtype: LowLevelILExpr
 		"""
-		return self.perform_get_flag_condition_low_level_il(cond, sem_class, il)
+		return self.get_default_flag_condition_low_level_il(cond, sem_class, il)
 
-	def get_default_flag_condition_low_level_il(self, cond, sem_class, il):
+	def get_default_flag_condition_low_level_il(self, cond:'lowlevelil.LowLevelILFlagCondition',
+		sem_class:Optional[SemanticClassType], il:'lowlevelil.LowLevelILFunction') -> 'lowlevelil.LowLevelILExpr':
 		"""
 		:param LowLevelILFlagCondition cond:
-		:param LowLevelILFunction il:
 		:param str sem_class:
+		:param LowLevelILFunction il:
 		:rtype: LowLevelILExpr
 		"""
 		class_index = self.get_semantic_flag_class_index(sem_class)
 		return lowlevelil.LowLevelILExpr(core.BNGetDefaultArchitectureFlagConditionLowLevelIL(self.handle, cond, class_index, il.handle))
 
-	def get_semantic_flag_group_low_level_il(self, sem_group, il):
+	def get_semantic_flag_group_low_level_il(self, sem_group:Optional[SemanticClassType],
+		il:'lowlevelil.LowLevelILFunction') -> 'lowlevelil.LowLevelILExpr':
 		"""
 		:param str sem_group:
 		:param LowLevelILFunction il:
 		:rtype: LowLevelILExpr
 		"""
-		return self.perform_get_semantic_flag_group_low_level_il(sem_group, il)
+		return il.unimplemented()
 
-	def get_flags_required_for_flag_condition(self, cond, sem_class = None):
-		return self.perform_get_flags_required_for_flag_condition(cond, sem_class)
+	def get_flags_required_for_flag_condition(self, cond:'lowlevelil.LowLevelILFlagCondition',
+		sem_class:Optional[SemanticClassType]=None):
+		if cond in self.flags_required_for_flag_condition:
+			return self.flags_required_for_flag_condition[cond]
+		return []
 
-	def get_modified_regs_on_write(self, reg):
+	def get_modified_regs_on_write(self, reg:RegisterName) -> List[RegisterName]:
 		"""
 		``get_modified_regs_on_write`` returns a list of register names that are modified when ``reg`` is written.
 
@@ -2062,7 +1868,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		core.BNFreeRegisterList(regs)
 		return result
 
-	def assemble(self, code, addr=0):
+	def assemble(self, code:str, addr:int=0) -> bytes:
 		"""
 		``assemble`` converts the string of assembly instructions ``code`` loaded at virtual address ``addr`` to the
 		byte representation of those instructions.
@@ -2087,9 +1893,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			b'\\x0f\\x84\\x04\\x00\\x00\\x00'
 			>>>
 		"""
-		return self.perform_assemble(code, addr)
+		return NotImplemented
 
-	def is_never_branch_patch_available(self, data, addr):
+	def is_never_branch_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_never_branch_patch_available`` determines if the instruction ``data`` at ``addr`` can be made to **never branch**.
 
@@ -2107,9 +1913,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			False
 			>>>
 		"""
-		return self.perform_is_never_branch_patch_available(data, addr)
+		return NotImplemented
 
-	def is_always_branch_patch_available(self, data, addr):
+	def is_always_branch_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_always_branch_patch_available`` determines if the instruction ``data`` at ``addr`` can be made to
 		**always branch**.
@@ -2128,9 +1934,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			False
 			>>>
 		"""
-		return self.perform_is_always_branch_patch_available(data, addr)
+		return NotImplemented
 
-	def is_invert_branch_patch_available(self, data, addr):
+	def is_invert_branch_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_always_branch_patch_available`` determines if the instruction ``data`` at ``addr`` can be inverted.
 
@@ -2148,9 +1954,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			False
 			>>>
 		"""
-		return self.perform_is_invert_branch_patch_available(data, addr)
+		return NotImplemented
 
-	def is_skip_and_return_zero_patch_available(self, data, addr):
+	def is_skip_and_return_zero_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_skip_and_return_zero_patch_available`` determines if the instruction ``data`` at ``addr`` is a *call-like*
 		instruction that can be made into an instruction *returns zero*.
@@ -2171,9 +1977,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			False
 			>>>
 		"""
-		return self.perform_is_skip_and_return_zero_patch_available(data, addr)
+		return NotImplemented
 
-	def is_skip_and_return_value_patch_available(self, data, addr):
+	def is_skip_and_return_value_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_skip_and_return_value_patch_available`` determines if the instruction ``data`` at ``addr`` is a *call-like*
 		instruction that can be made into an instruction *returns a value*.
@@ -2192,9 +1998,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			False
 			>>>
 		"""
-		return self.perform_is_skip_and_return_value_patch_available(data, addr)
+		return NotImplemented
 
-	def convert_to_nop(self, data, addr):
+	def convert_to_nop(self, data:bytes, addr:int=0) -> Optional[bytes]:
 		"""
 		``convert_to_nop`` reads the instruction(s) in ``data`` at virtual address ``addr`` and returns a string of nop
 		instructions of the same length as data.
@@ -2211,9 +2017,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			b'\\x90\\x90'
 			>>>
 		"""
-		return self.perform_convert_to_nop(data, addr)
+		return NotImplemented
 
-	def always_branch(self, data, addr):
+	def always_branch(self, data:bytes, addr:int=0) -> Optional[bytes]:
 		"""
 		``always_branch`` reads the instruction(s) in ``data`` at virtual address ``addr`` and returns a string of bytes
 		of the same length which always branches.
@@ -2233,9 +2039,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			(['jmp', '     ', '0x9'], 5)
 			>>>
 		"""
-		return self.perform_always_branch(data, addr)
+		return NotImplemented
 
-	def invert_branch(self, data, addr):
+	def invert_branch(self, data:bytes, addr:int=0) -> Optional[bytes]:
 		"""
 		``invert_branch`` reads the instruction(s) in ``data`` at virtual address ``addr`` and returns a string of bytes
 		of the same length which inverts the branch of provided instruction.
@@ -2256,9 +2062,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			(['jl', '      ', '0xa'], 6)
 			>>>
 		"""
-		return self.perform_invert_branch(data, addr)
+		return NotImplemented
 
-	def skip_and_return_value(self, data, addr, value):
+	def skip_and_return_value(self, data:bytes, addr:int, value:int) -> Optional[bytes]:
 		"""
 		``skip_and_return_value`` reads the instruction(s) in ``data`` at virtual address ``addr`` and returns a string of
 		bytes of the same length which doesn't call and instead *return a value*.
@@ -2275,9 +2081,9 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 			(['mov', '     ', 'eax', ', ', '0x0'], 5)
 			>>>
 		"""
-		return self.perform_skip_and_return_value(data, addr, value)
+		return NotImplemented
 
-	def is_view_type_constant_defined(self, type_name, const_name):
+	def is_view_type_constant_defined(self, type_name:str, const_name:str) -> bool:
 		"""
 
 		:param str type_name: the BinaryView type name of the constant to query
@@ -2295,7 +2101,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		"""
 		return core.BNIsBinaryViewTypeArchitectureConstantDefined(self.handle, type_name, const_name)
 
-	def get_view_type_constant(self, type_name, const_name, default_value=0):
+	def get_view_type_constant(self, type_name:str, const_name:str, default_value:int=0) -> int:
 		"""
 		``get_view_type_constant`` retrieves the view type constant for the given type_name and const_name.
 
@@ -2315,7 +2121,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		"""
 		return core.BNGetBinaryViewTypeArchitectureConstant(self.handle, type_name, const_name, default_value)
 
-	def set_view_type_constant(self, type_name, const_name, value):
+	def set_view_type_constant(self, type_name:str, const_name:str, value:int) -> None:
 		"""
 		``set_view_type_constant`` creates a new binaryview type constant.
 
@@ -2331,7 +2137,7 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		"""
 		core.BNSetBinaryViewTypeArchitectureConstant(self.handle, type_name, const_name, value)
 
-	def register_calling_convention(self, cc):
+	def register_calling_convention(self, cc:'callingconvention.CallingConvention') -> None:
 		"""
 		``register_calling_convention`` registers a new calling convention for the Architecture.
 
@@ -2343,32 +2149,32 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 
 _architecture_cache = {}
 class CoreArchitecture(Architecture):
-	def __init__(self, handle):
+	def __init__(self, handle:core.BNArchitecture):
 		super(CoreArchitecture, self).__init__()
 
 		self.handle = core.handle_of_type(handle, core.BNArchitecture)
-		self.__dict__["name"] = core.BNGetArchitectureName(self.handle)
-		self.__dict__["endianness"] = Endianness(core.BNGetArchitectureEndianness(self.handle))
-		self.__dict__["address_size"] = core.BNGetArchitectureAddressSize(self.handle)
-		self.__dict__["default_int_size"] = core.BNGetArchitectureDefaultIntegerSize(self.handle)
-		self.__dict__["instr_alignment"] = core.BNGetArchitectureInstructionAlignment(self.handle)
-		self.__dict__["max_instr_length"] = core.BNGetArchitectureMaxInstructionLength(self.handle)
-		self.__dict__["opcode_display_length"] = core.BNGetArchitectureOpcodeDisplayLength(self.handle)
-		self.__dict__["stack_pointer"] = core.BNGetArchitectureRegisterName(self.handle,
+		self.name = core.BNGetArchitectureName(self.handle)
+		self.endianness = Endianness(core.BNGetArchitectureEndianness(self.handle))
+		self.address_size = core.BNGetArchitectureAddressSize(self.handle)
+		self.default_int_size = core.BNGetArchitectureDefaultIntegerSize(self.handle)
+		self.instr_alignment = core.BNGetArchitectureInstructionAlignment(self.handle)
+		self.max_instr_length = core.BNGetArchitectureMaxInstructionLength(self.handle)
+		self.opcode_display_length = core.BNGetArchitectureOpcodeDisplayLength(self.handle)
+		self.stack_pointer:str = core.BNGetArchitectureRegisterName(self.handle,
 			core.BNGetArchitectureStackPointerRegister(self.handle))
 
 		link_reg = core.BNGetArchitectureLinkRegister(self.handle)
 		if link_reg == 0xffffffff:
-			self.__dict__["link_reg"] = None
+			self.link_reg = None
 		else:
-			self.__dict__["link_reg"] = core.BNGetArchitectureRegisterName(self.handle, link_reg)
+			self.link_reg = core.BNGetArchitectureRegisterName(self.handle, link_reg)
 
 		count = ctypes.c_ulonglong()
 		regs = core.BNGetAllArchitectureRegisters(self.handle, count)
 		self._all_regs = {}
 		self._regs_by_index = {}
 		self._full_width_regs = {}
-		self.__dict__["regs"] = {}
+		self.regs = {}
 		for i in range(0, count.value):
 			name = core.BNGetArchitectureRegisterName(self.handle, regs[i])
 			info = core.BNGetArchitectureRegisterInfo(self.handle, regs[i])
@@ -2388,7 +2194,7 @@ class CoreArchitecture(Architecture):
 		flags = core.BNGetAllArchitectureFlags(self.handle, count)
 		self._flags = {}
 		self._flags_by_index = {}
-		self.__dict__["flags"] = []
+		self.flags = []
 		for i in range(0, count.value):
 			name = core.BNGetArchitectureFlagName(self.handle, flags[i])
 			self._flags[name] = flags[i]
@@ -2398,9 +2204,9 @@ class CoreArchitecture(Architecture):
 
 		count = ctypes.c_ulonglong()
 		write_types = core.BNGetAllArchitectureFlagWriteTypes(self.handle, count)
-		self._flag_write_types = {}
+		self._flag_write_types:Mapping[str, FlagWriteTypeIndex] = {}
 		self._flag_write_types_by_index = {}
-		self.__dict__["flag_write_types"] = []
+		self.flag_write_types = []
 		for i in range(0, count.value):
 			name = core.BNGetArchitectureFlagWriteTypeName(self.handle, write_types[i])
 			self._flag_write_types[name] = write_types[i]
@@ -2412,7 +2218,7 @@ class CoreArchitecture(Architecture):
 		sem_classes = core.BNGetAllArchitectureSemanticFlagClasses(self.handle, count)
 		self._semantic_flag_classes = {}
 		self._semantic_flag_classes_by_index = {}
-		self.__dict__["semantic_flag_classes"] = []
+		self.semantic_flag_classes = []
 		for i in range(0, count.value):
 			name = core.BNGetArchitectureSemanticFlagClassName(self.handle, sem_classes[i])
 			self._semantic_flag_classes[name] = sem_classes[i]
@@ -2424,7 +2230,7 @@ class CoreArchitecture(Architecture):
 		sem_groups = core.BNGetAllArchitectureSemanticFlagGroups(self.handle, count)
 		self._semantic_flag_groups = {}
 		self._semantic_flag_groups_by_index = {}
-		self.__dict__["semantic_flag_groups"] = []
+		self.semantic_flag_groups = []
 		for i in range(0, count.value):
 			name = core.BNGetArchitectureSemanticFlagGroupName(self.handle, sem_groups[i])
 			self._semantic_flag_groups[name] = sem_groups[i]
@@ -2433,13 +2239,13 @@ class CoreArchitecture(Architecture):
 		core.BNFreeRegisterList(sem_groups)
 
 		self._flag_roles = {}
-		self.__dict__["flag_roles"] = {}
-		for flag in self.__dict__["flags"]:
+		self.flag_roles = {}
+		for flag in self.flags:
 			role = FlagRole(core.BNGetArchitectureFlagRole(self.handle, self._flags[flag], 0))
-			self.__dict__["flag_roles"][flag] = role
+			self.flag_roles[flag] = role
 			self._flag_roles[self._flags[flag]] = role
 
-		self.__dict__["flags_required_for_flag_condition"] = {}
+		self.flags_required_for_flag_condition:Mapping[LowLevelILFlagCondition, List[FlagName]] = {}
 		for cond in LowLevelILFlagCondition:
 			count = ctypes.c_ulonglong()
 			flags = core.BNGetArchitectureFlagsRequiredForFlagCondition(self.handle, cond, 0, count)
@@ -2447,10 +2253,10 @@ class CoreArchitecture(Architecture):
 			for i in range(0, count.value):
 				flag_names.append(self._flags_by_index[flags[i]])
 			core.BNFreeRegisterList(flags)
-			self.__dict__["flags_required_for_flag_condition"][cond] = flag_names
+			self.flags_required_for_flag_condition[cond] = flag_names
 
 		self._flags_required_by_semantic_flag_group = {}
-		self.__dict__["flags_required_for_semantic_flag_group"] = {}
+		self.flags_required_for_semantic_flag_group = {}
 		for group in self.semantic_flag_groups:
 			count = ctypes.c_ulonglong()
 			flags = core.BNGetArchitectureFlagsRequiredForSemanticFlagGroup(self.handle,
@@ -2462,10 +2268,10 @@ class CoreArchitecture(Architecture):
 				flag_names.append(self._flags_by_index[flags[i]])
 			core.BNFreeRegisterList(flags)
 			self._flags_required_by_semantic_flag_group[self._semantic_flag_groups[group]] = flag_indexes
-			self.__dict__["flags_required_for_semantic_flag_group"][cond] = flag_names
+			self.flags_required_for_semantic_flag_group[group] = flag_names
 
 		self._flag_conditions_for_semantic_flag_group = {}
-		self.__dict__["flag_conditions_for_semantic_flag_group"] = {}
+		self.flag_conditions_for_semantic_flag_group = {}
 		for group in self.semantic_flag_groups:
 			count = ctypes.c_ulonglong()
 			conditions = core.BNGetArchitectureFlagConditionsForSemanticFlagGroup(self.handle,
@@ -2480,10 +2286,10 @@ class CoreArchitecture(Architecture):
 					class_cond[self._semantic_flag_classes_by_index[conditions[i].semanticClass]] = conditions[i].condition
 			core.BNFreeFlagConditionsForSemanticFlagGroup(conditions)
 			self._flag_conditions_for_semantic_flag_group[self._semantic_flag_groups[group]] = class_index_cond
-			self.__dict__["flag_conditions_for_semantic_flag_group"][group] = class_cond
+			self.flag_conditions_for_semantic_flag_group[group] = class_cond
 
 		self._flags_written_by_flag_write_type = {}
-		self.__dict__["flags_written_by_flag_write_type"] = {}
+		self.flags_written_by_flag_write_type = {}
 		for write_type in self.flag_write_types:
 			count = ctypes.c_ulonglong()
 			flags = core.BNGetArchitectureFlagsWrittenByFlagWriteType(self.handle,
@@ -2495,10 +2301,10 @@ class CoreArchitecture(Architecture):
 				flag_names.append(self._flags_by_index[flags[i]])
 			core.BNFreeRegisterList(flags)
 			self._flags_written_by_flag_write_type[self._flag_write_types[write_type]] = flag_indexes
-			self.__dict__["flags_written_by_flag_write_type"][write_type] = flag_names
+			self.flags_written_by_flag_write_type[write_type] = flag_names
 
 		self._semantic_class_for_flag_write_type = {}
-		self.__dict__["semantic_class_for_flag_write_type"] = {}
+		self.semantic_class_for_flag_write_type = {}
 		for write_type in self.flag_write_types:
 			sem_class = core.BNGetArchitectureSemanticClassForFlagWriteType(self.handle,
 				self._flag_write_types[write_type])
@@ -2507,18 +2313,18 @@ class CoreArchitecture(Architecture):
 			else:
 				sem_class_name = self._semantic_flag_classes_by_index[sem_class]
 			self._semantic_class_for_flag_write_type[self._flag_write_types[write_type]] = sem_class
-			self.__dict__["semantic_class_for_flag_write_type"][write_type] = sem_class_name
+			self.semantic_class_for_flag_write_type[write_type] = sem_class_name
 
 		count = ctypes.c_ulonglong()
 		regs = core.BNGetArchitectureGlobalRegisters(self.handle, count)
-		self.__dict__["global_regs"] = []
+		self.global_regs:List[RegisterName] = []
 		for i in range(0, count.value):
 			self.global_regs.append(core.BNGetArchitectureRegisterName(self.handle, regs[i]))
 		core.BNFreeRegisterList(regs)
 
 		count = ctypes.c_ulonglong()
 		regs = core.BNGetArchitectureSystemRegisters(self.handle, count)
-		self.__dict__["system_regs"] = []
+		self.system_regs:List[RegisterName] = []
 		for i in range(0, count.value):
 			self.system_regs.append(core.BNGetArchitectureRegisterName(self.handle, regs[i]))
 		core.BNFreeRegisterList(regs)
@@ -2527,7 +2333,7 @@ class CoreArchitecture(Architecture):
 		regs = core.BNGetAllArchitectureRegisterStacks(self.handle, count)
 		self._all_reg_stacks = {}
 		self._reg_stacks_by_index = {}
-		self.__dict__["reg_stacks"] = {}
+		self.reg_stacks = {}
 		for i in range(0, count.value):
 			name = core.BNGetArchitectureRegisterStackName(self.handle, regs[i])
 			info = core.BNGetArchitectureRegisterStackInfo(self.handle, regs[i])
@@ -2545,10 +2351,10 @@ class CoreArchitecture(Architecture):
 
 		count = ctypes.c_ulonglong()
 		intrinsics = core.BNGetAllArchitectureIntrinsics(self.handle, count)
-		self._intrinsics = {}
-		self._intrinsics_by_index = {}
-		self.__dict__["intrinsics"] = {}
-		for i in range(0, count.value):
+		self._intrinsics:Mapping[IntrinsicName, IntrinsicIndex] = {}
+		self._intrinsics_by_index:Mapping[IntrinsicIndex, Tuple[IntrinsicName, IntrinsicInfo]] = {}
+		self._intrinsics_info:Mapping[IntrinsicName, IntrinsicInfo] = {}
+		for i in range(count.value):
 			name = core.BNGetArchitectureIntrinsicName(self.handle, intrinsics[i])
 			input_count = ctypes.c_ulonglong()
 			inputs = core.BNGetArchitectureIntrinsicInputs(self.handle, intrinsics[i], input_count)
@@ -2561,29 +2367,29 @@ class CoreArchitecture(Architecture):
 			output_count = ctypes.c_ulonglong()
 			outputs = core.BNGetArchitectureIntrinsicOutputs(self.handle, intrinsics[i], output_count)
 			output_list = []
-			for j in range(0, output_count.value):
+			for j in range(output_count.value):
 				output_list.append(types.Type(core.BNNewTypeReference(outputs[j].type), confidence = outputs[j].confidence))
 			core.BNFreeOutputTypeList(outputs, output_count.value)
-			self.intrinsics[name] = IntrinsicInfo(input_list, output_list)
+			self._intrinsics_info[name] = IntrinsicInfo(input_list, output_list)
 			self._intrinsics[name] = intrinsics[i]
-			self._intrinsics_by_index[intrinsics[i]] = (name, self.intrinsics[name])
+			self._intrinsics_by_index[intrinsics[i]] = (name, self._intrinsics_info[name])
 		core.BNFreeRegisterList(intrinsics)
 		if type(self) is CoreArchitecture:
 			global _architecture_cache
 			_architecture_cache[ctypes.addressof(handle.contents)] = self
 
 	@classmethod
-	def _from_cache(cls, handle):
+	def _from_cache(cls, handle) -> 'Architecture':
 		global _architecture_cache
 		return _architecture_cache.get(ctypes.addressof(handle.contents)) or cls(handle)
 
-	def get_associated_arch_by_address(self, addr):
+	def get_associated_arch_by_address(self, addr:int) -> Tuple['Architecture', int]:
 		new_addr = ctypes.c_ulonglong()
 		new_addr.value = addr
 		result = core.BNGetAssociatedArchitectureByAddress(self.handle, new_addr)
 		return CoreArchitecture._from_cache(handle = result), new_addr.value
 
-	def get_instruction_info(self, data, addr):
+	def get_instruction_info(self, data:Union[bytes, str], addr:int) -> Optional[InstructionInfo]:
 		"""
 		``get_instruction_info`` returns an InstructionInfo object for the instruction at the given virtual address
 		``addr`` with data ``data``.
@@ -2596,6 +2402,11 @@ class CoreArchitecture(Architecture):
 		:return: the InstructionInfo for the current instruction
 		:rtype: InstructionInfo
 		"""
+		if not isinstance(data, bytes):
+			if isinstance(data, str):
+				data=data.encode()
+			else:
+				raise TypeError("Must be bytes or str")
 		info = core.BNInstructionInfo()
 		buf = (ctypes.c_ubyte * len(data))()
 		ctypes.memmove(buf, data, len(data))
@@ -2614,7 +2425,7 @@ class CoreArchitecture(Architecture):
 			result.add_branch(BranchType(info.branchType[i]), target, arch)
 		return result
 
-	def get_instruction_text(self, data, addr):
+	def get_instruction_text(self, data:Union[bytes, str], addr:int) -> tuple[Optional[List['function.InstructionTextToken']], int]:
 		"""
 		``get_instruction_text`` returns a list of InstructionTextToken objects for the instruction at the given virtual
 		address ``addr`` with data ``data``.
@@ -2635,13 +2446,15 @@ class CoreArchitecture(Architecture):
 		buf = (ctypes.c_ubyte * len(data))()
 		ctypes.memmove(buf, data, len(data))
 		tokens = ctypes.POINTER(core.BNInstructionTextToken)()
-		if not core.BNGetInstructionText(self.handle, buf, addr, length, tokens, count):
-			return None, 0
-		result = binaryninja.function.InstructionTextToken._from_core_struct(tokens, count.value)
-		core.BNFreeInstructionText(tokens, count.value)
-		return result, length.value
+		result = None
+		result_length = 0
+		if core.BNGetInstructionText(self.handle, buf, addr, length, tokens, count):
+			result = function.InstructionTextToken._from_core_struct(tokens, count.value)
+			result_length = length.value
+			core.BNFreeInstructionText(tokens, count.value)
+		return result, result_length
 
-	def get_instruction_low_level_il(self, data, addr, il):
+	def get_instruction_low_level_il(self, data:Union[bytes, str], addr:int, il:lowlevelil.LowLevelILFunction) -> int:
 		"""
 		``get_instruction_low_level_il`` appends LowLevelILExpr objects to ``il`` for the instruction at the given
 		virtual address ``addr`` with data ``data``.
@@ -2649,20 +2462,27 @@ class CoreArchitecture(Architecture):
 		This is used to analyze arbitrary data at an address, if you are working with an existing binary, you likely
 		want to be using :func:`Function.get_low_level_il_at`.
 
-		:param str data: max_instruction_length bytes from the binary at virtual address ``addr``
+		:param str|bytes data: max_instruction_length bytes from the binary at virtual address ``addr``
 		:param int addr: virtual address of bytes in ``data``
 		:param LowLevelILFunction il: The function the current instruction belongs to
 		:return: the length of the current instruction
 		:rtype: int
 		"""
+		if not isinstance(data, bytes):
+			if isinstance(data, str):
+				data=data.encode()
+			else:
+				raise TypeError("Must be bytes or str")
 		length = ctypes.c_ulonglong()
 		length.value = len(data)
 		buf = (ctypes.c_ubyte * len(data))()
 		ctypes.memmove(buf, data, len(data))
-		core.BNGetInstructionLowLevelIL(self.handle, buf, addr, length, il.handle)
+		if not core.BNGetInstructionLowLevelIL(self.handle, buf, addr, length, il.handle):
+			raise Exception("BNGetInstructionLowLevelIL failed")
 		return length.value
 
-	def get_flag_write_low_level_il(self, op, size, write_type, flag, operands, il):
+	def get_flag_write_low_level_il(self, op:LowLevelILOperation, size:int, write_type:FlagWriteTypeName,
+		flag:FlagType, operands:List['lowlevelil.ILRegisterType'], il:'lowlevelil.LowLevelILFunction') -> 'lowlevelil.LowLevelILExpr':
 		"""
 		:param LowLevelILOperation op:
 		:param int size:
@@ -2675,19 +2495,21 @@ class CoreArchitecture(Architecture):
 		flag = self.get_flag_index(flag)
 		operand_list = (core.BNRegisterOrConstant * len(operands))()
 		for i in range(len(operands)):
-			if isinstance(operands[i], str):
+			operand = operands[i]
+			if isinstance(operand, str):
 				operand_list[i].constant = False
-				operand_list[i].reg = self.regs[operands[i]].index
-			elif isinstance(operands[i], lowlevelil.ILRegister):
+				operand_list[i].reg = self.regs[operand].index
+			elif isinstance(operand, lowlevelil.ILRegister):
 				operand_list[i].constant = False
-				operand_list[i].reg = operands[i].index
+				operand_list[i].reg = operand.index
 			else:
 				operand_list[i].constant = True
-				operand_list[i].value = operands[i]
+				operand_list[i].value = operand
 		return lowlevelil.LowLevelILExpr(core.BNGetArchitectureFlagWriteLowLevelIL(self.handle, op, size,
 		        self._flag_write_types[write_type], flag, operand_list, len(operand_list), il.handle))
 
-	def get_flag_condition_low_level_il(self, cond, sem_class, il):
+	def get_flag_condition_low_level_il(self, cond:LowLevelILFlagCondition, sem_class:SemanticClassType,
+		il:'lowlevelil.LowLevelILFunction') -> 'lowlevelil.LowLevelILExpr':
 		"""
 		:param LowLevelILFlagCondition cond: Flag condition to be computed
 		:param str sem_class: Semantic class to be used (None for default semantics)
@@ -2698,7 +2520,8 @@ class CoreArchitecture(Architecture):
 		return lowlevelil.LowLevelILExpr(core.BNGetArchitectureFlagConditionLowLevelIL(self.handle, cond,
 			class_index, il.handle))
 
-	def get_semantic_flag_group_low_level_il(self, sem_group, il):
+	def get_semantic_flag_group_low_level_il(self, sem_group:SemanticGroupName,
+		il:'lowlevelil.LowLevelILFunction') -> 'lowlevelil.LowLevelILExpr':
 		"""
 		:param str sem_group:
 		:param LowLevelILFunction il:
@@ -2707,7 +2530,7 @@ class CoreArchitecture(Architecture):
 		group_index = self.get_semantic_flag_group_index(sem_group)
 		return lowlevelil.LowLevelILExpr(core.BNGetArchitectureSemanticFlagGroupLowLevelIL(self.handle, group_index, il.handle))
 
-	def assemble(self, code, addr=0):
+	def assemble(self, code:str, addr:int=0) -> bytes:
 		"""
 		``assemble`` converts the string of assembly instructions ``code`` loaded at virtual address ``addr`` to the
 		byte representation of those instructions.
@@ -2728,12 +2551,9 @@ class CoreArchitecture(Architecture):
 			error_str = errors.value
 			core.BNFreeString(ctypes.cast(errors, ctypes.POINTER(ctypes.c_byte)))
 			raise ValueError("Could not assemble: %s" % error_str)
-		if isinstance(str(result), bytes):
-			return str(result)
-		else:
-			return bytes(result)
+		return bytes(result)
 
-	def is_never_branch_patch_available(self, data, addr):
+	def is_never_branch_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_never_branch_patch_available`` determines if the instruction ``data`` at ``addr`` can be made to **never branch**.
 
@@ -2753,7 +2573,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(buf, data, len(data))
 		return core.BNIsArchitectureNeverBranchPatchAvailable(self.handle, buf, addr, len(data))
 
-	def is_always_branch_patch_available(self, data, addr):
+	def is_always_branch_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_always_branch_patch_available`` determines if the instruction ``data`` at ``addr`` can be made to
 		**always branch**.
@@ -2774,7 +2594,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(buf, data, len(data))
 		return core.BNIsArchitectureAlwaysBranchPatchAvailable(self.handle, buf, addr, len(data))
 
-	def is_invert_branch_patch_available(self, data, addr):
+	def is_invert_branch_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_always_branch_patch_available`` determines if the instruction ``data`` at ``addr`` can be inverted.
 
@@ -2794,7 +2614,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(buf, data, len(data))
 		return core.BNIsArchitectureInvertBranchPatchAvailable(self.handle, buf, addr, len(data))
 
-	def is_skip_and_return_zero_patch_available(self, data, addr):
+	def is_skip_and_return_zero_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_skip_and_return_zero_patch_available`` determines if the instruction ``data`` at ``addr`` is a *call-like*
 		instruction that can be made into an instruction *returns zero*.
@@ -2817,7 +2637,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(buf, data, len(data))
 		return core.BNIsArchitectureSkipAndReturnZeroPatchAvailable(self.handle, buf, addr, len(data))
 
-	def is_skip_and_return_value_patch_available(self, data, addr):
+	def is_skip_and_return_value_patch_available(self, data:bytes, addr:int=0) -> bool:
 		"""
 		``is_skip_and_return_value_patch_available`` determines if the instruction ``data`` at ``addr`` is a *call-like*
 		instruction that can be made into an instruction *returns a value*.
@@ -2838,7 +2658,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(buf, data, len(data))
 		return core.BNIsArchitectureSkipAndReturnValuePatchAvailable(self.handle, buf, addr, len(data))
 
-	def convert_to_nop(self, data, addr):
+	def convert_to_nop(self, data:bytes, addr:int=0) -> Optional[bytes]:
 		"""
 		``convert_to_nop`` reads the instruction(s) in ``data`` at virtual address ``addr`` and returns a string of nop
 		instructions of the same length as data.
@@ -2861,7 +2681,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(result, buf, len(data))
 		return result.raw
 
-	def always_branch(self, data, addr):
+	def always_branch(self, data:bytes, addr:int=0) -> Optional[bytes]:
 		"""
 		``always_branch`` reads the instruction(s) in ``data`` at virtual address ``addr`` and returns a string of bytes
 		of the same length which always branches.
@@ -2887,7 +2707,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(result, buf, len(data))
 		return result.raw
 
-	def invert_branch(self, data, addr):
+	def invert_branch(self, data:bytes, addr:int=0) -> Optional[bytes]:
 		"""
 		``invert_branch`` reads the instruction(s) in ``data`` at virtual address ``addr`` and returns a string of bytes
 		of the same length which inverts the branch of provided instruction.
@@ -2914,7 +2734,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(result, buf, len(data))
 		return result.raw
 
-	def skip_and_return_value(self, data, addr, value):
+	def skip_and_return_value(self, data:bytes, addr:int, value:int) -> Optional[bytes]:
 		"""
 		``skip_and_return_value`` reads the instruction(s) in ``data`` at virtual address ``addr`` and returns a string of
 		bytes of the same length which doesn't call and instead *return a value*.
@@ -2937,7 +2757,7 @@ class CoreArchitecture(Architecture):
 		ctypes.memmove(result, buf, len(data))
 		return result.raw
 
-	def get_flag_role(self, flag, sem_class = None):
+	def get_flag_role(self, flag:FlagIndex, sem_class:Optional[SemanticClassIndex]= None) -> FlagRole:
 		"""
 		``get_flag_role`` gets the role of a given flag.
 
@@ -2950,7 +2770,8 @@ class CoreArchitecture(Architecture):
 		sem_class = self.get_semantic_flag_class_index(sem_class)
 		return FlagRole(core.BNGetArchitectureFlagRole(self.handle, flag, sem_class))
 
-	def get_flags_required_for_flag_condition(self, cond, sem_class = None):
+	def get_flags_required_for_flag_condition(self, cond:LowLevelILFlagCondition,
+		sem_class:Optional[SemanticClassType]=None) -> List[FlagName]:
 		sem_class = self.get_semantic_flag_class_index(sem_class)
 		count = ctypes.c_ulonglong()
 		flags = core.BNGetArchitectureFlagsRequiredForFlagCondition(self.handle, cond, sem_class, count)
@@ -2962,7 +2783,7 @@ class CoreArchitecture(Architecture):
 
 
 class ArchitectureHook(CoreArchitecture):
-	def __init__(self, base_arch):
+	def __init__(self, base_arch:'Architecture'):
 		self._base_arch = base_arch
 		super(ArchitectureHook, self).__init__(base_arch.handle)
 
@@ -2996,12 +2817,11 @@ class ArchitectureHook(CoreArchitecture):
 		core.BNFinalizeArchitectureHook(self._base_arch.handle)
 
 	@property
-	def base_arch(self):
-		""" """
+	def base_arch(self) -> 'Architecture':
 		return self._base_arch
 
 	@base_arch.setter
-	def base_arch(self, value):
+	def base_arch(self, value:'Architecture') -> None:
 		self._base_arch = value
 
 
