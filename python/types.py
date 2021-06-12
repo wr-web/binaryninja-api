@@ -19,24 +19,31 @@
 # IN THE SOFTWARE.
 
 import ctypes
-from typing import List
+from typing import Generator, List, Union
 
 # Binary Ninja components
-import binaryninja
 from . import _binaryninjacore as core
-from .enums import SymbolType, SymbolBinding, TypeClass, NamedTypeReferenceClass, InstructionTextTokenType, StructureType, ReferenceType, VariableSourceType, TypeReferenceType
-from .log import log_warn
+from .enums import SymbolType, SymbolBinding, TypeClass, NamedTypeReferenceClass, StructureType, ReferenceType, VariableSourceType, TypeReferenceType
 from .compatibility import cstr
+from . import callingconvention
+from . import function
+from . import variable
+from . import architecture
+from . import log
 
+QualifiedNameType = Union[List[str], str, 'QualifiedName', List[bytes]]
 
 class QualifiedName(object):
-	def __init__(self, name = []):
+	def __init__(self, name:QualifiedNameType=[]):
+		self._name:List[str] = []
 		if isinstance(name, str):
 			self._name = [name]
 		elif isinstance(name, self.__class__):
-			self._name = name.name
+			self._name = name._name
+		elif isinstance(name, list) and len(name) > 0 and isinstance(name[0], bytes):
+			self._name = [i.decode("utf-8") for i in name]
 		else:
-			self._name = [cstr(i) for i in name]
+			self._name = [str(i) for i in name]
 
 	def __str__(self):
 		return "::".join(self.name)
@@ -117,16 +124,15 @@ class QualifiedName(object):
 	def _from_core_struct(cls, name):
 		result = []
 		for i in range(0, name.nameCount):
-			result.append(cstr(name.name[i]))
+			result.append(name.name[i].decode("utf-8"))
 		return QualifiedName(result)
 
 	@property
-	def name(self):
-		""" """
+	def name(self) -> List[str]:
 		return self._name
 
 	@name.setter
-	def name(self, value:List[str]):
+	def name(self, value:List[str]) -> None:
 		self._name = value
 
 
@@ -229,7 +235,7 @@ class NameSpace(QualifiedName):
 	def _from_core_struct(cls, name):
 		result = []
 		for i in range(0, name.nameCount):
-			result.append(name.name[i])
+			result.append(name.name[i].decode("utf-8"))
 		return NameSpace(result)
 
 
@@ -562,7 +568,7 @@ class Type(object):
 			result = core.BNGetTypeCallingConvention(self._handle)
 		if not result.convention:
 			return None
-		return binaryninja.callingconvention.CallingConvention(None, handle = result.convention, confidence = result.confidence)
+		return callingconvention.CallingConvention(None, handle = result.convention, confidence = result.confidence)
 
 	@property
 	def parameters(self):
@@ -583,7 +589,7 @@ class Type(object):
 					name = self._platform.arch.get_reg_name(params[i].location.storage)
 				elif params[i].location.type == VariableSourceType.StackVariableSourceType:
 					name = "arg_%x" % params[i].location.storage
-				param_location = binaryninja.function.Variable(None, params[i].location.type, params[i].location.index,
+				param_location = variable.Variable(None, params[i].location.type, params[i].location.index,
 					params[i].location.storage, name, param_type)
 			result.append(FunctionParameter(param_type, params[i].name, param_location))
 		core.BNFreeTypeParameterList(params, count.value)
@@ -716,7 +722,7 @@ class Type(object):
 			tokens = core.BNGetTypeBuilderTokens(self._handle, platform, base_confidence, count)
 		else:
 			tokens = core.BNGetTypeTokens(self._handle, platform, base_confidence, count)
-		result = binaryninja.function.InstructionTextToken._from_core_struct(tokens, count.value)
+		result = function.InstructionTextToken._from_core_struct(tokens, count.value)
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
@@ -729,7 +735,7 @@ class Type(object):
 			tokens = core.BNGetTypeBuilderTokensBeforeName(self._handle, platform, base_confidence, count)
 		else:
 			tokens = core.BNGetTypeTokensBeforeName(self._handle, platform, base_confidence, count)
-		result = binaryninja.function.InstructionTextToken._from_core_struct(tokens, count.value)
+		result = function.InstructionTextToken._from_core_struct(tokens, count.value)
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
@@ -742,7 +748,7 @@ class Type(object):
 			tokens = core.BNGetTypeBuilderTokensAfterName(self._handle, platform, base_confidence, count)
 		else:
 			tokens = core.BNGetTypeTokensAfterName(self._handle, platform, base_confidence, count)
-		result = binaryninja.function.InstructionTextToken._from_core_struct(tokens, count.value)
+		result = function.InstructionTextToken._from_core_struct(tokens, count.value)
 		core.BNFreeInstructionText(tokens, count.value)
 		return result
 
@@ -751,15 +757,15 @@ class Type(object):
 		return Type(core.BNCreateVoidTypeBuilder())
 
 	@classmethod
-	def bool(self):
+	def bool(cls):
 		return Type(core.BNCreateBoolTypeBuilder())
 
 	@classmethod
-	def char(self):
+	def char(cls):
 		return Type.int(1, True)
 
 	@classmethod
-	def int(self, width, sign = None, altname=""):
+	def int(cls, width, sign = None, altname=""):
 		"""
 		``int`` class method for creating an int Type.
 
@@ -779,7 +785,7 @@ class Type(object):
 		return Type(core.BNCreateIntegerTypeBuilder(width, sign_conf, altname))
 
 	@classmethod
-	def float(self, width, altname=""):
+	def float(cls, width, altname=""):
 		"""
 		``float`` class method for creating floating point Types.
 
@@ -789,7 +795,7 @@ class Type(object):
 		return Type(core.BNCreateFloatTypeBuilder(width, altname))
 
 	@classmethod
-	def wide_char(self, width, altname=""):
+	def wide_char(cls, width, altname=""):
 		"""
 		``wide_char`` class method for creating wide char Types.
 
@@ -799,40 +805,40 @@ class Type(object):
 		return Type(core.BNCreateWideCharTypeBuilder(width, altname))
 
 	@classmethod
-	def structure_type(self, structure_type):
+	def structure_type(cls, structure_type):
 		return Type(core.BNCreateStructureTypeBuilder(structure_type.handle))
 
 	@classmethod
-	def named_type(self, named_type, width = 0, align = 1):
+	def named_type(cls, named_type, width = 0, align = 1):
 		return Type(core.BNCreateNamedTypeReferenceBuilder(named_type.handle, width, align))
 
 	@classmethod
-	def named_type_from_type_and_id(self, type_id, name, t):
+	def named_type_from_type_and_id(cls, type_id, name, t):
 		name = QualifiedName(name)._get_core_struct()
 		if t is not None:
 			t = t.handle
 		return Type(core.BNCreateNamedTypeReferenceBuilderFromTypeAndId(type_id, name, t))
 
 	@classmethod
-	def named_type_from_type(self, name, t):
+	def named_type_from_type(cls, name, t):
 		name = QualifiedName(name)._get_core_struct()
 		if t is not None:
 			t = t.handle
 		return Type(core.BNCreateNamedTypeReferenceBuilderFromTypeAndId("", name, t))
 
 	@classmethod
-	def named_type_from_registered_type(self, view, name):
+	def named_type_from_registered_type(cls, view, name):
 		name = QualifiedName(name)._get_core_struct()
 		return Type(core.BNCreateNamedTypeReferenceBuilderFromType(view.handle, name))
 
 	@classmethod
-	def enumeration_type(self, arch, e, width=None, sign=False):
+	def enumeration_type(cls, arch, e, width=None, sign=False):
 		if width is None:
 			width = arch.default_int_size
 		return Type(core.BNCreateEnumerationTypeBuilder(arch.handle, e.handle, width, sign))
 
 	@classmethod
-	def pointer(self, arch, t, const=None, volatile=None, ref_type=None):
+	def pointer(cls, arch, t, const=None, volatile=None, ref_type=None):
 		if const is None:
 			const = BoolWithConfidence(False, confidence = 0)
 		elif not isinstance(const, BoolWithConfidence):
@@ -861,14 +867,14 @@ class Type(object):
 		return Type(core.BNCreatePointerTypeBuilder(arch.handle, type_conf, const_conf, volatile_conf, ref_type))
 
 	@classmethod
-	def array(self, t, count):
+	def array(cls, t, count):
 		type_conf = core.BNTypeWithConfidence()
 		type_conf.type = t.handle
 		type_conf.confidence = t.confidence
 		return Type(core.BNCreateArrayTypeBuilder(type_conf, count))
 
 	@classmethod
-	def function(self, ret, params, calling_convention=None, variable_arguments=None, stack_adjust=None):
+	def function(cls, ret, params, calling_convention=None, variable_arguments=None, stack_adjust=None):
 		"""
 		``function`` class method for creating an function Type.
 
@@ -936,17 +942,17 @@ class Type(object):
 			vararg_conf, stack_adjust_conf))
 
 	@classmethod
-	def generate_auto_type_id(self, source, name):
+	def generate_auto_type_id(cls, source, name):
 		name = QualifiedName(name)._get_core_struct()
 		return core.BNGenerateAutoTypeId(source, name)
 
 	@classmethod
-	def generate_auto_demangled_type_id(self, name):
+	def generate_auto_demangled_type_id(cls, name):
 		name = QualifiedName(name)._get_core_struct()
 		return core.BNGenerateAutoDemangledTypeId(name)
 
 	@classmethod
-	def get_auto_demangled_type_id_source(self):
+	def get_auto_demangled_type_id_source(cls):
 		return core.BNGetAutoDemangledTypeIdSource()
 
 	def with_confidence(self, confidence):
@@ -954,7 +960,6 @@ class Type(object):
 
 	@property
 	def confidence(self):
-		""" """
 		return self._confidence
 
 	@confidence.setter
@@ -963,7 +968,6 @@ class Type(object):
 
 	@property
 	def platform(self):
-		""" """
 		return self._platform
 
 	@platform.setter
@@ -1022,7 +1026,7 @@ class BoolWithConfidence(object):
 
 
 class SizeWithConfidence(object):
-	def __init__(self, value, confidence = core.max_confidence):
+	def __init__(self, value:int, confidence:int=core.max_confidence):
 		self._value = value
 		self._confidence = confidence
 
@@ -1036,26 +1040,24 @@ class SizeWithConfidence(object):
 		return self._value
 
 	@property
-	def value(self):
-		""" """
+	def value(self) -> int:
 		return self._value
 
 	@value.setter
-	def value(self, value):
+	def value(self, value:int) -> None:
 		self._value = value
 
 	@property
-	def confidence(self):
-		""" """
+	def confidence(self) -> int:
 		return self._confidence
 
 	@confidence.setter
-	def confidence(self, value):
+	def confidence(self, value:int) -> None:
 		self._confidence = value
 
 
 class RegisterStackAdjustmentWithConfidence(object):
-	def __init__(self, value, confidence = core.max_confidence):
+	def __init__(self, value:int, confidence:int=core.max_confidence):
 		self._value = value
 		self._confidence = confidence
 
@@ -1069,33 +1071,31 @@ class RegisterStackAdjustmentWithConfidence(object):
 		return self._value
 
 	@property
-	def value(self):
-		""" """
+	def value(self) -> int:
 		return self._value
 
 	@value.setter
-	def value(self, value):
+	def value(self, value:int) -> None:
 		self._value = value
 
 	@property
-	def confidence(self):
-		""" """
+	def confidence(self) -> int:
 		return self._confidence
 
 	@confidence.setter
-	def confidence(self, value):
+	def confidence(self, value:int) -> None:
 		self._confidence = value
 
 
 class RegisterSet(object):
-	def __init__(self, reg_list, confidence = core.max_confidence):
+	def __init__(self, reg_list:List['architecture.RegisterName'], confidence:int=core.max_confidence):
 		self._regs = reg_list
 		self._confidence = confidence
 
 	def __repr__(self):
 		return repr(self._regs)
 
-	def __iter__(self):
+	def __iter__(self) -> Generator['architecture.RegisterName', None, None]:
 		for reg in self._regs:
 			yield reg
 
@@ -1109,21 +1109,19 @@ class RegisterSet(object):
 		return RegisterSet(list(self._regs), confidence = confidence)
 
 	@property
-	def regs(self):
-		""" """
+	def regs(self) -> List['architecture.RegisterName']:
 		return self._regs
 
 	@regs.setter
-	def regs(self, value):
+	def regs(self, value:List['architecture.RegisterName']) -> None:
 		self._regs = value
 
 	@property
-	def confidence(self):
-		""" """
+	def confidence(self) -> int:
 		return self._confidence
 
 	@confidence.setter
-	def confidence(self, value):
+	def confidence(self, value:int) -> None:
 		self._confidence = value
 
 
@@ -1209,12 +1207,12 @@ class NamedTypeReference(object):
 		return result
 
 	@classmethod
-	def generate_auto_type_ref(self, type_class, source, name):
+	def generate_auto_type_ref(cls, type_class, source, name):
 		type_id = Type.generate_auto_type_id(source, name)
 		return NamedTypeReference(type_class, type_id, name)
 
 	@classmethod
-	def generate_auto_demangled_type_ref(self, type_class, name):
+	def generate_auto_demangled_type_ref(cls, type_class, name):
 		type_id = Type.generate_auto_demangled_type_id(name)
 		return NamedTypeReference(type_class, type_id, name)
 
@@ -1324,6 +1322,7 @@ class Structure(object):
 		return hash(ctypes.addressof(self._handle.contents))
 
 	def __getitem__(self, name):
+		member = None
 		try:
 			if self._mutable:
 				member = core.BNGetStructureBuilderMemberByName(self._handle, name)
@@ -1332,9 +1331,11 @@ class Structure(object):
 			return StructureMember(Type(core.BNNewTypeReference(member.contents.type), confidence=member.contents.typeConfidence),
 					member.contents.name, member.contents.offset)
 		finally:
-			core.BNFreeStructureMember(member)
+			if member is not None:
+				core.BNFreeStructureMember(member)
 
 	def member_at_offset(self, offset):
+		member = None
 		try:
 			if self._mutable:
 				member = core.BNGetStructureBuilderMemberAtOffset(self._handle, offset, None)
@@ -1759,6 +1760,6 @@ class TypeFieldReference(object):
 		return self._size
 
 	@size.setter
-	def address(self, value):
+	def size(self, value):
 		self._size = value
 

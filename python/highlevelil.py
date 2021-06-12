@@ -38,6 +38,8 @@ from . import flowgraph
 from . import variable
 
 LinesType = Generator['function.DisassemblyTextLine', None, None]
+ExpressionIndex = int
+InstructionIndex = int
 
 class HighLevelILOperationAndSize(object):
 	def __init__(self, operation, size):
@@ -247,6 +249,8 @@ class HighLevelILInstruction(object):
 	def __init__(self, func:'HighLevelILFunction', expr_index:int, as_ast:bool = True, instr_index:int = None):
 		instr = core.BNGetHighLevelILByIndex(func.handle, expr_index, as_ast)
 		self._function = func
+		if func.arch is None:
+			raise Exception("HighLevelILFunction architecture must not be None")
 		self._expr_index = expr_index
 		if instr_index is None:
 			self._instr_index = core.BNGetHighLevelILInstructionForExpr(func.handle, expr_index)
@@ -994,6 +998,10 @@ class HighLevelILBasicBlock(basicblock.BasicBlock):
 			return True
 		else:
 			return False
+
+	@property
+	def instruction_count(self) -> int:
+		return self.end - self.start
 
 	@property
 	def il_function(self) -> HighLevelILFunction:

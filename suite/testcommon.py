@@ -332,13 +332,12 @@ class BinaryViewTestBuilder(Builder):
             func.create_user_stack_var(0, binja.Type.int(4), "testuservar")
             func.create_auto_stack_var(4, binja.Type.int(4), "testautovar")
 
-            sl = func.stack_layout
-            for i in range(len(sl)):
-                funcinfo.append("Function: {:x} Stack position {}: ".format(func.start, i) + str(sl[i]))
+            for i, var in enumerate(func.stack_layout):
+                funcinfo.append(f"Function: {func.start:x} Stack position {i}: {var}")
 
-            funcinfo.append("Function: {:x} Stack content sample: {}".format(func.start, str(func.get_stack_contents_at(func.start + 0x10, 0, 0x10))))
-            funcinfo.append("Function: {:x} Stack content range sample: {}".format(func.start, str(func.get_stack_contents_after(func.start + 0x10, 0, 0x10))))
-            funcinfo.append("Function: {:x} Sample stack var: {}".format(func.start, str(func.get_stack_var_at_frame_offset(0, 0))))
+            funcinfo.append(f"Function: {func.start:x} Stack content sample: {func.get_stack_contents_at(func.start + 0x10, 0, 0x10)}")
+            funcinfo.append(f"Function: {func.start:x} Stack content range sample: {func.get_stack_contents_after(func.start + 0x10, 0, 0x10)}")
+            funcinfo.append(f"Function: {func.start:x} Sample stack var: {func.get_stack_var_at_frame_offset(0, 0)}")
             func.delete_user_stack_var(0)
             func.delete_auto_stack_var(0)
         return funcinfo
@@ -368,11 +367,11 @@ class BinaryViewTestBuilder(Builder):
             if func.hlil is None or func.hlil.root is None:
                 continue
             for line in func.hlil.root.lines:
-                retinfo.append("Function: {:x} HLIL line: {}".format(func.start, str(line)))
+                retinfo.append(f"Function: {func.start:x} HLIL line: {str(line)}")
             for hlilins in func.hlil.instructions:
-                retinfo.append("Function: {:x} Instruction: {:x} HLIL->LLIL instruction: {}".format(func.start, hlilins.address, str(hlilins.llil)))
-                retinfo.append("Function: {:x} Instruction: {:x} HLIL->MLIL instruction: {}".format(func.start, hlilins.address, str(hlilins.mlil)))
-                retinfo.append("Function: {:x} Instruction: {:x} HLIL->MLILS instruction: {}".format(func.start, hlilins.address, str(sorted(list(map(str, hlilins.mlils))))))
+                retinfo.append(f"Function: {func.start:x} Instruction: {hlilins.address:x} HLIL->LLIL instruction: {str(hlilins.llil)}")
+                retinfo.append(f"Function: {func.start:x} Instruction: {hlilins.address:x} HLIL->MLIL instruction: {str(hlilins.mlil)}")
+                retinfo.append(f"Function: {func.start:x} Instruction: {hlilins.address:x} HLIL->MLILS instruction: {str(sorted(list(map(str, hlilins.mlils))))}")
         return fixOutput(retinfo)
 
     def test_functions_attributes(self):
@@ -475,7 +474,7 @@ class TestBuilder(Builder):
 
     def test_BinaryViewType_list(self):
         """BinaryViewType list doesnt match"""
-        return ["BinaryViewType: " + x.name for x in binja.BinaryViewType.list]
+        return ["BinaryViewType: " + x.name for x in binja.BinaryViewType]
 
     def test_deprecated_BinaryViewType(self):
         """deprecated BinaryViewType list doesnt match"""
@@ -496,53 +495,20 @@ class TestBuilder(Builder):
 
     def test_Architecture_list(self):
         """Architecture list doesnt match"""
-        return ["Arch name: " + x.name for x in binja.Architecture.list]
+        return ["Arch name: " + arch.name for arch in binja.Architecture]
 
     def test_Assemble(self):
         """unexpected assemble result"""
         result = []
-        # success cases
 
-        strResult = binja.Architecture["x86"].assemble("xor eax, eax")
-        if sys.version_info.major == 3 and not strResult[0] is None:
-            result.append("x86 assembly: " + "'" + str(strResult)[2:-1] + "'")
-        else:
-            result.append("x86 assembly: " + repr(str(strResult)))
-        strResult = binja.Architecture["x86_64"].assemble("xor rax, rax")
-        if sys.version_info.major == 3 and not strResult[0] is None:
-            result.append("x86_64 assembly: " + "'" + str(strResult)[2:-1] + "'")
-        else:
-            result.append("x86_64 assembly: " + repr(str(strResult)))
-        strResult = binja.Architecture["mips32"].assemble("move $ra, $zero")
-        if sys.version_info.major == 3 and not strResult[0] is None:
-            result.append("mips32 assembly: " + "'" + str(strResult)[2:-1] + "'")
-        else:
-            result.append("mips32 assembly: " + repr(str(strResult)))
-        strResult = binja.Architecture["mipsel32"].assemble("move $ra, $zero")
-        if sys.version_info.major == 3 and not strResult[0] is None:
-            result.append("mipsel32 assembly: " + "'" + str(strResult)[2:-1] + "'")
-        else:
-            result.append("mipsel32 assembly: " + repr(str(strResult)))
-        strResult = binja.Architecture["armv7"].assemble("str r2, [sp,  #-0x4]!")
-        if sys.version_info.major == 3 and not strResult[0] is None:
-            result.append("armv7 assembly: " + "'" + str(strResult)[2:-1] + "'")
-        else:
-            result.append("armv7 assembly: " + repr(str(strResult)))
-        strResult = binja.Architecture["aarch64"].assemble("mov x0, x0")
-        if sys.version_info.major == 3 and not strResult[0] is None:
-            result.append("aarch64 assembly: " + "'" + str(strResult)[2:-1] + "'")
-        else:
-            result.append("aarch64 assembly: " + repr(str(strResult)))
-        strResult = binja.Architecture["thumb2"].assemble("ldr r4, [r4]")
-        if sys.version_info.major == 3 and not strResult[0] is None:
-            result.append("thumb2 assembly: " + "'" + str(strResult)[2:-1] + "'")
-        else:
-            result.append("thumb2 assembly: " + repr(str(strResult)))
-        strResult = binja.Architecture["thumb2eb"].assemble("ldr r4, [r4]")
-        if sys.version_info.major == 3 and not strResult[0] is None:
-            result.append("thumb2eb assembly: " + "'" + str(strResult)[2:-1] + "'")
-        else:
-            result.append("thumb2eb assembly: " + repr(str(strResult)))
+        # success cases
+        result.append(f"x86 assembly: {binja.Architecture['x86'].assemble('xor eax, eax')}")
+        result.append(f"x86_64 assembly: {binja.Architecture['x86_64'].assemble('xor rax, rax')}")
+        result.append(f"mips32 assembly: {binja.Architecture['mips32'].assemble('move $ra, $zero')}")
+        result.append(f"armv7 assembly: {binja.Architecture['armv7'].assemble('str r2, [sp,  #-0x4]!')}")
+        result.append(f"aarch64 assembly: {binja.Architecture['aarch64'].assemble('mov x0, x0')}")
+        result.append(f"thumb2 assembly: {binja.Architecture['thumb2'].assemble('ldr r4, [r4]')}")
+        result.append(f"thumb2eb assembly: {binja.Architecture['thumb2eb'].assemble('ldr r4, [r4]')}")
 
         # fail cases
         try:
@@ -1204,11 +1170,11 @@ class TestBuilder(Builder):
 
             for func in bv.functions:
                 for line in func.hlil.root.lines:
-                    retinfo.append("Function: {:x} HLIL line: {}".format(func.start, str(line)))
+                    retinfo.append(f"Function: {func.start:x} HLIL line: {line}")
                 for hlilins in func.hlil.instructions:
-                    retinfo.append("Function: {:x} Instruction: {:x} HLIL->LLIL instruction: {}".format(func.start, hlilins.address, str(hlilins.llil)))
-                    retinfo.append("Function: {:x} Instruction: {:x} HLIL->MLIL instruction: {}".format(func.start, hlilins.address, str(hlilins.mlil)))
-                    retinfo.append("Function: {:x} Instruction: {:x} HLIL->MLILS instruction: {}".format(func.start, hlilins.address, str(sorted(list(map(str, hlilins.mlils))))))
+                    retinfo.append(f"Function: {func.start:x} Instruction: {hlilins.address:x} HLIL->LLIL instruction: {hlilins.llil}")
+                    retinfo.append(f"Function: {func.start:x} Instruction: {hlilins.address:x} HLIL->MLIL instruction: {hlilins.mlil}")
+                    retinfo.append(f"Function: {func.start:x} Instruction: {hlilins.address:x} HLIL->MLILS instruction: {sorted(list(map(str, hlilins.mlils)))}")
 
         self.delete_package("array_test.bndb")
         return fixOutput(sorted(retinfo))

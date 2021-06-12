@@ -27,9 +27,7 @@ from . import _binaryninjacore as core
 from . import types
 
 
-
 class _PlatformMetaClass(type):
-
 	def __iter__(self):
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
@@ -46,43 +44,6 @@ class _PlatformMetaClass(type):
 		if platform is None:
 			raise KeyError("'%s' is not a valid platform" % str(value))
 		return Platform(handle = platform)
-
-	@property
-	def list(self):
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		platforms = core.BNGetPlatformList(count)
-		result = []
-		for i in range(0, count.value):
-			result.append(Platform(handle = core.BNNewPlatformReference(platforms[i])))
-		core.BNFreePlatformList(platforms, count.value)
-		return result
-
-	@property
-	def os_list(self):
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		platforms = core.BNGetPlatformOSList(count)
-		result = []
-		for i in range(0, count.value):
-			result.append(str(platforms[i]))
-		core.BNFreePlatformOSList(platforms, count.value)
-		return result
-
-	def get_list(cls, os = None, arch = None):
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		if os is None:
-			platforms = core.BNGetPlatformList(count)
-		elif arch is None:
-			platforms = core.BNGetPlatformListByOS(os)
-		else:
-			platforms = core.BNGetPlatformListByArchitecture(os, arch.handle)
-		result = []
-		for i in range(0, count.value):
-			result.append(Platform(handle = core.BNNewPlatformReference(platforms[i])))
-		core.BNFreePlatformList(platforms, count.value)
-		return result
 
 
 class Platform(metaclass=_PlatformMetaClass):
@@ -125,9 +86,32 @@ class Platform(metaclass=_PlatformMetaClass):
 		return not (self == other)
 
 	@property
-	def list(self):
-		"""Allow tab completion to discover metaclass list property"""
-		pass
+	@classmethod
+	def os_list(cls):
+		binaryninja._init_plugins()
+		count = ctypes.c_ulonglong()
+		platforms = core.BNGetPlatformOSList(count)
+		result = []
+		for i in range(0, count.value):
+			result.append(str(platforms[i]))
+		core.BNFreePlatformOSList(platforms, count.value)
+		return result
+
+	@classmethod
+	def get_list(cls, os = None, arch = None):
+		binaryninja._init_plugins()
+		count = ctypes.c_ulonglong()
+		if os is None:
+			platforms = core.BNGetPlatformList(count)
+		elif arch is None:
+			platforms = core.BNGetPlatformListByOS(os)
+		else:
+			platforms = core.BNGetPlatformListByArchitecture(os, arch.handle)
+		result = []
+		for i in range(0, count.value):
+			result.append(Platform(handle = core.BNNewPlatformReference(platforms[i])))
+		core.BNFreePlatformList(platforms, count.value)
+		return result
 
 	@property
 	def default_calling_convention(self):

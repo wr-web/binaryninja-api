@@ -20,11 +20,13 @@
 # IN THE SOFTWARE.
 
 import ctypes
+from typing import List, Generator
 
 import binaryninja
 from . import _binaryninjacore as core
 from . import decorators
-from .enums import RegisterValueType, VariableSourceType
+from .enums import RegisterValueType, VariableSourceType, FunctionGraphType, DeadStoreElimination
+from . import types
 
 class LookupTableEntry(object):
 	def __init__(self, from_values, to_value):
@@ -154,11 +156,11 @@ class RegisterValue(object):
 		return result
 
 	@classmethod
-	def undetermined(self):
+	def undetermined(cls):
 		return RegisterValue()
 
 	@classmethod
-	def entry_value(self, arch, reg):
+	def entry_value(cls, arch, reg):
 		result = RegisterValue()
 		result._type = RegisterValueType.EntryValue
 		result._arch = arch
@@ -166,7 +168,7 @@ class RegisterValue(object):
 		return result
 
 	@classmethod
-	def constant(self, value):
+	def constant(cls, value):
 		result = RegisterValue()
 		result._type = RegisterValueType.ConstantValue
 		result._value = value
@@ -174,7 +176,7 @@ class RegisterValue(object):
 		return result
 
 	@classmethod
-	def constant_ptr(self, value):
+	def constant_ptr(cls, value):
 		result = RegisterValue()
 		result._type = RegisterValueType.ConstantPointerValue
 		result._value = value
@@ -182,21 +184,21 @@ class RegisterValue(object):
 		return result
 
 	@classmethod
-	def stack_frame_offset(self, offset):
+	def stack_frame_offset(cls, offset):
 		result = RegisterValue()
 		result._type = RegisterValueType.StackFrameOffset
 		result._offset = offset
 		return result
 
 	@classmethod
-	def imported_address(self, value):
+	def imported_address(cls, value):
 		result = RegisterValue()
 		result._type = RegisterValueType.ImportedAddressValue
 		result._value = value
 		return result
 
 	@classmethod
-	def return_address(self):
+	def return_address(cls):
 		result = RegisterValue()
 		result._type = RegisterValueType.ReturnAddressValue
 		return result
@@ -560,7 +562,7 @@ class PossibleValueSet(object):
 		self._count = value
 
 	@classmethod
-	def undetermined(self):
+	def undetermined(cls):
 		"""
 		Create a PossibleValueSet object of type UndeterminedValue.
 
@@ -570,7 +572,7 @@ class PossibleValueSet(object):
 		return PossibleValueSet()
 
 	@classmethod
-	def constant(self, value):
+	def constant(cls, value):
 		"""
 		Create a constant valued PossibleValueSet object.
 
@@ -583,7 +585,7 @@ class PossibleValueSet(object):
 		return result
 
 	@classmethod
-	def constant_ptr(self, value):
+	def constant_ptr(cls, value):
 		"""
 		Create constant pointer valued PossibleValueSet object.
 
@@ -596,7 +598,7 @@ class PossibleValueSet(object):
 		return result
 
 	@classmethod
-	def stack_frame_offset(self, offset):
+	def stack_frame_offset(cls, offset):
 		"""
 		Create a PossibleValueSet object for a stack frame offset.
 
@@ -609,7 +611,7 @@ class PossibleValueSet(object):
 		return result
 
 	@classmethod
-	def signed_range_value(self, ranges):
+	def signed_range_value(cls, ranges):
 		"""
 		Create a PossibleValueSet object for a signed range of values.
 
@@ -630,7 +632,7 @@ class PossibleValueSet(object):
 		return result
 
 	@classmethod
-	def unsigned_range_value(self, ranges):
+	def unsigned_range_value(cls, ranges):
 		"""
 		Create a PossibleValueSet object for a unsigned signed range of values.
 
@@ -651,7 +653,7 @@ class PossibleValueSet(object):
 		return result
 
 	@classmethod
-	def in_set_of_values(self, values):
+	def in_set_of_values(cls, values):
 		"""
 		Create a PossibleValueSet object for a value in a set of values.
 
@@ -665,7 +667,7 @@ class PossibleValueSet(object):
 		return result
 
 	@classmethod
-	def not_in_set_of_values(self, values):
+	def not_in_set_of_values(cls, values):
 		"""
 		Create a PossibleValueSet object for a value NOT in a set of values.
 
@@ -679,7 +681,7 @@ class PossibleValueSet(object):
 		return result
 
 	@classmethod
-	def lookup_table_value(self, lookup_table, mapping):
+	def lookup_table_value(cls, lookup_table, mapping):
 		"""
 		Create a PossibleValueSet object for a value which is a member of a
 		lookuptable.
@@ -810,6 +812,26 @@ class Variable(object):
 			return NotImplemented
 		return not (self == other)
 
+	def __lt__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		return (self.identifier, self.function) < (other.identifier, other.function)
+
+	def __gt__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		return (self.identifier, self.function) > (other.identifier, other.function)
+
+	def __le__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		return (self.identifier, self.function) <= (other.identifier, other.function)
+
+	def __ge__(self, other):
+		if not isinstance(other, self.__class__):
+			return NotImplemented
+		return (self.identifier, self.function) >= (other.identifier, other.function)
+
 	def __hash__(self):
 		return hash((self.identifier, self.function))
 
@@ -882,7 +904,7 @@ class Variable(object):
 			if self._function is not None:
 				var_type_conf = core.BNGetVariableType(self._function.handle, self.to_BNVariable())
 				if var_type_conf.type:
-					self._type = binaryninja.types.Type(var_type_conf.type, platform = self._function.platform, confidence = var_type_conf.confidence)
+					self._type = types.Type(var_type_conf.type, platform = self._function.platform, confidence = var_type_conf.confidence)
 		return self._type
 
 	@type.setter
@@ -907,7 +929,7 @@ class Variable(object):
 		core.BNSetFunctionVariableDeadStoreElimination(self._function.handle, self.to_BNVariable(), value)
 
 	@classmethod
-	def from_identifier(self, func, identifier, name=None, var_type=None):
+	def from_identifier(cls, func, identifier, name=None, var_type=None):
 		var = core.BNFromVariableIdentifier(identifier)
 		return Variable(func, VariableSourceType(var.type), var.index, var.storage, name, var_type, identifier)
 
@@ -996,260 +1018,36 @@ class ParameterVariables(object):
 	def __len__(self):
 		return len(self._vars)
 
-	def __iter__(self):
+	def __iter__(self) -> Generator['Variable', None, None]:
 		for var in self._vars:
 			yield var
 
-	def __getitem__(self, idx):
+	def __getitem__(self, idx) -> 'Variable':
 		return self._vars[idx]
 
-	def __setitem__(self, idx, value):
+	def __setitem__(self, idx:int, value:'Variable'):
 		self._vars[idx] = value
 		if self._func is not None:
 			self._func.parameter_vars = self
 
-	def with_confidence(self, confidence):
+	def with_confidence(self, confidence:int) -> 'ParameterVariables':
 		return ParameterVariables(list(self._vars), confidence, self._func)
 
 	@property
-	def vars(self):
-		""" """
+	def vars(self) -> List['Variable']:
 		return self._vars
 
 	@vars.setter
-	def vars(self, value):
+	def vars(self, value:'Variable') -> None:
 		self._vars = value
 
 	@property
-	def confidence(self):
-		""" """
+	def confidence(self) -> int:
 		return self._confidence
 
 	@confidence.setter
-	def confidence(self, value):
+	def confidence(self, value:int) -> None:
 		self._confidence = value
-
-
-class ILReferenceSource(object):
-	def __init__(self, func, arch, addr, il_type, expr_id):
-		self._function = func
-		self._arch = arch
-		self._address = addr
-		self._il_type = il_type
-		self._expr_id = expr_id
-
-	def get_il_name(self, il_type):
-		if il_type == FunctionGraphType.NormalFunctionGraph:
-			return 'disassembly'
-		if il_type == FunctionGraphType.LowLevelILFunctionGraph:
-			return 'llil'
-		if il_type == FunctionGraphType.LiftedILFunctionGraph:
-			return 'lifted_llil'
-		if il_type == FunctionGraphType.LowLevelILSSAFormFunctionGraph:
-			return 'llil_ssa'
-		if il_type == FunctionGraphType.MediumLevelILFunctionGraph:
-			return 'mlil'
-		if il_type == FunctionGraphType.MediumLevelILSSAFormFunctionGraph:
-			return 'mlil_ssa'
-		if il_type == FunctionGraphType.MappedMediumLevelILFunctionGraph:
-			return 'mapped_mlil'
-		if il_type == FunctionGraphType.MappedMediumLevelILSSAFormFunctionGraph:
-			return 'mapped_mlil_ssa'
-		if il_type == FunctionGraphType.HighLevelILFunctionGraph:
-			return 'hlil'
-		if il_type == FunctionGraphType.HighLevelILSSAFormFunctionGraph:
-			return 'hlil_ssa'
-
-	def __repr__(self):
-		if self._arch:
-			return "<ref: %s@%#x, %s@%d>" %\
-				(self._arch.name, self._address, self.get_il_name(self._il_type), self.expr_id)
-		else:
-			return "<ref: %#x, %s@%d>" %\
-				(self._address, self.get_il_name(self._il_type), self.expr_id)
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self.function, self.arch, self.address, self.il_type, self.expr_id) ==\
-			(other.address, other.function, other.arch, other.il_type, other.expr_id)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __lt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.function < other.function:
-			return True
-		if self.function > other.function:
-			return False
-		if self.arch < other.arch:
-			return True
-		if self.arch > other.arch:
-			return False
-		if self.address < other.address:
-			return True
-		if self.address > other.address:
-			return False
-		if self.il_type < other.il_type:
-			return True
-		if self.il_type > other.il_type:
-			return False
-		return self.expr_id < other.expr_id
-
-	def __gt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.function > other.function:
-			return True
-		if self.function < other.function:
-			return False
-		if self.arch > other.arch:
-			return True
-		if self.arch < other.arch:
-			return False
-		if self.address > other.address:
-			return True
-		if self.address < other.address:
-			return False
-		if self.il_type > other.il_type:
-			return True
-		if self.il_type < other.il_type:
-			return False
-		return self.expr_id > other.expr_id
-
-	def __ge__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self == other) or (self > other)
-
-	def __le__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self == other) or (self < other)
-
-	def __hash__(self):
-		return hash((self._function, self._arch, self._address, self._il_type, self._expr_id))
-
-	@property
-	def function(self):
-		""" """
-		return self._function
-
-	@function.setter
-	def function(self, value):
-		self._function = value
-
-	@property
-	def arch(self):
-		""" """
-		return self._arch
-
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
-	@property
-	def address(self):
-		""" """
-		return self._address
-
-	@address.setter
-	def address(self, value):
-		self._address = value
-
-	@property
-	def il_type(self):
-		""" """
-		return self._il_type
-
-	@il_type.setter
-	def il_type(self, value):
-		self._il_type = value
-
-	@property
-	def expr_id(self):
-		""" """
-		return self._expr_id
-
-	@expr_id.setter
-	def expr_id(self, value):
-		self._expr_id = value
-
-
-class VariableReferenceSource(object):
-	def __init__(self, var, src):
-		self._var = var
-		self._src = src
-
-	def __repr__(self):
-		return "<var: %s, src: %s>" % (repr(self._var), repr(self._src))
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self.var == other.var) and (self.src == other.src)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __lt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.var < other.var:
-			return True
-		if self.var > other.var:
-			return False
-		return self.src < other.src
-
-	def __gt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.var > other.var:
-			return True
-		if self.var < other.var:
-			return False
-		return self.src > other.src
-
-	def __ge__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.var >= other.var:
-			return True
-		if self.var < other.var:
-			return False
-		return self.src >= other.src
-
-	def __le__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		if self.var <= other.var:
-			return True
-		if self.var > other.var:
-			return False
-		return self.src <= other.src
-
-	@property
-	def var(self):
-		return self._var
-	@var.setter
-	def var(self, value):
-		self._var = value
-
-	@property
-	def src(self):
-		return self._src
-
-	@src.setter
-	def src(self, value):
-		self._src = value
-
-
 
 
 class AddressRange(object):

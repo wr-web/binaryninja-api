@@ -30,30 +30,6 @@ from . import log
 
 
 class _UpdateChannelMetaClass(type):
-	@property
-	def list(self):
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		errors = ctypes.c_char_p()
-		channels = core.BNGetUpdateChannels(count, errors)
-		if errors:
-			error_str = errors.value
-			core.BNFreeString(ctypes.cast(errors, ctypes.POINTER(ctypes.c_byte)))
-			raise IOError(error_str)
-		result = []
-		for i in range(0, count.value):
-			result.append(UpdateChannel(channels[i].name, channels[i].description, channels[i].latestVersion))
-		core.BNFreeUpdateChannelList(channels, count.value)
-		return result
-
-	@property
-	def active(self):
-		return core.BNGetActiveUpdateChannel()
-
-	@active.setter
-	def active(self, value):
-		return core.BNSetActiveUpdateChannel(value)
-
 	def __iter__(self):
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
@@ -68,12 +44,6 @@ class _UpdateChannelMetaClass(type):
 				yield UpdateChannel(channels[i].name, channels[i].description, channels[i].latestVersion)
 		finally:
 			core.BNFreeUpdateChannelList(channels, count.value)
-
-	def __setattr__(self, name, value):
-		try:
-			type.__setattr__(self, name, value)
-		except AttributeError:
-			raise AttributeError("attribute '%s' is read only" % name)
 
 	def __getitem__(cls, name):
 		binaryninja._init_plugins()
@@ -108,6 +78,13 @@ class UpdateProgressCallback(object):
 		except:
 			log.log_error(traceback.format_exc())
 
+	@property
+	def active(cls):
+		return core.BNGetActiveUpdateChannel()
+
+	@active.setter
+	def active(cls, value:str) -> None:
+		return core.BNSetActiveUpdateChannel(value)
 
 class UpdateChannel(metaclass=_UpdateChannelMetaClass):
 	def __init__(self, name, desc, ver):

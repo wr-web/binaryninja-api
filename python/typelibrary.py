@@ -19,6 +19,7 @@
 # IN THE SOFTWARE.
 
 import ctypes
+from typing import Optional
 
 # Binary Ninja components
 import binaryninja
@@ -26,6 +27,7 @@ from . import _binaryninjacore as core
 from . import types
 from . import metadata
 from . import platform
+from . import architecture
 
 
 class TypeLibrary(object):
@@ -104,12 +106,12 @@ class TypeLibrary(object):
 		return TypeLibrary(handle)
 
 	@property
-	def arch(self):
+	def arch(self) -> Optional['architecture.Architecture']:
 		"""The Architecture this type library is associated with"""
 		arch = core.BNGetTypeLibraryArchitecture(self.handle)
 		if arch is None:
 			return None
-		return binaryninja.architecture.CoreArchitecture._from_cache(handle=arch)
+		return architecture.CoreArchitecture._from_cache(handle=arch)
 
 	@property
 	def name(self):

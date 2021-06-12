@@ -89,17 +89,6 @@ class PluginCommandContext(object):
 
 
 class _PluginCommandMetaClass(type):
-	@property
-	def list(self):
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		commands = core.BNGetAllPluginCommands(count)
-		result = []
-		for i in range(0, count.value):
-			result.append(PluginCommand(commands[i]))
-		core.BNFreePluginCommandList(commands)
-		return result
-
 	def __iter__(self):
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
@@ -109,12 +98,6 @@ class _PluginCommandMetaClass(type):
 				yield PluginCommand(commands[i])
 		finally:
 			core.BNFreePluginCommandList(commands)
-
-	def __setattr__(self, name, value):
-		try:
-			type.__setattr__(self, name, value)
-		except AttributeError:
-			raise AttributeError("attribute '%s' is read only" % name)
 
 
 class PluginCommand(metaclass=_PluginCommandMetaClass):
@@ -126,11 +109,6 @@ class PluginCommand(metaclass=_PluginCommandMetaClass):
 		self._name = str(cmd.name)
 		self._description = str(cmd.description)
 		self._type = PluginCommandType(cmd.type)
-
-	@property
-	def list(self):
-		"""Allow tab completion to discover metaclass list property"""
-		pass
 
 	@classmethod
 	def _default_action(cls, view, action):
@@ -648,17 +626,6 @@ class MainThreadActionHandler(object):
 
 
 class _BackgroundTaskMetaclass(type):
-	@property
-	def list(self):
-		"""List all running background tasks (read-only)"""
-		count = ctypes.c_ulonglong()
-		tasks = core.BNGetRunningBackgroundTasks(count)
-		result = []
-		for i in range(0, count.value):
-			result.append(BackgroundTask(handle=core.BNNewBackgroundTaskReference(tasks[i])))
-		core.BNFreeBackgroundTaskList(tasks, count.value)
-		return result
-
 	def __iter__(self):
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
@@ -679,11 +646,6 @@ class BackgroundTask(metaclass=_BackgroundTaskMetaclass):
 
 	def __del__(self):
 		core.BNFreeBackgroundTask(self.handle)
-
-	@property
-	def list(self):
-		"""Allow tab completion to discover metaclass list property"""
-		pass
 
 	@property
 	def progress(self):

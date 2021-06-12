@@ -51,8 +51,8 @@ from . import highlight
 from . import function
 from . import settings
 from . import variable
-from . import pyNativeStr
 from . import architecture
+from . import types
 from .filemetadata import FileMetadata
 from .platform import Platform
 from .variable import Variable, RegisterValue, AddressRange
@@ -78,7 +78,7 @@ class ReferenceSource(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
-		return (self.function, self.arch, self.address) == (other.address, other.function, other.arch)
+		return (self.function, self.arch, self.address) == (other.function, other.arch, other.address)
 
 	def __ne__(self, other):
 		if not isinstance(other, self.__class__):
@@ -162,13 +162,13 @@ class BinaryDataNotification(object):
 	def function_update_requested(self, view:'BinaryView', func:'function.Function') -> None:
 		pass
 
-	def data_var_added(self, view:'BinaryView', var:'Variable') -> None:
+	def data_var_added(self, view:'BinaryView', var:'DataVariable') -> None:
 		pass
 
-	def data_var_removed(self, view:'BinaryView', var:'Variable') -> None:
+	def data_var_removed(self, view:'BinaryView', var:'DataVariable') -> None:
 		pass
 
-	def data_var_updated(self, view:'BinaryView', var:'Variable') -> None:
+	def data_var_updated(self, view:'BinaryView', var:'DataVariable') -> None:
 		pass
 
 	def data_metadata_updated(self, view:'BinaryView', offset:int) -> None:
@@ -177,13 +177,16 @@ class BinaryDataNotification(object):
 	def tag_type_updated(self, view:'BinaryView', tag_type) -> None:
 		pass
 
-	def tag_added(self, view:'BinaryView', tag:'Tag', ref_type:TagReferenceType, auto_defined:bool, arch:'architecture.Architecture', func:Function, addr:int) -> None:
+	def tag_added(self, view:'BinaryView', tag:'Tag', ref_type:TagReferenceType, auto_defined:bool,
+		arch:Optional['architecture.Architecture'], func:Optional[Function], addr:int) -> None:
 		pass
 
-	def tag_updated(self, view:'BinaryView', tag:'Tag', ref_type:TagReferenceType, auto_defined:bool, arch:'architecture.Architecture', func:Function, addr:int) -> None:
+	def tag_updated(self, view:'BinaryView', tag:'Tag', ref_type:TagReferenceType, auto_defined:bool,
+		arch:Optional['architecture.Architecture'], func:Optional[Function], addr:int) -> None:
 		pass
 
-	def tag_removed(self, view:'BinaryView', tag:'Tag', ref_type:TagReferenceType, auto_defined:bool, arch:'architecture.Architecture', func:Function, addr:int) -> None:
+	def tag_removed(self, view:'BinaryView', tag:'Tag', ref_type:TagReferenceType, auto_defined:bool,
+		arch:Optional['architecture.Architecture'], func:Optional[Function], addr:int) -> None:
 		pass
 
 	def symbol_added(self, view:'BinaryView', sym:'Symbol') -> None:
@@ -201,10 +204,10 @@ class BinaryDataNotification(object):
 	def string_removed(self, view:'BinaryView', string_type:StringType, offset:int, length:int) -> None:
 		pass
 
-	def type_defined(self, view:'BinaryView', name:str, type:Type) -> None:
+	def type_defined(self, view:'BinaryView', name:QualifiedName, type:Type) -> None:
 		pass
 
-	def type_undefined(self, view:'BinaryView', name:str, type:Type) -> None:
+	def type_undefined(self, view:'BinaryView', name:QualifiedName, type:Type) -> None:
 		pass
 
 	def type_ref_changed(self, view, name, type):
@@ -229,7 +232,7 @@ class StringReference(object):
 		return "<%s: %#x, len %#x>" % (self._type, self._start, self._length)
 
 	def __str__(self):
-		return pyNativeStr(self.raw)
+		return self.raw.decode('utf-8')
 
 	def __len__(self):
 		return self._length
@@ -628,7 +631,9 @@ class BinaryDataNotificationCallbacks(object):
 
 	def _tag_type_updated(self, ctxt, view:core.BNBinaryView, tag_type:core.BNTagType) -> None:
 		try:
-			self._notify.tag_type_updated(self._view, TagType(core.BNNewTagTypeReference(tag_type)))
+			core_tag_type = core.BNNewTagTypeReference(tag_type)
+			assert core_tag_type is not None, "core.BNNewTagTypeReference returned None"
+			self._notify.tag_type_updated(self._view, TagType(core_tag_type))
 		except:
 			log.log_error(traceback.format_exc())
 
@@ -636,7 +641,9 @@ class BinaryDataNotificationCallbacks(object):
 		try:
 			ref_type = tag_ref[0].refType
 			auto_defined = tag_ref[0].autoDefined
-			tag = Tag(core.BNNewTagReference(tag_ref[0].tag))
+			core_tag = core.BNNewTagReference(tag_ref[0].tag)
+			assert core_tag is not None, "core.BNNewTagReference returned None"
+			tag = Tag(core_tag)
 			# Null for data tags (not in any arch or function)
 			if ctypes.cast(tag_ref[0].arch, ctypes.c_void_p).value is None:
 				arch = None
@@ -655,7 +662,9 @@ class BinaryDataNotificationCallbacks(object):
 		try:
 			ref_type = tag_ref[0].refType
 			auto_defined = tag_ref[0].autoDefined
-			tag = Tag(core.BNNewTagReference(tag_ref[0].tag))
+			core_tag = core.BNNewTagReference(tag_ref[0].tag)
+			assert core_tag is not None
+			tag = Tag(core_tag)
 			# Null for data tags (not in any arch or function)
 			if ctypes.cast(tag_ref[0].arch, ctypes.c_void_p).value is None:
 				arch = None
@@ -674,7 +683,9 @@ class BinaryDataNotificationCallbacks(object):
 		try:
 			ref_type = tag_ref[0].refType
 			auto_defined = tag_ref[0].autoDefined
-			tag = Tag(core.BNNewTagReference(tag_ref[0].tag))
+			core_tag = core.BNNewTagReference(tag_ref[0].tag)
+			assert core_tag is not None, "core.BNNewTagReference returned None"
+			tag = Tag(core_tag)
 			# Null for data tags (not in any arch or function)
 			if ctypes.cast(tag_ref[0].arch, ctypes.c_void_p).value is None:
 				arch = None
@@ -760,19 +771,6 @@ class BinaryDataNotificationCallbacks(object):
 
 
 class _BinaryViewTypeMetaclass(type):
-
-	@property
-	def list(self) -> List['BinaryViewType']:
-		"""List all BinaryView types (read-only)"""
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		types = core.BNGetBinaryViewTypes(count)
-		result = []
-		for i in range(0, count.value):
-			result.append(BinaryViewType(types[i]))
-		core.BNFreeBinaryViewTypeList(types)
-		return result
-
 	def __iter__(self):
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
@@ -811,11 +809,6 @@ class BinaryViewType(metaclass=_BinaryViewTypeMetaclass):
 
 	def __hash__(self):
 		return hash(ctypes.addressof(self.handle.contents))
-
-	@property
-	def list(self):
-		"""Allow tab completion to discover metaclass list property"""
-		pass
 
 	@property
 	def name(self):
@@ -1325,7 +1318,9 @@ class Tag(object):
 
 	@property
 	def type(self) -> TagType:
-		return TagType(core.BNTagGetType(self.handle))
+		core_tag_type = core.BNTagGetType(self.handle)
+		assert core_tag_type is not None, "core.BNTagGetType returned None"
+		return TagType(core_tag_type)
 
 	@property
 	def data(self) -> str:
@@ -1695,7 +1690,7 @@ class BinaryView(object):
 				yield il_block
 
 	@property
-	def instructions(self):
+	def instructions(self) -> Generator['basicblock.BasicBlock', None, None]:
 		"""A generator of instruction tokens and their start addresses"""
 		for block in self.basic_blocks:
 			start = block.start
@@ -4246,7 +4241,7 @@ class BinaryView(object):
 	def create_auto_tag(self, type, data):
 		return self.create_tag(type, data, False)
 
-	def create_tag(self, type, data, user=True):
+	def create_tag(self, type:TagType, data:str, user:bool=True) -> Tag:
 		"""
 		``create_tag`` creates a new Tag object but does not add it anywhere.
 		Use :py:meth:`create_user_data_tag` to create and add in one step.
@@ -5687,7 +5682,7 @@ class BinaryView(object):
 			FindCaseSensitive    Case-sensitive search
 			FindCaseInsensitive  Case-insensitive search
 			==================== ============================
-		:param FunctionGraphType graph_type: the IL to search wihtin
+		:param FunctionGraphType graph_type: the IL to search within
 		"""
 		if not isinstance(text, str):
 			raise TypeError("text parameter is not str type")

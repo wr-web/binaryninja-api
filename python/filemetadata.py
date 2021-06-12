@@ -18,9 +18,9 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from __future__ import absolute_import
 import traceback
 import ctypes
+from typing import Any
 
 # Binary Ninja Components
 import binaryninja
@@ -243,17 +243,17 @@ class FileMetadata(object):
 			core.BNMarkFileModified(self.handle)
 
 	@property
-	def navigation(self):
+	def navigation(self) -> int:
 		"""Alias for nav"""
 		return self._nav
 
 	@navigation.setter
-	def navigation(self, value):
+	def navigation(self, value:int) -> None:
 		value._register(self.handle)
 		self._nav = value
 
 	@property
-	def session_data(self):
+	def session_data(self) -> Any:
 		"""Dictionary object where plugins can store arbitrary data associated with the file"""
 		handle = ctypes.cast(self.handle, ctypes.c_void_p)
 		if handle.value not in FileMetadata._associated_data:

@@ -180,7 +180,6 @@ int main(int argc, char* argv[])
 	FILE* out = fopen(argv[2], "w");
 	FILE* enums = fopen(argv[3], "w");
 
-	fprintf(out, "from __future__ import absolute_import\n");
 	fprintf(out, "import ctypes, os\n\n");
 	fprintf(enums, "import enum");
 

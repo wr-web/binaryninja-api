@@ -35,6 +35,7 @@ from . import highlevelil
 from . import basicblock
 from . import log
 from . import highlight
+from . import interaction
 
 
 class FlowGraphEdge(object):
@@ -163,8 +164,8 @@ class FlowGraphNode(object):
 			block = lowlevelil.LowLevelILBasicBlock(view, block,
 				lowlevelil.LowLevelILFunction(func.arch, core.BNGetBasicBlockLowLevelILFunction(block), func))
 		elif core.BNIsMediumLevelILBasicBlock(block):
-			block = mediumlevelil.MediumLevelILBasicBlock(view, block,
-				mediumlevelil.MediumLevelILFunction(func.arch, core.BNGetBasicBlockMediumLevelILFunction(block), func))
+			mlil_func = mediumlevelil.MediumLevelILFunction(func.arch, core.BNGetBasicBlockMediumLevelILFunction(block), func)
+			block = mediumlevelil.MediumLevelILBasicBlock(block, mlil_func, view)
 		else:
 			block = basicblock.BasicBlock(block, view)
 		return block
@@ -766,7 +767,7 @@ class FlowGraph(object):
 
 		:param str title: Title to show in the new tab
 		"""
-		binaryninja.interaction.show_graph_report(title, self)
+		interaction.show_graph_report(title, self)
 
 	def update(self):
 		"""

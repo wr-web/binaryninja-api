@@ -18,10 +18,8 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-from enum import Flag
 import traceback
 import ctypes
-import abc
 from typing import Generator, Union, List, Optional, Mapping, Tuple
 
 # Binary Ninja components
@@ -489,14 +487,14 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 		self._cb.invertBranch = self._cb.invertBranch.__class__(self._invert_branch)
 		self._cb.skipAndReturnValue = self._cb.skipAndReturnValue.__class__(self._skip_and_return_value)
 
-		self.endianness = self.__class__.endianness
-		self.address_size = self.__class__.address_size
-		self.default_int_size = self.__class__.default_int_size
-		self.instr_alignment = self.__class__.instr_alignment
-		self.max_instr_length = self.__class__.max_instr_length
-		self.opcode_display_length = self.__class__.opcode_display_length
-		self.stack_pointer = self.__class__.stack_pointer
-		self.link_reg = self.__class__.link_reg
+		self.__dict__['endianness'] = self.__class__.endianness
+		self.__dict__['address_size'] = self.__class__.address_size
+		self.__dict__['default_int_size'] = self.__class__.default_int_size
+		self.__dict__['instr_alignment'] = self.__class__.instr_alignment
+		self.__dict__['max_instr_length'] = self.__class__.max_instr_length
+		self.__dict__['opcode_display_length'] = self.__class__.opcode_display_length
+		self.__dict__['stack_pointer'] = self.__class__.stack_pointer
+		self.__dict__['link_reg'] = self.__class__.link_reg
 
 		self._all_regs:Mapping[RegisterName, RegisterIndex] = {}
 		self._full_width_regs:Mapping[RegisterName, RegisterIndex] = {}
@@ -671,16 +669,16 @@ class Architecture(metaclass=_ArchitectureMetaClass):
 	def __hash__(self):
 		return hash(ctypes.addressof(self.handle.contents))
 
-	def __setattr__(self, name, value):
-		if ((name == "name") or (name == "endianness") or (name == "address_size") or
-			(name == "default_int_size") or (name == "regs") or (name == "get_max_instruction_length") or
-			(name == "get_instruction_alignment")):
-			raise AttributeError("attribute '%s' is read only" % name)
-		else:
-			try:
-				object.__setattr__(self, name, value)
-			except AttributeError:
-				raise AttributeError("attribute '%s' is read only" % name)
+	# def __setattr__(self, name, value):
+	# 	if ((name == "name") or (name == "endianness") or (name == "address_size") or
+	# 		(name == "default_int_size") or (name == "regs") or (name == "get_max_instruction_length") or
+	# 		(name == "get_instruction_alignment")):
+	# 		raise AttributeError("attribute '%s' is read only" % name)
+	# 	else:
+	# 		try:
+	# 			object.__setattr__(self, name, value)
+	# 		except AttributeError:
+	# 			raise AttributeError("attribute '%s' is read only" % name)
 
 	@classmethod
 	def register(cls) -> None:
@@ -2425,7 +2423,7 @@ class CoreArchitecture(Architecture):
 			result.add_branch(BranchType(info.branchType[i]), target, arch)
 		return result
 
-	def get_instruction_text(self, data:Union[bytes, str], addr:int) -> tuple[Optional[List['function.InstructionTextToken']], int]:
+	def get_instruction_text(self, data:bytes, addr:int) -> Tuple[List['function.InstructionTextToken'], int]:
 		"""
 		``get_instruction_text`` returns a list of InstructionTextToken objects for the instruction at the given virtual
 		address ``addr`` with data ``data``.
@@ -2446,7 +2444,7 @@ class CoreArchitecture(Architecture):
 		buf = (ctypes.c_ubyte * len(data))()
 		ctypes.memmove(buf, data, len(data))
 		tokens = ctypes.POINTER(core.BNInstructionTextToken)()
-		result = None
+		result = []
 		result_length = 0
 		if core.BNGetInstructionText(self.handle, buf, addr, length, tokens, count):
 			result = function.InstructionTextToken._from_core_struct(tokens, count.value)
@@ -2823,79 +2821,6 @@ class ArchitectureHook(CoreArchitecture):
 	@base_arch.setter
 	def base_arch(self, value:'Architecture') -> None:
 		self._base_arch = value
-
-
-class ReferenceSource(object):
-	def __init__(self, func, arch, addr):
-		self._function = func
-		self._arch = arch
-		self._address = addr
-
-	def __repr__(self):
-		if self._arch:
-			return "<ref: %s@%#x>" % (self._arch.name, self._address)
-		else:
-			return "<ref: %#x>" % self._address
-
-	def __eq__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return (self.function, self.arch, self.address) == (other.function, other.arch, other.address)
-
-	def __ne__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return not (self == other)
-
-	def __lt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return self.address < other.address
-
-	def __gt__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return self.address > other.address
-
-	def __ge__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return self.address >= other.address
-
-	def __le__(self, other):
-		if not isinstance(other, self.__class__):
-			return NotImplemented
-		return self.address <= other.address
-
-	def __hash__(self):
-		return hash((self._function, self._arch, self._address))
-
-	@property
-	def function(self):
-		""" """
-		return self._function
-
-	@function.setter
-	def function(self, value):
-		self._function = value
-
-	@property
-	def arch(self):
-		""" """
-		return self._arch
-
-	@arch.setter
-	def arch(self, value):
-		self._arch = value
-
-	@property
-	def address(self):
-		""" """
-		return self._address
-
-	@address.setter
-	def address(self, value):
-		self._address = value
 
 
 class TypeFieldReference(object):

@@ -304,19 +304,6 @@ class ScriptingInstance(object):
 
 
 class _ScriptingProviderMetaclass(type):
-
-	@property
-	def list(self) -> List['ScriptingProvider']:
-		"""List all ScriptingProvider types (read-only)"""
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		types = core.BNGetScriptingProviderList(count)
-		result = []
-		for i in range(0, count.value):
-			result.append(ScriptingProvider(types[i]))
-		core.BNFreeScriptingProviderList(types)
-		return result
-
 	def __iter__(self) -> Generator['ScriptingProvider', None, None]:
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
@@ -344,11 +331,6 @@ class ScriptingProvider(metaclass=_ScriptingProviderMetaclass):
 		if handle is not None:
 			self.handle = core.handle_of_type(handle, core.BNScriptingProvider)
 			self.__dict__["name"] = core.BNGetScriptingProviderName(handle)
-
-	@property
-	def list(self):
-		"""Allow tab completion to discover metaclass list property"""
-		pass
 
 	def register(self) -> None:
 		self._cb = core.BNScriptingProviderCallbacks()

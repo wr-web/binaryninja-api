@@ -114,7 +114,7 @@ def simplify_name_to_string(input_name):
 	:rtype: str
 	:Example:
 
-		>>> bdemangle.simplify_name_to_string("std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >")
+		>>> demangle.simplify_name_to_string("std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >")
 		'std::string'
 		>>>
 	"""
@@ -155,7 +155,7 @@ def simplify_name_to_qualified_name(input_name, simplify = True):
 	for name in result:
 		if name == b'':
 			break
-		native_result.append(name)
+		native_result.append(name.decode("utf-8"))
 	name_count = len(native_result)
 
 	native_result = types.QualifiedName(native_result)

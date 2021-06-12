@@ -19,14 +19,16 @@
 # IN THE SOFTWARE.
 
 import ctypes
-from typing import Optional, List, Tuple
+from typing import Generator, Optional, List, Tuple
 
 # Binary Ninja components
 import binaryninja
 from . import _binaryninjacore as core
 from .enums import BranchType, HighlightStandardColor
 from .highlight import HighlightColor
-
+from . import function as function_module
+from . import binaryview
+from . import architecture
 
 class BasicBlockEdge(object):
 	def __init__(self, branch_type:BranchType, source:'BasicBlock', target:'BasicBlock', back_edge:bool, fall_through:bool):
@@ -106,13 +108,13 @@ class BasicBlockEdge(object):
 
 
 class BasicBlock(object):
-	def __init__(self, handle:core.BNBasicBlock, view:'binaryninja.binaryview.BinaryView' = None):
+	def __init__(self, handle:core.BNBasicBlock, view:Optional['binaryview.BinaryView']=None):
 		self._view = view
 		self.handle = core.handle_of_type(handle, core.BNBasicBlock)
 		self._arch = None
 		self._func = None
-		self._instStarts:List[int] = []
-		self._instLengths:List[int] = []
+		self._instStarts:Optional[List[int]] = None
+		self._instLengths:Optional[List[int]] = None
 
 	def __del__(self):
 		core.BNFreeBasicBlock(self.handle)
@@ -146,7 +148,7 @@ class BasicBlock(object):
 		except AttributeError:
 			raise AttributeError("attribute '%s' is read only" % name)
 
-	def __iter__(self):
+	def __iter__(self) -> Generator[Tuple[List['function_module.InstructionTextToken'], int], None, None]:
 		if self._instStarts is None:
 			# don't add instruction start cache--the object is likely ephemeral
 			idx = self.start
@@ -158,6 +160,7 @@ class BasicBlock(object):
 				yield inst_text
 				idx += inst_text[1]
 		else:
+			assert self._instLengths is not None
 			for start, length in zip(self._instStarts, self._instLengths):
 				inst_text = self.arch.get_instruction_text(self._view.read(start, length), start)
 				if inst_text[1] == 0:
@@ -172,8 +175,10 @@ class BasicBlock(object):
 		return self.arch.get_instruction_text(data, start)
 
 	def _buildStartCache(self) -> None:
-		if self._instStarts is []:
+		if self._instStarts is None:
 			# build the instruction start cache
+			self._instStarts = []
+			self._instLengths = []
 			start = self.start
 			while start < self.end:
 				length = self.view.get_instruction_length(start)
@@ -183,28 +188,29 @@ class BasicBlock(object):
 				self._instStarts.append(start)
 				start += length
 
-	def _create_instance(self, handle:core.BNBasicBlock, view:'binaryninja.binaryview.BinaryView') -> 'BasicBlock':
+	def _create_instance(self, handle:core.BNBasicBlock, view:'binaryview.BinaryView') -> 'BasicBlock':
 		"""Internal method used to instantiate child instances"""
 		return BasicBlock(handle, view)
 
 	@property
 	def instruction_count(self) -> int:
 		self._buildStartCache()
+		assert self._instStarts is not None
 		return len(self._instStarts)
 
 	@property
-	def function(self) -> Optional['binaryninja.function.Function']:
+	def function(self) -> Optional['function_module.Function']:
 		"""Basic block function (read-only)"""
 		if self._func is not None:
 			return self._func
 		func = core.BNGetBasicBlockFunction(self.handle)
 		if func is None:
 			return None
-		self._func = binaryninja.function.Function(self._view, func)
+		self._func = function_module.Function(self._view, func)
 		return self._func
 
 	@property
-	def view(self) -> 'binaryninja.binaryview.BinaryView':
+	def view(self) -> 'binaryview.BinaryView':
 		"""BinaryView that contains the basic block (read-only)"""
 		if self._view is not None:
 			return self._view
@@ -212,7 +218,7 @@ class BasicBlock(object):
 		return self._view
 
 	@property
-	def arch(self) -> Optional['binaryninja.architecture.Architecture']:
+	def arch(self) -> Optional['architecture.Architecture']:
 		"""Basic block architecture (read-only)"""
 		# The arch for a BasicBlock isn't going to change so just cache
 		# it the first time we need it
@@ -221,7 +227,7 @@ class BasicBlock(object):
 		arch = core.BNGetBasicBlockArchitecture(self.handle)
 		if arch is None:
 			return None
-		self._arch = binaryninja.architecture.CoreArchitecture._from_cache(arch)
+		self._arch = architecture.CoreArchitecture._from_cache(arch)
 		return self._arch
 
 	@property
@@ -405,12 +411,13 @@ class BasicBlock(object):
 		return result
 
 	@property
-	def annotations(self) -> List[List['binaryninja.function.InstructionTextToken']]:
+	def annotations(self) -> List[List['function_module.InstructionTextToken']]:
 		"""List of automatic annotations for the start of this block (read-only)"""
+		assert self.arch is not None, "attempting to get annotation from BasicBlock without architecture"
 		return self.function.get_block_annotations(self.start, self.arch)
 
 	@property
-	def disassembly_text(self) -> List['binaryninja.function.DisassemblyTextLine']:
+	def disassembly_text(self) -> List['function_module.DisassemblyTextLine']:
 		"""
 		``disassembly_text`` property which returns a list of function.DisassemblyTextLine objects for the current basic block.
 		:Example:
@@ -455,7 +462,7 @@ class BasicBlock(object):
 	def get_iterated_dominance_frontier(cls, blocks:List['BasicBlock']) -> List['BasicBlock']:
 		if len(blocks) == 0:
 			return []
-		block_set = (ctypes.POINTER(core.BNBasicBlock) * len(blocks))()
+		block_set = (ctypes.POINTER(core.BNBasicBlock) * len(blocks))() #type: ignore
 		for i in range(len(blocks)):
 			block_set[i] = blocks[i].handle
 		count = ctypes.c_ulonglong()
@@ -471,7 +478,7 @@ class BasicBlock(object):
 	def mark_recent_use(self) -> None:
 		core.BNMarkBasicBlockAsRecentlyUsed(self.handle)
 
-	def get_disassembly_text(self, settings:'binaryninja.function.DisassemblySettings'=None) -> List['binaryninja.function.DisassemblyTextLine']:
+	def get_disassembly_text(self, settings:'function_module.DisassemblySettings'=None) -> List['function_module.DisassemblyTextLine']:
 		"""
 		``get_disassembly_text`` returns a list of DisassemblyTextLine objects for the current basic block.
 
@@ -495,8 +502,8 @@ class BasicBlock(object):
 			else:
 				il_instr = None
 			color = HighlightColor._from_core_struct(lines[i].highlight)
-			tokens = binaryninja.function.InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count)
-			result.append(binaryninja.function.DisassemblyTextLine(tokens, addr, il_instr, color))
+			tokens = function_module.InstructionTextToken._from_core_struct(lines[i].tokens, lines[i].count)
+			result.append(function_module.DisassemblyTextLine(tokens, addr, il_instr, color))
 		core.BNFreeDisassemblyTextLines(lines, count.value)
 		return result
 

@@ -239,18 +239,6 @@ class DownloadInstance(object):
 		return self.request("POST", url, headers, data, json)
 
 class _DownloadProviderMetaclass(type):
-	@property
-	def list(self):
-		"""List all DownloadProvider types (read-only)"""
-		binaryninja._init_plugins()
-		count = ctypes.c_ulonglong()
-		types = core.BNGetDownloadProviderList(count)
-		result = []
-		for i in range(0, count.value):
-			result.append(DownloadProvider(types[i]))
-		core.BNFreeDownloadProviderList(types)
-		return result
-
 	def __iter__(self):
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
@@ -267,12 +255,6 @@ class _DownloadProviderMetaclass(type):
 		if provider is None:
 			raise KeyError("'%s' is not a valid download provider" % str(value))
 		return DownloadProvider(provider)
-
-	def __setattr__(self, name, value):
-		try:
-			type.__setattr__(self, name, value)
-		except AttributeError:
-			raise AttributeError("attribute '%s' is read only" % name)
 
 
 class DownloadProvider(metaclass=_DownloadProviderMetaclass):

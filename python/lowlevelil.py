@@ -40,7 +40,7 @@ InstructionIndex = int
 Index = Union[ExpressionIndex, InstructionIndex]
 TokenList = List['function.InstructionTextToken']
 InstructionOrExpression = Union['LowLevelILInstruction', 'LowLevelILExpr', Index]
-ILRegisterType = Union[str, 'lowlevelil.ILRegister', int]
+ILRegisterType = Union[str, 'ILRegister', int]
 
 class LowLevelILLabel(object):
 	def __init__(self, handle:core.BNLowLevelILLabel=None):
@@ -73,7 +73,9 @@ class ILRegister(object):
 
 	def __eq__(self, other):
 		if isinstance(other, str) and other in self._arch.regs:
-			other = ILRegister(self._arch, self._arch.regs[other].index)
+			index = self._arch.regs[other].index
+			assert index is not None
+			other = ILRegister(self._arch, index)
 		elif not isinstance(other, self.__class__):
 			return NotImplemented
 		return (self._arch, self._index, self._name) == (other._arch, other._index, other._name)
@@ -2988,6 +2990,10 @@ class LowLevelILBasicBlock(basicblock.BasicBlock):
 	def _create_instance(self, handle, view):
 		"""Internal method by super to instantiate child instances"""
 		return LowLevelILBasicBlock(view, handle, self._il_function)
+
+	@property
+	def instruction_count(self) -> int:
+		return self.end - self.start
 
 	@property
 	def il_function(self) -> LowLevelILFunction:

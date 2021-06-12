@@ -250,13 +250,15 @@ class LinearViewObject(object):
 			func = None
 			block = None
 			if lines[i].function:
-				func = binaryninja.function.Function(self, core.BNNewFunctionReference(lines[i].function))
+				func = function.Function(None, core.BNNewFunctionReference(lines[i].function))
 			if lines[i].block:
-				block = binaryninja.basicblock.BasicBlock(core.BNNewBasicBlockReference(lines[i].block), self)
+				core_block = core.BNNewBasicBlockReference(lines[i].block)
+				assert core_block is not None, "core.BNNewBasicBlockReference returned None"
+				block = basicblock.BasicBlock(core_block, None)
 			color = highlight.HighlightColor._from_core_struct(lines[i].contents.highlight)
 			addr = lines[i].contents.addr
-			tokens = binaryninja.function.InstructionTextToken._from_core_struct(lines[i].contents.tokens, lines[i].contents.count)
-			contents = binaryninja.function.DisassemblyTextLine(tokens, addr, color = color)
+			tokens = function.InstructionTextToken._from_core_struct(lines[i].contents.tokens, lines[i].contents.count)
+			contents = function.DisassemblyTextLine(tokens, addr, color = color)
 			result.append(LinearDisassemblyLine(lines[i].type, func, block, contents))
 
 		core.BNFreeLinearDisassemblyLines(lines, count.value)
@@ -470,13 +472,15 @@ class LinearViewCursor(object):
 			func = None
 			block = None
 			if lines[i].function:
-				func = binaryninja.function.Function(self, core.BNNewFunctionReference(lines[i].function))
+				func = function.Function(None, core.BNNewFunctionReference(lines[i].function))
 			if lines[i].block:
-				block = binaryninja.basicblock.BasicBlock(core.BNNewBasicBlockReference(lines[i].block), self)
+				core_block = core.BNNewBasicBlockReference(lines[i].block)
+				assert core_block is not None, "core.BNNewBasicBlockReference returned None"
+				block = basicblock.BasicBlock(core_block, None)
 			color = highlight.HighlightColor._from_core_struct(lines[i].contents.highlight)
 			addr = lines[i].contents.addr
-			tokens = binaryninja.function.InstructionTextToken._from_core_struct(lines[i].contents.tokens, lines[i].contents.count)
-			contents = binaryninja.function.DisassemblyTextLine(tokens, addr, color = color)
+			tokens = function.InstructionTextToken._from_core_struct(lines[i].contents.tokens, lines[i].contents.count)
+			contents = function.DisassemblyTextLine(tokens, addr, color = color)
 			result.append(LinearDisassemblyLine(lines[i].type, func, block, contents))
 
 		core.BNFreeLinearDisassemblyLines(lines, count.value)

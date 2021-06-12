@@ -28,9 +28,6 @@ import binaryninja.interaction as interaction
 from binaryninja.plugin import PluginCommand
 from binaryninja import Settings
 
-# 2-3 compatibility
-from binaryninja import range
-
 
 def get_bininfo(bv):
 	if bv is None:
