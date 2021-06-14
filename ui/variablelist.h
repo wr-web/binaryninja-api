@@ -19,11 +19,10 @@ class VariableListItem {
 
     BinaryNinja::Variable m_var;
     BinaryNinja::DataVariable m_dataVar;
-    BinaryNinja::VariableNameAndType m_nat;
 
 public:
     VariableListItem(FunctionRef func, BinaryNinja::Variable var,
-        BinaryNinja::VariableNameAndType nat);
+        std::string name);
     VariableListItem(FunctionRef func, BinaryNinja::DataVariable dataVar,
         std::string name);
 
@@ -43,7 +42,7 @@ class BINARYNINJAUIAPI VariableListModel : public QAbstractListModel {
 public:
     VariableListModel(QWidget* parent, ViewFrame* view, BinaryViewRef data);
 
-    void setFunction(FunctionRef func);
+    void setFunction(FunctionRef func, BNFunctionGraphType il);
 
     virtual QVariant data(const QModelIndex& i, int role) const override;
     virtual QModelIndex index(int row, int col,
