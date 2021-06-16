@@ -21,12 +21,13 @@ class VariableListItem {
     std::string m_name;
 
     BinaryNinja::Variable m_var;
+    BinaryNinja::PossibleValueSet m_pvs;
     BinaryNinja::DataVariable m_dataVar;
 
 public:
     //! Create a new VariableListItem of the LocalVariable type.
     VariableListItem(FunctionRef func, BinaryNinja::Variable var,
-        std::string name);
+        BinaryNinja::PossibleValueSet pvs, std::string name);
 
     //! Create a new VariableListItem of the DataVariable type.
     VariableListItem(FunctionRef func, BinaryNinja::DataVariable dataVar,
