@@ -7,11 +7,14 @@
 #include "uitypes.h"
 #include "viewframe.h"
 
+//! A variable list item can represent either a function-local variable, or a
+//! data variable referenced by the current function.
 enum class VariableListItemType {
     LocalVariable,
     DataVariable
 };
 
+//! An item part of VariableListModel.
 class VariableListItem {
     FunctionRef m_func;
     VariableListItemType m_type;
@@ -21,28 +24,34 @@ class VariableListItem {
     BinaryNinja::DataVariable m_dataVar;
 
 public:
+    //! Create a new VariableListItem of the LocalVariable type.
     VariableListItem(FunctionRef func, BinaryNinja::Variable var,
         std::string name);
+
+    //! Create a new VariableListItem of the DataVariable type.
     VariableListItem(FunctionRef func, BinaryNinja::DataVariable dataVar,
         std::string name);
 
+    //! Get the label representation of this item.
     QString label() const;
 };
 
-using VariableList = std::vector<VariableListItem>;
-
+//! The backing model for the variable list widget, holds VariableListItem.
 class BINARYNINJAUIAPI VariableListModel : public QAbstractListModel {
     Q_OBJECT
 
     ViewFrame* m_view;
     BinaryViewRef m_data;
     FunctionRef m_func;
-    VariableList m_vars;
+    std::vector<VariableListItem> m_vars;
 
 public:
     VariableListModel(QWidget* parent, ViewFrame* view, BinaryViewRef data);
 
+    //! Set the focused function and update the content of the list.
     void setFunction(FunctionRef func, BNFunctionGraphType il);
+
+    // -- QAbstractListModel --
 
     virtual QVariant data(const QModelIndex& i, int role) const override;
     virtual QModelIndex index(int row, int col,
@@ -56,9 +65,8 @@ public:
         int role) const override;
 };
 
-class BINARYNINJAUIAPI VariableListView
-    : public QWidget,
-      public DockContextHandler {
+//! The main variable list dock widget.
+class BINARYNINJAUIAPI VariableListView : public QWidget, public DockContextHandler {
     Q_OBJECT
     Q_INTERFACES(DockContextHandler)
 
