@@ -673,20 +673,8 @@ class PythonScriptingInstance(ScriptingInstance):
 						for line in code.split(b'\n'):
 							self.interpreter.push(line.decode('charmap'))
 
-						tryNavigate = True
-						if isinstance(self.locals["here"], str) or isinstance(self.locals["current_address"], str):
-							try:
-								self.locals["here"] = self.active_view.parse_expression(self.locals["here"], self.active_addr)
-							except ValueError as e:
-								sys.stderr.write(e)
-								tryNavigate = False
-						if tryNavigate:
-							if self.locals["here"] != self.active_addr:
-								if not self.active_view.file.navigate(self.active_view.file.view, self.locals["here"]):
-									sys.stderr.write("Address 0x%x is not valid for the current view\n" % self.locals["here"])
-							elif self.locals["current_address"] != self.active_addr:
-								if not self.active_view.file.navigate(self.active_view.file.view, self.locals["current_address"]):
-									sys.stderr.write("Address 0x%x is not valid for the current view\n" % self.locals["current_address"])
+						self.apply_locals()
+
 						if self.active_view is not None:
 							self.active_view.update_analysis()
 					except:
@@ -727,11 +715,10 @@ class PythonScriptingInstance(ScriptingInstance):
 				self.locals["current_hlil"] = self.active_func.hlil
 
 				# Determine which IL view we're in and propagate the various indices/instructions from there
-				
 
 				self.locals["current_llil_index"] = self.active_func.llil.get_instruction_start(self.active_addr)
 				self.locals["current_mlil_index"] = self.active_func.mlil.get_instruction_start(self.active_addr)
-				# See #2475
+				# See #2475, waiting on #2371
 				# self.locals["current_hlil_index"] = self.active_func.hlil.get_instruction_start(self.active_addr)
 				self.locals["current_hlil_index"] = None
 
@@ -743,7 +730,7 @@ class PythonScriptingInstance(ScriptingInstance):
 					self.locals["current_mlil_instruction"] = self.active_func.mlil[self.active_func.mlil.get_instruction_start(self.active_addr)]
 				else:
 					self.locals["current_mlil_instruction"] = None
-				# See #2475
+				# See #2475, waiting on #2371
 				# if self.active_func.hlil.get_instruction_start(self.active_addr) is not None:
 				# 	self.locals["current_hlil_instruction"] = self.active_func.hlil[self.active_func.hlil.get_instruction_start(self.active_addr)]
 				self.locals["current_hlil_instruction"] = None
@@ -751,38 +738,85 @@ class PythonScriptingInstance(ScriptingInstance):
 			if self.active_view is not None:
 				self.locals["current_data_var"] = self.active_view.get_data_var_at(self.active_addr)
 				self.locals["current_symbol"] = self.active_view.get_symbol_at(self.active_addr)
-				self.locals["current_symbols"] = self.active_view.get_symbols_at(self.active_addr)
+				self.locals["current_symbols"] = self.active_view.get_symbols(self.active_addr, 1)
 				self.locals["current_segment"] = self.active_view.get_segment_at(self.active_addr)
 				self.locals["current_sections"] = self.active_view.get_sections_at(self.active_addr)
+
+				if self.active_func is None:
+					self.locals["current_comment"] = self.active_view.get_comment_at(self.active_addr)
+				else:
+					if self.active_func.get_comment_at(self.active_addr) != '':
+						self.locals["current_comment"] = self.active_func.get_comment_at(self.active_addr)
+					else:
+						self.locals["current_comment"] = self.active_view.get_comment_at(self.active_addr)
+
 			else:
 				self.locals["current_data_var"] = None
 				self.locals["current_symbol"] = None
 				self.locals["current_symbols"] = []
 				self.locals["current_segment"] = None
 				self.locals["current_sections"] = None
+				self.locals["current_comment"] = None
 
 			if binaryninja.core_ui_enabled():
 				from binaryninjaui import UIContext
 
 				context = UIContext.activeContext()
+				action_handler = context.getCurrentActionHandler()
+				view_frame = context.getCurrentViewFrame()
+				view = context.getCurrentView()
+				view_location = view_frame.getViewLocation() if view_frame is not None else None
+				action_context = view.actionContext() if view is not None else action_handler.actionContext()
+				token_state = action_context.token
+				token = token_state.token if token_state.valid else None
 
 				self.locals["current_ui_context"] = context
-				self.locals["current_ui_view_frame"] = context.getCurrentViewFrame()
-				self.locals["current_ui_view"] = context.getCurrentView()
-				self.locals["current_ui_action_handler"] = context.getCurrentActionHandler()
-				if context.getCurrentViewFrame() is not None:
-					self.locals["current_ui_view_location"] = context.getCurrentViewFrame().getViewLocation()
-				else:
-					self.locals["current_ui_view_location"] = None
+				self.locals["current_ui_view_frame"] = view_frame
+				self.locals["current_ui_view"] = view
+				self.locals["current_ui_action_handler"] = action_handler
+				self.locals["current_ui_view_location"] = view_location
+				self.locals["current_ui_action_context"] = action_context
+				self.locals["current_token"] = token
 			else:
 				self.locals["current_ui_context"] = None
 				self.locals["current_ui_view_frame"] = None
 				self.locals["current_ui_view"] = None
 				self.locals["current_ui_action_handler"] = None
 				self.locals["current_ui_view_location"] = None
+				self.locals["current_ui_action_context"] = None
+				self.locals["current_token"] = None
 
 			self.locals.blacklist_enabled = True
 
+		def apply_locals(self):
+
+			tryNavigate = True
+			if isinstance(self.locals["here"], str) or isinstance(self.locals["current_address"], str):
+				try:
+					self.locals["here"] = self.active_view.parse_expression(self.locals["here"], self.active_addr)
+				except ValueError as e:
+					sys.stderr.write(e)
+					tryNavigate = False
+			if tryNavigate:
+				if self.locals["here"] != self.active_addr:
+					if not self.active_view.file.navigate(self.active_view.file.view, self.locals["here"]):
+						sys.stderr.write("Address 0x%x is not valid for the current view\n" % self.locals["here"])
+				elif self.locals["current_address"] != self.active_addr:
+					if not self.active_view.file.navigate(self.active_view.file.view, self.locals["current_address"]):
+						sys.stderr.write("Address 0x%x is not valid for the current view\n" % self.locals["current_address"])
+
+			if self.active_view is not None:
+				if self.active_func is None:
+					if self.active_view.get_comment_at(self.active_addr) != self.locals["current_comment"]:
+						self.active_view.set_comment_at(self.active_addr, self.locals["current_comment"])
+				else:
+					if self.active_view.get_comment_at(self.active_addr) != '':
+						# Prefer editing active view comment if one exists
+						if self.active_view.get_comment_at(self.active_addr) != self.locals["current_comment"]:
+							self.active_view.set_comment_at(self.active_addr, self.locals["current_comment"])
+					else:
+						if self.active_func.get_comment_at(self.active_addr) != self.locals["current_comment"]:
+							self.active_func.set_comment_at(self.active_addr, self.locals["current_comment"])
 
 		def get_selected_data(self):
 			if self.active_view is None:
