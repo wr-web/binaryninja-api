@@ -20,7 +20,7 @@
 
 import ctypes
 import struct
-from typing import Optional, List, Any, Union, Mapping, Generator
+from typing import Optional, List, Any, Union, Mapping, Generator, NewType
 
 # Binary Ninja components
 from . import _binaryninjacore as core
@@ -36,8 +36,11 @@ from . import architecture
 from . import binaryview
 
 OptionalTokens = Optional[List['function.InstructionTextToken']]
-ExpressionIndex = int
-InstructionIndex = int
+ExpressionIndex = NewType('ExpressionIndex', int)
+InstructionIndex = NewType('InstructionIndex', int)
+MLILInstructionsType = Generator['MediumLevelILInstruction', None, None]
+MLILBasicBlocksType = Generator['MediumLevelILBasicBlock', None, None]
+
 
 class SSAVariable(object):
 	def __init__(self, var:'variable.Variable', version:int):
@@ -261,7 +264,7 @@ class MediumLevelILInstruction(object):
 		MediumLevelILOperation.MLIL_MEM_PHI: [("dest_memory", "int"), ("src_memory", "int_list")]
 	}
 
-	def __init__(self, func:'MediumLevelILFunction', expr_index:int, instr_index:int=None):
+	def __init__(self, func:'MediumLevelILFunction', expr_index:ExpressionIndex, instr_index:InstructionIndex=None):
 		instr = core.BNGetMediumLevelILByIndex(func.handle, expr_index)
 		self._function = func
 		self._expr_index = expr_index
@@ -313,6 +316,7 @@ class MediumLevelILInstruction(object):
 			elif operand_type == "int_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNMediumLevelILGetOperandList(func.handle, self._expr_index, i, count)
+				assert operand_list is not None, "core.BNMediumLevelILGetOperandList returned None"
 				value = []
 				for j in range(count.value):
 					value.append(operand_list[j])
@@ -320,6 +324,7 @@ class MediumLevelILInstruction(object):
 			elif operand_type == "var_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNMediumLevelILGetOperandList(func.handle, self._expr_index, i, count)
+				assert operand_list is not None, "core.BNMediumLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value):
@@ -328,6 +333,7 @@ class MediumLevelILInstruction(object):
 			elif operand_type == "var_ssa_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNMediumLevelILGetOperandList(func.handle, self._expr_index, i, count)
+				assert operand_list is not None, "core.BNMediumLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value // 2):
@@ -339,6 +345,7 @@ class MediumLevelILInstruction(object):
 			elif operand_type == "expr_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNMediumLevelILGetOperandList(func.handle, self._expr_index, i, count)
+				assert operand_list is not None, "core.BNMediumLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value):
@@ -347,6 +354,7 @@ class MediumLevelILInstruction(object):
 			elif operand_type == "target_map":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNMediumLevelILGetOperandList(func.handle, self._expr_index, i, count)
+				assert operand_list is not None, "core.BNMediumLevelILGetOperandList returned None"
 				i += 1
 				value = {}
 				for j in range(count.value // 2):
@@ -423,6 +431,7 @@ class MediumLevelILInstruction(object):
 		"""IL basic block object containing this expression (read-only) (only available on finalized functions)"""
 		core_block = core.BNGetMediumLevelILBasicBlockForInstruction(self._function.handle, self._instr_index)
 		assert core_block is not None
+		assert self._function.source_function is not None
 		return MediumLevelILBasicBlock(core_block, self._function, self._function.source_function.view)
 
 	@property
@@ -461,6 +470,7 @@ class MediumLevelILInstruction(object):
 		"""Set of branching instructions that must take the true or false path to reach this instruction"""
 		count = ctypes.c_ulonglong()
 		deps = core.BNGetAllMediumLevelILBranchDependence(self._function.handle, self._instr_index, count)
+		assert deps is not None, "core.BNGetAllMediumLevelILBranchDependence returned None"
 		result = {}
 		for i in range(0, count.value):
 			result[deps[i].branch] = ILBranchDependence(deps[i].dependence)
@@ -471,7 +481,7 @@ class MediumLevelILInstruction(object):
 	def low_level_il(self) -> Optional['lowlevelil.LowLevelILInstruction']:
 		"""Low level IL form of this expression"""
 		expr = self._function.get_low_level_il_expr_index(self._expr_index)
-		if expr is None:
+		if expr is None or self._function.low_level_il is None:
 			return None
 		return lowlevelil.LowLevelILInstruction(self._function.low_level_il.ssa_form, expr)
 
@@ -483,6 +493,8 @@ class MediumLevelILInstruction(object):
 	@property
 	def llils(self) -> List['lowlevelil.LowLevelILInstruction']:
 		exprs = self._function.get_low_level_il_expr_indexes(self.expr_index)
+		if self._function.low_level_il is None:
+			return []
 		result = []
 		for expr in exprs:
 			result.append(lowlevelil.LowLevelILInstruction(self._function.low_level_il.ssa_form, expr))
@@ -639,12 +651,12 @@ class MediumLevelILInstruction(object):
 		var_data.storage = var.storage
 		return core.BNGetMediumLevelILSSAVarVersionAtILInstruction(self._function.handle, var_data, self._instr_index)
 
-	def get_var_for_reg(self, reg:Union['lowlevelil.ILRegister', str, int]) -> variable.Variable:
+	def get_var_for_reg(self, reg:'architecture.RegisterType') -> variable.Variable:
 		reg = self._function.arch.get_reg_index(reg)
 		result = core.BNGetMediumLevelILVariableForRegisterAtInstruction(self._function.handle, reg, self._instr_index)
 		return variable.Variable(self._function.source_function, result.type, result.index, result.storage)
 
-	def get_var_for_flag(self, flag:Union[str, 'lowlevelil.ILFlag', int]) -> variable.Variable:
+	def get_var_for_flag(self, flag:'architecture.FlagType') -> variable.Variable:
 		flag = self._function.arch.get_flag_index(flag)
 		result = core.BNGetMediumLevelILVariableForFlagAtInstruction(self._function.handle, flag, self._instr_index)
 		return variable.Variable(self._function.source_function, result.type, result.index, result.storage)
@@ -817,7 +829,6 @@ class MediumLevelILExpr(object):
 
 	@property
 	def index(self):
-		""" """
 		return self._index
 
 	@index.setter
@@ -833,22 +844,27 @@ class MediumLevelILFunction(object):
 	"""
 	def __init__(self, arch:Optional['architecture.Architecture']=None,
 		handle:Optional[core.BNMediumLevelILFunction]=None, source_func:Optional['function.Function']=None):
-		self._arch = arch
-		self._source_function = source_func
+		_arch = arch
+		_source_function = source_func
 		if handle is not None:
-			self.handle = core.handle_of_type(handle, core.BNMediumLevelILFunction)
-			if self._source_function is None:
-				self._source_function = function.Function(handle = core.BNGetMediumLevelILOwnerFunction(self.handle))
-			if self._arch is None:
-				self._arch = self._source_function.arch
+			_handle = core.handle_of_type(handle, core.BNMediumLevelILFunction)
+			if _source_function is None:
+				_source_function = function.Function(handle = core.BNGetMediumLevelILOwnerFunction(_handle))
+			if _arch is None:
+				_arch = _source_function.arch
 		else:
-			if self._source_function is None:
-				self.handle = None
+			if _source_function is None:
 				raise ValueError("IL functions must be created with an associated function")
-			if self._arch is None:
-				self._arch = self._source_function.arch
-			func_handle = self._source_function.handle
-			self.handle = core.BNCreateMediumLevelILFunction(arch.handle, func_handle)
+			if _arch is None:
+				_arch = _source_function.arch
+			func_handle = _source_function.handle
+			_handle = core.BNCreateMediumLevelILFunction(self.arch.handle, func_handle)
+		assert _source_function is not None
+		assert _arch is not None
+		assert _handle is not None
+		self.handle = _handle
+		self._arch = _arch
+		self._source_function = _source_function
 
 	def __del__(self):
 		if self.handle is not None:
@@ -897,6 +913,7 @@ class MediumLevelILFunction(object):
 	def __iter__(self):
 		count = ctypes.c_ulonglong()
 		blocks = core.BNGetMediumLevelILBasicBlockList(self.handle, count)
+		assert blocks is not None, "core.BNGetMediumLevelILBasicBlockList returned None"
 		view = None
 		if self._source_function is not None:
 			view = self._source_function.view
@@ -918,15 +935,17 @@ class MediumLevelILFunction(object):
 		core.BNMediumLevelILSetCurrentAddress(self.handle, self._arch.handle, value)
 
 	def set_current_address(self, value:int, arch:Optional['architecture.Architecture']=None) -> None:
-		if arch is None:
-			arch = self._arch
-		core.BNMediumLevelILSetCurrentAddress(self.handle, arch.handle, value)
+		_arch = arch
+		if _arch is None:
+			_arch = self._arch
+		core.BNMediumLevelILSetCurrentAddress(self.handle, _arch.handle, value)
 
 	@property
 	def basic_blocks(self) -> Generator['MediumLevelILBasicBlock', None, None]:
 		"""list of MediumLevelILBasicBlock objects (read-only)"""
 		count = ctypes.c_ulonglong()
 		blocks = core.BNGetMediumLevelILBasicBlockList(self.handle, count)
+		assert blocks is not None, "core.BNGetMediumLevelILBasicBlockList returned None"
 		view = None
 		if self._source_function is not None:
 			view = self._source_function.view
@@ -986,9 +1005,9 @@ class MediumLevelILFunction(object):
 	def hlil(self) -> Optional[highlevelil.HighLevelILFunction]:
 		return self.high_level_il
 
-	def get_instruction_start(self, addr:int, arch:'architecture.Architecture'=None) -> Optional[int]:
+	def get_instruction_start(self, addr:int, arch:Optional['architecture.Architecture']=None) -> Optional[int]:
 		_arch = arch
-		if arch is None:
+		if _arch is None:
 			if self._arch is None:
 				raise Exception("Attempting to get_instruction_start from a MLIL Function without an Architecture")
 			_arch = self._arch
@@ -1057,8 +1076,8 @@ class MediumLevelILFunction(object):
 		:return: the label list expression
 		:rtype: MediumLevelILExpr
 		"""
-		label_list = (ctypes.POINTER(core.BNMediumLevelILLabel) * len(labels))()
-		value_list = (ctypes.POINTER(ctypes.c_ulonglong) * len(labels))()
+		label_list = (ctypes.POINTER(core.BNMediumLevelILLabel) * len(labels))()  # type: ignore
+		value_list = (ctypes.POINTER(ctypes.c_ulonglong) * len(labels))()  # type: ignore
 		for i, (key, value) in enumerate(labels.items()):
 			value_list[i] = key
 			label_list[i] = value.handle
@@ -1116,6 +1135,7 @@ class MediumLevelILFunction(object):
 		var_data.index = ssa_var.var.index
 		var_data.storage = ssa_var.var.storage
 		instrs = core.BNGetMediumLevelILSSAVarUses(self.handle, var_data, ssa_var.version, count)
+		assert instrs is not None, "core.BNGetMediumLevelILSSAVarUses returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(self[instrs[i]])
@@ -1125,6 +1145,7 @@ class MediumLevelILFunction(object):
 	def get_ssa_memory_uses(self, version:int) -> List[MediumLevelILInstruction]:
 		count = ctypes.c_ulonglong()
 		instrs = core.BNGetMediumLevelILSSAMemoryUses(self.handle, version, count)
+		assert instrs is not None, "core.BNGetMediumLevelILSSAMemoryUses returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(self[instrs[i]])
@@ -1152,6 +1173,7 @@ class MediumLevelILFunction(object):
 		var_data.index = var.index
 		var_data.storage = var.storage
 		instrs = core.BNGetMediumLevelILVariableDefinitions(self.handle, var_data, count)
+		assert instrs is not None, "core.BNGetMediumLevelILVariableDefinitions returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(self[instrs[i]])
@@ -1165,6 +1187,7 @@ class MediumLevelILFunction(object):
 		var_data.index = var.index
 		var_data.storage = var.storage
 		instrs = core.BNGetMediumLevelILVariableDefinitions(self.handle, var_data, count)
+		assert instrs is not None, "core.BNGetMediumLevelILVariableDefinitions returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(self[instrs[i]])
@@ -1219,6 +1242,7 @@ class MediumLevelILFunction(object):
 	def get_low_level_il_expr_indexes(self, expr:ExpressionIndex) -> List['lowlevelil.ExpressionIndex']:
 		count = ctypes.c_ulonglong()
 		exprs = core.BNGetLowLevelILExprIndexes(self.handle, expr, count)
+		assert exprs is not None, "core.BNGetLowLevelILExprIndexes returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(exprs[i])
@@ -1246,6 +1270,7 @@ class MediumLevelILFunction(object):
 	def get_high_level_il_expr_indexes(self, expr:ExpressionIndex) -> List['highlevelil.ExpressionIndex']:
 		count = ctypes.c_ulonglong()
 		exprs = core.BNGetHighLevelILExprIndexes(self.handle, expr, count)
+		assert exprs is not None, "core.BNGetHighLevelILExprIndexes returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(exprs[i])
@@ -1260,11 +1285,11 @@ class MediumLevelILFunction(object):
 		return flowgraph.CoreFlowGraph(core.BNCreateMediumLevelILFunctionGraph(self.handle, settings_obj))
 
 	@property
-	def arch(self) -> Optional['architecture.Architecture']:
+	def arch(self) -> 'architecture.Architecture':
 		return self._arch
 
 	@property
-	def source_function(self) -> Optional['function.Function']:
+	def source_function(self) -> 'function.Function':
 		return self._source_function
 
 

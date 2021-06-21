@@ -35,6 +35,7 @@ class _TransformMetaClass(type):
 		binaryninja._init_plugins()
 		count = ctypes.c_ulonglong()
 		xforms = core.BNGetTransformTypeList(count)
+		assert xforms is not None, "core.BNGetTransformTypeList returned None"
 		try:
 			for i in range(0, count.value):
 				yield Transform(xforms[i])
@@ -131,6 +132,7 @@ class Transform(metaclass=_TransformMetaClass):
 			self.group = core.BNGetTransformGroup(self.handle)
 			count = ctypes.c_ulonglong()
 			params = core.BNGetTransformParameterList(self.handle, count)
+			assert params is not None, "core.BNGetTransformParameterList returned None"
 			self.parameters = []
 			for i in range(0, count.value):
 				self.parameters.append(TransformParameter(params[i].name, params[i].longName, params[i].fixedLength))

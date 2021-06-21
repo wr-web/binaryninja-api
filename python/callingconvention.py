@@ -22,12 +22,12 @@ import traceback
 import ctypes
 
 # Binary Ninja components
-import binaryninja
 from . import _binaryninjacore as core
 from .enums import VariableSourceType
 from . import log
 from . import variable
 from . import function
+from . import architecture
 
 
 class CallingConvention(object):
@@ -81,7 +81,7 @@ class CallingConvention(object):
 			self.__class__._registered_calling_conventions.append(self)
 		else:
 			self.handle = handle
-			self.arch = binaryninja.architecture.CoreArchitecture._from_cache(core.BNGetCallingConventionArchitecture(self.handle))
+			self.arch = architecture.CoreArchitecture._from_cache(core.BNGetCallingConventionArchitecture(self.handle))
 			self.__dict__["name"] = core.BNGetCallingConventionName(self.handle)
 			self.__dict__["arg_regs_share_index"] = core.BNAreArgumentRegistersSharedIndex(self.handle)
 			self.__dict__["arg_regs_for_varargs"] = core.BNAreArgumentRegistersUsedForVarArgs(self.handle)
@@ -91,6 +91,7 @@ class CallingConvention(object):
 
 			count = ctypes.c_ulonglong()
 			regs = core.BNGetCallerSavedRegisters(self.handle, count)
+			assert regs is not None, "core.BNGetCallerSavedRegisters returned None"
 			result = []
 			arch = self.arch
 			for i in range(0, count.value):
@@ -100,6 +101,7 @@ class CallingConvention(object):
 
 			count = ctypes.c_ulonglong()
 			regs = core.BNGetCalleeSavedRegisters(self.handle, count)
+			assert regs is not None, "core.BNGetCalleeSavedRegisters returned None"
 			result = []
 			arch = self.arch
 			for i in range(0, count.value):
@@ -109,6 +111,7 @@ class CallingConvention(object):
 
 			count = ctypes.c_ulonglong()
 			regs = core.BNGetIntegerArgumentRegisters(self.handle, count)
+			assert regs is not None, "core.BNGetIntegerArgumentRegisters returned None"
 			result = []
 			arch = self.arch
 			for i in range(0, count.value):
@@ -118,6 +121,7 @@ class CallingConvention(object):
 
 			count = ctypes.c_ulonglong()
 			regs = core.BNGetFloatArgumentRegisters(self.handle, count)
+			assert regs is not None, "core.BNGetFloatArgumentRegisters returned None"
 			result = []
 			arch = self.arch
 			for i in range(0, count.value):
@@ -151,6 +155,7 @@ class CallingConvention(object):
 
 			count = ctypes.c_ulonglong()
 			regs = core.BNGetImplicitlyDefinedRegisters(self.handle, count)
+			assert regs is not None, "core.BNGetImplicitlyDefinedRegisters returned None"
 			result = []
 			arch = self.arch
 			for i in range(0, count.value):
@@ -173,6 +178,8 @@ class CallingConvention(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
+		assert self.handle is not None
+		assert other.handle is not None
 		return ctypes.addressof(self.handle.contents) == ctypes.addressof(other.handle.contents)
 
 	def __ne__(self, other):
@@ -181,6 +188,7 @@ class CallingConvention(object):
 		return not (self == other)
 
 	def __hash__(self):
+		assert self.handle is not None
 		return hash(ctypes.addressof(self.handle.contents))
 
 	def _get_caller_saved_regs(self, ctxt, count):
@@ -307,7 +315,7 @@ class CallingConvention(object):
 		try:
 			if self.__class__.float_return_reg is None:
 				return 0xffffffff
-			return self.arch.regs[self.__class__.float_int_return_reg].index
+			return self.arch.regs[self.__class__.float_return_reg].index
 		except:
 			log.log_error(traceback.format_exc())
 			return False
@@ -338,7 +346,7 @@ class CallingConvention(object):
 
 	def _get_incoming_reg_value(self, ctxt, reg, func, result):
 		try:
-			func_obj = binaryninja.function.Function(handle = core.BNNewFunctionReference(func))
+			func_obj = function.Function(handle = core.BNNewFunctionReference(func))
 			reg_name = self.arch.get_reg_name(reg)
 			api_obj = self.perform_get_incoming_reg_value(reg_name, func_obj)._to_api_object()
 		except:
@@ -349,7 +357,7 @@ class CallingConvention(object):
 
 	def _get_incoming_flag_value(self, ctxt, reg, func, result):
 		try:
-			func_obj = binaryninja.function.Function(handle = core.BNNewFunctionReference(func))
+			func_obj = function.Function(handle = core.BNNewFunctionReference(func))
 			reg_name = self.arch.get_reg_name(reg)
 			api_obj = self.perform_get_incoming_flag_value(reg_name, func_obj)._to_api_object()
 		except:
@@ -468,7 +476,6 @@ class CallingConvention(object):
 
 	@property
 	def arch(self):
-		""" """
 		return self._arch
 
 	@arch.setter

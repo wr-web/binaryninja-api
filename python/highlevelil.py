@@ -20,12 +20,11 @@
 
 import ctypes
 import struct
-from typing import Optional, Generator, List, Union, Any
+from typing import Optional, Generator, List, Union, Any, NewType
 
 # Binary Ninja components
 from . import _binaryninjacore as core
 from .enums import HighLevelILOperation, InstructionTextTokenType, DataFlowQueryOption
-from .variable import Variable
 from . import function
 from . import binaryview
 from . import architecture
@@ -38,8 +37,10 @@ from . import flowgraph
 from . import variable
 
 LinesType = Generator['function.DisassemblyTextLine', None, None]
-ExpressionIndex = int
-InstructionIndex = int
+ExpressionIndex = NewType('ExpressionIndex', int)
+InstructionIndex = NewType('InstructionIndex', int)
+HLILInstructionsType = Generator['HighLevelILInstruction', None, None]
+HLILBasicBlocksType = Generator['HighLevelILBasicBlock', None, None]
 
 class HighLevelILOperationAndSize(object):
 	def __init__(self, operation, size):
@@ -68,7 +69,6 @@ class HighLevelILOperationAndSize(object):
 
 	@property
 	def operation(self):
-		""" """
 		return self._operation
 
 	@operation.setter
@@ -77,7 +77,6 @@ class HighLevelILOperationAndSize(object):
 
 	@property
 	def size(self):
-		""" """
 		return self._size
 
 	@size.setter
@@ -246,7 +245,8 @@ class HighLevelILInstruction(object):
 		HighLevelILOperation.HLIL_FCMP_UO: [("left", "expr"), ("right", "expr")]
 	}
 
-	def __init__(self, func:'HighLevelILFunction', expr_index:int, as_ast:bool = True, instr_index:int = None):
+	def __init__(self, func:'HighLevelILFunction', expr_index:ExpressionIndex, as_ast:bool = True,
+		instr_index:InstructionIndex = None):
 		instr = core.BNGetHighLevelILByIndex(func.handle, expr_index, as_ast)
 		self._function = func
 		if func.arch is None:
@@ -283,15 +283,16 @@ class HighLevelILInstruction(object):
 			elif operand_type == "intrinsic":
 				value = lowlevelil.ILIntrinsic(func.arch, instr.operands[i])
 			elif operand_type == "var":
-				value = Variable.from_identifier(self._function.source_function, instr.operands[i])
+				value = variable.Variable.from_identifier(self._function.source_function, instr.operands[i])
 			elif operand_type == "var_ssa":
-				var = Variable.from_identifier(self._function.source_function, instr.operands[i])
+				var = variable.Variable.from_identifier(self._function.source_function, instr.operands[i])
 				version = instr.operands[i + 1]
 				i += 1
 				value = mediumlevelil.SSAVariable(var, version)
 			elif operand_type == "int_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNHighLevelILGetOperandList(func.handle, self._expr_index, i, count)
+				assert operand_list is not None, "core.BNHighLevelILGetOperandList returned None"
 				value = []
 				for j in range(count.value):
 					value.append(operand_list[j])
@@ -299,6 +300,7 @@ class HighLevelILInstruction(object):
 			elif operand_type == "expr_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNHighLevelILGetOperandList(func.handle, self._expr_index, i, count)
+				assert operand_list is not None, "core.BNHighLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value):
@@ -307,12 +309,13 @@ class HighLevelILInstruction(object):
 			elif operand_type == "var_ssa_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNHighLevelILGetOperandList(func.handle, self._expr_index, i, count)
+				assert operand_list is not None, "core.BNHighLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value // 2):
 					var_id = operand_list[j * 2]
 					var_version = operand_list[(j * 2) + 1]
-					value.append(mediumlevelil.SSAVariable(Variable.from_identifier(self._function.source_function,
+					value.append(mediumlevelil.SSAVariable(variable.Variable.from_identifier(self._function.source_function,
 						var_id), var_version))
 				core.BNHighLevelILFreeOperandList(operand_list)
 			elif operand_type == "member_index":
@@ -388,6 +391,7 @@ class HighLevelILInstruction(object):
 		"""HLIL text lines (read-only)"""
 		count = ctypes.c_ulonglong()
 		lines = core.BNGetHighLevelILExprText(self._function.handle, self._expr_index, self._as_ast, count, None)
+		assert lines is not None, "core.BNGetHighLevelILExprText returned None"
 		try:
 			for i in range(0, count.value):
 				addr = lines[i].addr
@@ -426,16 +430,14 @@ class HighLevelILInstruction(object):
 
 	@property
 	def function(self) -> 'HighLevelILFunction':
-		""" """
 		return self._function
 
 	@property
-	def expr_index(self) -> int:
-		""" """
+	def expr_index(self) -> ExpressionIndex:
 		return self._expr_index
 
 	@expr_index.setter
-	def expr_index(self, value:int) -> None:
+	def expr_index(self, value:ExpressionIndex) -> None:
 		self._expr_index = value
 
 	@property
@@ -464,7 +466,6 @@ class HighLevelILInstruction(object):
 
 	@property
 	def operation(self) -> HighLevelILOperation:
-		""" """
 		return self._operation
 
 	@operation.setter
@@ -473,7 +474,6 @@ class HighLevelILInstruction(object):
 
 	@property
 	def size(self) -> int:
-		""" """
 		return self._size
 
 	@size.setter
@@ -482,7 +482,6 @@ class HighLevelILInstruction(object):
 
 	@property
 	def address(self) -> int:
-		""" """
 		return self._address
 
 	@address.setter
@@ -491,8 +490,7 @@ class HighLevelILInstruction(object):
 
 	@property
 	def source_operand(self):
-		""" """
-		return self._source_operand
+				return self._source_operand
 
 	@source_operand.setter
 	def source_operand(self, value):
@@ -500,7 +498,6 @@ class HighLevelILInstruction(object):
 
 	@property
 	def operands(self) -> Any:
-		""" """
 		return self._operands
 
 	@operands.setter
@@ -534,8 +531,10 @@ class HighLevelILInstruction(object):
 		expr = self._function.get_medium_level_il_expr_index(self._expr_index)
 		if expr is None:
 			return None
-		assert expr is not None, "get_medium_level_il_expr_index returned None"
-		ssa_func = self._function.medium_level_il.ssa_form
+		mlil = self._function.medium_level_il
+		if mlil is None:
+			return None
+		ssa_func = mlil.ssa_form
 		assert ssa_func is not None, "medium_level_il.ssa_form is None"
 		return mediumlevelil.MediumLevelILInstruction(ssa_func, expr)
 
@@ -547,7 +546,10 @@ class HighLevelILInstruction(object):
 	@property
 	def mlils(self) -> Generator['mediumlevelil.MediumLevelILInstruction', None, None]:
 		for expr in self._function.get_medium_level_il_expr_indexes(self._expr_index):
-			ssa_func = self._function.medium_level_il.ssa_form
+			mlil = self._function.medium_level_il
+			if mlil is None:
+				return
+			ssa_func = mlil.ssa_form
 			assert ssa_func is not None, "medium_level_il.ssa_form is None"
 			yield mediumlevelil.MediumLevelILInstruction(ssa_func, expr)
 
@@ -578,7 +580,7 @@ class HighLevelILInstruction(object):
 		Returns None for HLIL_BLOCK expressions as these can contain multiple basic blocks.
 		"""
 		block = core.BNGetHighLevelILBasicBlockForInstruction(self._function.handle, self._instr_index)
-		if not block:
+		if not block or self._function.source_function is None:
 			return None
 		return HighLevelILBasicBlock(self._function.source_function.view, block, self._function)
 
@@ -620,7 +622,7 @@ class HighLevelILInstruction(object):
 		"""Version of active memory contents in SSA form for this instruction"""
 		return core.BNGetHighLevelILSSAMemoryVersionAtILInstruction(self._function.handle, self._instr_index)
 
-	def get_ssa_var_version(self, var:'Variable') -> int:
+	def get_ssa_var_version(self, var:'variable.Variable') -> int:
 		var_data = core.BNVariable()
 		var_data.type = var.source_type
 		var_data.index = var.index
@@ -635,11 +637,11 @@ class HighLevelILExpr(object):
 	.. note:: This class shouldn't be instantiated directly. Rather the helper members of HighLevelILFunction should be \
 	used instead.
 	"""
-	def __init__(self, index:int):
+	def __init__(self, index:ExpressionIndex):
 		self._index = index
 
 	@property
-	def index(self) -> int:
+	def index(self) -> ExpressionIndex:
 		return self._index
 
 
@@ -649,7 +651,7 @@ class HighLevelILFunction(object):
 	``class HighLevelILFunction`` contains the a HighLevelILInstruction object that makes up the abstract syntax tree of
 	a function.
 	"""
-	def __init__(self, arch:'architecture.Architecture'=None, handle:core.BNHighLevelILFunction=None,
+	def __init__(self, arch:Optional['architecture.Architecture']=None, handle:core.BNHighLevelILFunction=None,
 		source_func:'function.Function'=None):
 		self._arch = arch
 		self._source_function = source_func
@@ -665,8 +667,12 @@ class HighLevelILFunction(object):
 				raise ValueError("IL functions must be created with an associated function")
 			if self._arch is None:
 				self._arch = self._source_function.arch
+				if self._arch is None:
+					raise ValueError("IL functions must be created with an associated Architecture")
 			func_handle = self._source_function.handle
-			self.handle = core.BNCreateHighLevelILFunction(arch.handle, func_handle)
+			self.handle = core.BNCreateHighLevelILFunction(self._arch.handle, func_handle)
+		assert self._source_function is not None
+		assert self._arch is not None
 
 	def __del__(self):
 		if self.handle is not None:
@@ -675,6 +681,8 @@ class HighLevelILFunction(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
+		assert self.handle is not None
+		assert other.handle is not None
 		return ctypes.addressof(self.handle.contents) == ctypes.addressof(other.handle.contents)
 
 	def __ne__(self, other):
@@ -700,7 +708,8 @@ class HighLevelILFunction(object):
 			raise IndexError("index out of range")
 		if i < 0:
 			i = len(self) + i
-		return HighLevelILInstruction(self, core.BNGetHighLevelILIndexForInstruction(self.handle, i), False, i)
+		return HighLevelILInstruction(self, core.BNGetHighLevelILIndexForInstruction(self.handle, i), False,
+			InstructionIndex(i))
 
 	def __setitem__(self, i, j):
 		raise IndexError("instruction modification not implemented")
@@ -708,6 +717,7 @@ class HighLevelILFunction(object):
 	def __iter__(self) -> Generator['HighLevelILBasicBlock', None, None]:
 		count = ctypes.c_ulonglong()
 		blocks = core.BNGetHighLevelILBasicBlockList(self.handle, count)
+		assert blocks is not None, "core.BNGetHighLevelILBasicBlockList returned None"
 		view = None
 		if self._source_function is not None:
 			view = self._source_function.view
@@ -729,11 +739,11 @@ class HighLevelILFunction(object):
 
 	@current_address.setter
 	def current_address(self, value:int) -> None:
-		core.BNHighLevelILSetCurrentAddress(self.handle, self._arch.handle, value)
+		core.BNHighLevelILSetCurrentAddress(self.handle, self.arch.handle, value)
 
 	def set_current_address(self, value:int, arch:Optional['architecture.Architecture'] = None) -> None:
 		if arch is None:
-			arch = self._arch
+			arch = self.arch
 		core.BNHighLevelILSetCurrentAddress(self.handle, arch.handle, value)
 
 	@property
@@ -753,6 +763,7 @@ class HighLevelILFunction(object):
 		"""list of HighLevelILBasicBlock objects (read-only)"""
 		count = ctypes.c_ulonglong()
 		blocks = core.BNGetHighLevelILBasicBlockList(self.handle, count)
+		assert blocks is not None, "core.BNGetHighLevelILBasicBlockList returned None"
 
 		view = None
 		if self._source_function is not None:
@@ -789,11 +800,13 @@ class HighLevelILFunction(object):
 		return HighLevelILFunction(self._arch, result, self._source_function)
 
 	@property
-	def arch(self) -> Optional['architecture.Architecture']:
+	def arch(self) -> 'architecture.Architecture':
+		assert self._arch is not None
 		return self._arch
 
 	@property
-	def source_function(self) -> Optional['function.Function']:
+	def source_function(self) -> 'function.Function':
+		assert self._source_function is not None
 		return self._source_function
 
 	@property
@@ -838,6 +851,7 @@ class HighLevelILFunction(object):
 		var_data.index = ssa_var.var.index
 		var_data.storage = ssa_var.var.storage
 		instrs = core.BNGetHighLevelILSSAVarUses(self.handle, var_data, ssa_var.version, count)
+		assert instrs is not None, "core.BNGetHighLevelILSSAVarUses returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(HighLevelILInstruction(self, instrs[i]))
@@ -847,6 +861,7 @@ class HighLevelILFunction(object):
 	def get_ssa_memory_uses(self, version:int) -> List[HighLevelILInstruction]:
 		count = ctypes.c_ulonglong()
 		instrs = core.BNGetHighLevelILSSAMemoryUses(self.handle, version, count)
+		assert instrs is not None, "core.BNGetHighLevelILSSAMemoryUses returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(HighLevelILInstruction(self, instrs[i]))
@@ -867,26 +882,28 @@ class HighLevelILFunction(object):
 		var_data.storage = ssa_var.var.storage
 		return core.BNIsHighLevelILSSAVarLive(self.handle, var_data, ssa_var.version)
 
-	def get_var_definitions(self, var:'Variable') -> List[HighLevelILInstruction]:
+	def get_var_definitions(self, var:'variable.Variable') -> List[HighLevelILInstruction]:
 		count = ctypes.c_ulonglong()
 		var_data = core.BNVariable()
 		var_data.type = var.source_type
 		var_data.index = var.index
 		var_data.storage = var.storage
 		instrs = core.BNGetHighLevelILVariableDefinitions(self.handle, var_data, count)
+		assert instrs is not None, "core.BNGetHighLevelILVariableDefinitions returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(HighLevelILInstruction(self, instrs[i]))
 		core.BNFreeILInstructionList(instrs)
 		return result
 
-	def get_var_uses(self, var:Variable) -> List[HighLevelILInstruction]:
+	def get_var_uses(self, var:'variable.Variable') -> List[HighLevelILInstruction]:
 		count = ctypes.c_ulonglong()
 		var_data = core.BNVariable()
 		var_data.type = var.source_type
 		var_data.index = var.index
 		var_data.storage = var.storage
 		instrs = core.BNGetHighLevelILVariableUses(self.handle, var_data, count)
+		assert instrs is not None, "core.BNGetHighLevelILVariableUses returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(HighLevelILInstruction(self, instrs[i]))
@@ -929,7 +946,7 @@ class HighLevelILFunction(object):
 			settings_obj = None
 		return flowgraph.CoreFlowGraph(core.BNCreateHighLevelILFunctionGraph(self.handle, settings_obj))
 
-	def get_medium_level_il_expr_index(self, expr:int) -> Optional[int]:
+	def get_medium_level_il_expr_index(self, expr:ExpressionIndex) -> Optional['mediumlevelil.ExpressionIndex']:
 		medium_il = self.medium_level_il
 		if medium_il is None:
 			return None
@@ -941,9 +958,10 @@ class HighLevelILFunction(object):
 			return None
 		return result
 
-	def get_medium_level_il_expr_indexes(self, expr: int) -> List[int]:
+	def get_medium_level_il_expr_indexes(self, expr:ExpressionIndex) -> List['mediumlevelil.ExpressionIndex']:
 		count = ctypes.c_ulonglong()
 		exprs = core.BNGetMediumLevelILExprIndexesFromHighLevelIL(self.handle, expr, count)
+		assert exprs is not None, "core.BNGetMediumLevelILExprIndexesFromHighLevelIL returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(exprs[i])
@@ -959,6 +977,7 @@ class HighLevelILFunction(object):
 	def get_label_uses(self, label_idx:int) -> List[HighLevelILInstruction]:
 		count = ctypes.c_ulonglong()
 		uses = core.BNGetHighLevelILUsesForLabel(self.handle, label_idx, count)
+		assert uses is not None, "core.BNGetHighLevelILUsesForLabel returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(HighLevelILInstruction(self, uses[i]))

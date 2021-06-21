@@ -24,10 +24,7 @@ def pyNativeStr(arg):
 	if isinstance(arg, str):
 		return arg
 	else:
-		try:
-			return arg.decode('utf8')
-		except UnicodeDecodeError:
-			return arg.decode('charmap')
+		return arg.decode('utf8')
 
 
 def valid_import(mod_name):
@@ -41,13 +38,3 @@ def valid_import(mod_name):
 		return found
 
 
-def cstr(arg):
-	if isinstance(arg, bytes) or arg is None:
-		return arg
-	elif isinstance(arg, bytearray):
-		return bytes(arg)
-	else:
-		try:
-			return arg.encode('charmap')
-		except UnicodeEncodeError:
-			return arg.encode('utf8')

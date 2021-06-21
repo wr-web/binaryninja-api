@@ -31,7 +31,6 @@ import binaryninja
 import binaryninja._binaryninjacore as core
 from . import settings
 from . import log
-from . import pyNativeStr
 
 
 def to_bytes(field):
@@ -89,7 +88,7 @@ class DownloadInstance(object):
 	def _perform_custom_request(self, ctxt, method, url, header_count, header_keys, header_values, response):
 		# Cast response to an array of length 1 so ctypes can write to the pointer
 		# out_response = ((BNDownloadInstanceResponse*)[1])response
-		out_response = (ctypes.POINTER(core.BNDownloadInstanceResponse) * 1).from_address(ctypes.addressof(response.contents))
+		out_response = (ctypes.POINTER(core.BNDownloadInstanceResponse) * 1).from_address(ctypes.addressof(response.contents))  # type: ignore
 		try:
 			# Extract headers
 			keys_ptr = ctypes.cast(header_keys, ctypes.POINTER(ctypes.c_char_p))
@@ -118,8 +117,8 @@ class DownloadInstance(object):
 				self.bn_response.headerKeys = (ctypes.c_char_p * len(py_response.headers))()
 				self.bn_response.headerValues = (ctypes.c_char_p * len(py_response.headers))()
 				for i, (key, value) in enumerate(py_response.headers.items()):
-					self.bn_response.headerKeys[i] = core.BNAllocString(pyNativeStr(key))
-					self.bn_response.headerValues[i] = core.BNAllocString(pyNativeStr(value))
+					self.bn_response.headerKeys[i] = core.BNAllocString(key.decode('utf8'))
+					self.bn_response.headerValues[i] = core.BNAllocString(value.decode('utf8'))
 
 				out_response[0] = ctypes.pointer(self.bn_response)
 			else:
@@ -279,7 +278,9 @@ class DownloadProvider(metaclass=_DownloadProviderMetaclass):
 			result = self.__class__.instance_class(self)
 			if result is None:
 				return None
-			return ctypes.cast(core.BNNewDownloadInstanceReference(result.handle), ctypes.c_void_p).value
+			download_instance = core.BNNewDownloadInstanceReference(result.handle)
+			assert download_instance is not None, "core.BNNewDownloadInstanceReference returned None"
+			return ctypes.cast(download_instance, ctypes.c_void_p).value
 		except:
 			log.log_error(traceback.format_exc())
 			return None
@@ -349,7 +350,7 @@ try:
 				else:
 					proxies = None
 
-				r = requests.get(pyNativeStr(url), proxies=proxies)
+				r = requests.get(url.decode('utf8'), proxies=proxies)
 				if not r.ok:
 					core.BNSetErrorForDownloadInstance(self.handle, "Received error from server")
 					return -1
@@ -384,7 +385,7 @@ try:
 				else:
 					proxies = None
 
-				r = requests.request(pyNativeStr(method), pyNativeStr(url), headers=headers, data=data, proxies=proxies)
+				r = requests.request(method.decode('utf8'), url.decode('utf8'), headers=headers, data=data, proxies=proxies)
 				response = r.content
 				if len(response) == 0:
 					core.BNSetErrorForDownloadInstance(self.handle, "No data received from server!")
@@ -439,7 +440,7 @@ if not _loaded and (sys.platform != "win32") and (sys.version_info >= (2, 7, 9))
 						opener = build_opener(ProxyHandler({'https': proxy_setting}))
 						install_opener(opener)
 
-					r = urlopen(pyNativeStr(url))
+					r = urlopen(url.decode('utf8'))
 					total_size = int(r.headers.get('content-length', 0))
 					bytes_sent = 0
 					while True:
@@ -504,7 +505,7 @@ if not _loaded and (sys.platform != "win32") and (sys.version_info >= (2, 7, 9))
 					if b"Content-Length" in headers:
 						del headers[b"Content-Length"]
 
-					req = PythonDownloadInstance.CustomRequest(pyNativeStr(url), data=data, headers=headers, method=pyNativeStr(method))
+					req = PythonDownloadInstance.CustomRequest(url.decode('utf8'), data=data, headers=headers, method=method.decode('utf8'))
 					result = urlopen(req)
 				except HTTPError as he:
 					result = he

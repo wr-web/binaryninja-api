@@ -26,44 +26,43 @@ from time import gmtime, struct_time
 import os
 from typing import Mapping, Optional
 
-from binaryninja.compatibility import *
 
 # Binary Ninja components
 import binaryninja._binaryninjacore as core
-
-from binaryninja.enums import *
-from binaryninja.databuffer import *
-from binaryninja.filemetadata import *
-from binaryninja.fileaccessor import *
-from binaryninja.binaryview import *
-from binaryninja.transform import *
-from binaryninja.architecture import *
-from binaryninja.basicblock import *
-from binaryninja.function import *
-from binaryninja.log import *
-from binaryninja.lowlevelil import *
-from binaryninja.mediumlevelil import *
-from binaryninja.highlevelil import *
-from binaryninja.types import *
-from binaryninja.typelibrary import *
-from binaryninja.functionrecognizer import *
-from binaryninja.update import *
-from binaryninja.plugin import *
-from binaryninja.callingconvention import *
-from binaryninja.platform import *
-from binaryninja.demangle import *
-from binaryninja.mainthread import *
-from binaryninja.interaction import *
-from binaryninja.lineardisassembly import *
-from binaryninja.highlight import *
-from binaryninja.scriptingprovider import *
-from binaryninja.downloadprovider import *
-from binaryninja.pluginmanager import *
-from binaryninja.settings import *
-from binaryninja.metadata import *
-from binaryninja.flowgraph import *
-from binaryninja.datarender import *
-from binaryninja.variable import *
+import binaryninja
+from .enums import *
+from .databuffer import *
+from .filemetadata import *
+from .fileaccessor import *
+from .binaryview import *
+from .transform import *
+from .architecture import *
+from .basicblock import *
+from .function import *
+from .log import *
+from .lowlevelil import *
+from .mediumlevelil import *
+from .highlevelil import *
+from .types import *
+from .typelibrary import *
+from .functionrecognizer import *
+from .update import *
+from .plugin import *
+from .callingconvention import *
+from .platform import *
+from .demangle import *
+from .mainthread import *
+from .interaction import *
+from .lineardisassembly import *
+from .highlight import *
+from .scriptingprovider import *
+from .downloadprovider import *
+from .pluginmanager import *
+from .settings import *
+from .metadata import *
+from .flowgraph import *
+from .datarender import *
+from .variable import *
 
 
 def shutdown():
@@ -99,13 +98,13 @@ class _DestructionCallbackHandler(object):
 		core.BNRegisterObjectDestructionCallbacks(self._cb)
 
 	def destruct_binary_view(self, ctxt, view):
-		BinaryView._unregister(view)
+		binaryninja.binaryview.BinaryView._unregister(view)
 
 	def destruct_file_metadata(self, ctxt, f):
-		FileMetadata._unregister(f)
+		binaryninja.filemetadata.FileMetadata._unregister(f)
 
 	def destruct_function(self, ctxt, func):
-		Function._unregister(func)
+		binaryninja.function.Function._unregister(func)
 
 
 _enable_default_log = True
@@ -234,6 +233,7 @@ def core_set_license(licenseData:str) -> None:
 def get_memory_usage_info() -> Mapping[str, int]:
 	count = ctypes.c_ulonglong()
 	info = core.BNGetMemoryUsageInfo(count)
+	assert info is not None, "core.BNGetMemoryUsageInfo returned None"
 	result = {}
 	for i in range(0, count.value):
 		result[info[i].name] = info[i].value

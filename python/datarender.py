@@ -92,8 +92,8 @@ class DataRenderer(object):
 		self._cb.getLinesForData = self._cb.getLinesForData.__class__(self._get_lines_for_data)
 		self.handle = core.BNCreateDataRenderer(self._cb)
 
-	@classmethod
-	def is_type_of_struct_name(cls, t, name, context):
+	@staticmethod
+	def is_type_of_struct_name(t, name, context):
 		return (t.type_class == enums.TypeClass.StructureTypeClass and len(context) > 0
 			and context[-1].type.type_class == enums.TypeClass.NamedTypeReferenceClass and
 			context[-1].type.named_type_reference.name == name)

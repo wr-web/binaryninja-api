@@ -33,6 +33,15 @@ class FileAccessor(object):
 		self._cb.read = self._cb.read.__class__(self._read)
 		self._cb.write = self._cb.write.__class__(self._write)
 
+	def get_length(self):
+		return NotImplemented
+
+	def read(self, offset, length):
+		return NotImplemented
+
+	def write(self, offset:int, data:bytes):
+		return NotImplemented
+
 	def __len__(self):
 		return self.get_length()
 
@@ -83,5 +92,5 @@ class CoreFileAccessor(FileAccessor):
 
 	def write(self, offset, value):
 		value = str(value)
-		data = ctypes.create_string_buffer(value)
+		data = ctypes.create_string_buffer(len(value))
 		return self._cb.write(self._cb.context, offset, data, len(value))

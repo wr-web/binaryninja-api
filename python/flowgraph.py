@@ -71,8 +71,8 @@ class EdgeStyle(object):
 		result.color = self.color
 		return result
 
-	@classmethod
-	def from_core_struct(cls, edge_style):
+	@staticmethod
+	def from_core_struct(edge_style):
 		return EdgeStyle(edge_style.style, edge_style.width, edge_style.color)
 
 	def __eq__(self, other):
@@ -90,6 +90,7 @@ class FlowGraphNode(object):
 				raise ValueError("flow graph node must be associated with a graph")
 			handle = core.BNCreateFlowGraphNode(graph.handle)
 		self.handle = handle
+		assert self.handle is not None, "core.BNCreateFlowGraphNode returned None"
 		self._graph = graph
 		if self._graph is None:
 			self._graph = FlowGraph(handle = core.BNGetFlowGraphNodeOwner(self.handle))
@@ -111,6 +112,9 @@ class FlowGraphNode(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
+
+		assert self.handle is not None
+		assert other.handle is not None
 		return ctypes.addressof(self.handle.contents) == ctypes.addressof(other.handle.contents)
 
 	def __ne__(self, other):
@@ -119,11 +123,13 @@ class FlowGraphNode(object):
 		return not (self == other)
 
 	def __hash__(self):
+		assert self.handle is not None
 		return hash(ctypes.addressof(self.handle.contents))
 
 	def __iter__(self):
 		count = ctypes.c_ulonglong()
 		lines = core.BNGetFlowGraphNodeLines(self.handle, count)
+		assert lines is not None, "core.BNGetFlowGraphNodeLines returned None"
 		block = self.basic_block
 		try:
 			for i in range(0, count.value):
@@ -139,8 +145,7 @@ class FlowGraphNode(object):
 
 	@property
 	def graph(self):
-		""" """
-		return self._graph
+				return self._graph
 
 	@graph.setter
 	def graph(self, value):
@@ -202,6 +207,7 @@ class FlowGraphNode(object):
 		"""Flow graph block list of text lines"""
 		count = ctypes.c_ulonglong()
 		lines = core.BNGetFlowGraphNodeLines(self.handle, count)
+		assert lines is not None, "core.BNGetFlowGraphNodeLines returned None"
 		block = self.basic_block
 		result = []
 		for i in range(0, count.value):
@@ -253,6 +259,7 @@ class FlowGraphNode(object):
 		"""Flow graph block list of outgoing edges (read-only)"""
 		count = ctypes.c_ulonglong()
 		edges = core.BNGetFlowGraphNodeOutgoingEdges(self.handle, count)
+		assert edges is not None, "core.BNGetFlowGraphNodeOutgoingEdges returned None"
 		result = []
 		for i in range(0, count.value):
 			branch_type = BranchType(edges[i].type)
@@ -271,6 +278,7 @@ class FlowGraphNode(object):
 		"""Flow graph block list of incoming edges (read-only)"""
 		count = ctypes.c_ulonglong()
 		edges = core.BNGetFlowGraphNodeIncomingEdges(self.handle, count)
+		assert edges is not None, "core.BNGetFlowGraphNodeIncomingEdges returned None"
 		result = []
 		for i in range(0, count.value):
 			branch_type = BranchType(edges[i].type)
@@ -417,6 +425,8 @@ class FlowGraph(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
+		assert self.handle is not None
+		assert other.handle is not None
 		return ctypes.addressof(self.handle.contents) == ctypes.addressof(other.handle.contents)
 
 	def __ne__(self, other):
@@ -425,6 +435,7 @@ class FlowGraph(object):
 		return not (self == other)
 
 	def __hash__(self):
+		assert self.handle is not None
 		return hash(ctypes.addressof(self.handle.contents))
 
 	def __setattr__(self, name, value):
@@ -436,9 +447,12 @@ class FlowGraph(object):
 	def __iter__(self):
 		count = ctypes.c_ulonglong()
 		nodes = core.BNGetFlowGraphNodes(self.handle, count)
+		assert nodes is not None, "core.BNGetFlowGraphNodes returned None"
 		try:
 			for i in range(0, count.value):
-				yield FlowGraphNode(self, core.BNNewFlowGraphNodeReference(nodes[i]))
+				fg_node = core.BNNewFlowGraphNodeReference(nodes[i])
+				assert fg_node is not None, "core.BNNewFlowGraphNodeReference returned None"
+				yield FlowGraphNode(self, fg_node)
 		finally:
 			core.BNFreeFlowGraphNodeList(nodes, count.value)
 
@@ -471,7 +485,9 @@ class FlowGraph(object):
 			graph = self.update()
 			if graph is NotImplemented:
 				return None
-			return ctypes.cast(core.BNNewFlowGraphReference(graph.handle), ctypes.c_void_p).value
+			flow_graph = core.BNNewFlowGraphReference(graph.handle)
+			assert flow_graph is not None, "core.BNNewFlowGraphReference returned None"
+			return ctypes.cast(flow_graph, ctypes.c_void_p).value
 		except:
 			log.log_error(traceback.format_exc())
 			return None
@@ -555,9 +571,12 @@ class FlowGraph(object):
 		"""List of nodes in graph (read-only)"""
 		count = ctypes.c_ulonglong()
 		blocks = core.BNGetFlowGraphNodes(self.handle, count)
+		assert blocks is not None, "core.BNGetFlowGraphNodes returned None"
 		result = []
 		for i in range(0, count.value):
-			result.append(FlowGraphNode(self, core.BNNewFlowGraphNodeReference(blocks[i])))
+			fg_node = core.BNNewFlowGraphNodeReference(blocks[i])
+			assert fg_node is not None, "core.BNNewFlowGraphNodeReference returned None"
+			result.append(FlowGraphNode(self, fg_node))
 		core.BNFreeFlowGraphNodeList(blocks, count.value)
 		return result
 
@@ -745,9 +764,12 @@ class FlowGraph(object):
 	def get_nodes_in_region(self, left, top, right, bottom):
 		count = ctypes.c_ulonglong()
 		nodes = core.BNGetFlowGraphNodesInRegion(self.handle, left, top, right, bottom, count)
+		assert nodes is not None, "core.BNGetFlowGraphNodesInRegion returned None"
 		result = []
 		for i in range(0, count.value):
-			result.append(FlowGraphNode(self, core.BNNewFlowGraphNodeReference(nodes[i])))
+			fg_node = core.BNNewFlowGraphNodeReference(nodes[i])
+			assert fg_node is not None, "core.BNNewFlowGraphNodeReference returned None"
+			result.append(FlowGraphNode(self, fg_node))
 		core.BNFreeFlowGraphNodeList(nodes, count.value)
 		return result
 

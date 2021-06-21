@@ -35,6 +35,7 @@ class _UpdateChannelMetaClass(type):
 		count = ctypes.c_ulonglong()
 		errors = ctypes.c_char_p()
 		channels = core.BNGetUpdateChannels(count, errors)
+		assert channels is not None, "core.BNGetUpdateChannels returned None"
 		if errors:
 			error_str = errors.value
 			core.BNFreeString(ctypes.cast(errors, ctypes.POINTER(ctypes.c_byte)))
@@ -50,6 +51,7 @@ class _UpdateChannelMetaClass(type):
 		count = ctypes.c_ulonglong()
 		errors = ctypes.c_char_p()
 		channels = core.BNGetUpdateChannels(count, errors)
+		assert channels is not None, "core.BNGetUpdateChannels returned None"
 		if errors:
 			error_str = errors.value
 			core.BNFreeString(ctypes.cast(errors, ctypes.POINTER(ctypes.c_byte)))
@@ -98,6 +100,7 @@ class UpdateChannel(metaclass=_UpdateChannelMetaClass):
 		count = ctypes.c_ulonglong()
 		errors = ctypes.c_char_p()
 		versions = core.BNGetUpdateChannelVersions(self._name, count, errors)
+		assert versions is not None, "core.BNGetUpdateChannelVersions returned None"
 		if errors:
 			error_str = errors.value
 			core.BNFreeString(ctypes.cast(errors, ctypes.POINTER(ctypes.c_byte)))
@@ -114,6 +117,7 @@ class UpdateChannel(metaclass=_UpdateChannelMetaClass):
 		count = ctypes.c_ulonglong()
 		errors = ctypes.c_char_p()
 		versions = core.BNGetUpdateChannelVersions(self._name, count, errors)
+		assert versions is not None, "core.BNGetUpdateChannelVersions returned None"
 		if errors:
 			error_str = errors.value
 			core.BNFreeString(ctypes.cast(errors, ctypes.POINTER(ctypes.c_byte)))
@@ -161,7 +165,6 @@ class UpdateChannel(metaclass=_UpdateChannelMetaClass):
 
 	@property
 	def name(self):
-		""" """
 		return self._name
 
 	@name.setter
@@ -170,7 +173,6 @@ class UpdateChannel(metaclass=_UpdateChannelMetaClass):
 
 	@property
 	def description(self):
-		""" """
 		return self._description
 
 	@description.setter
@@ -179,7 +181,6 @@ class UpdateChannel(metaclass=_UpdateChannelMetaClass):
 
 	@property
 	def latest_version_num(self):
-		""" """
 		return self._latest_version_num
 
 	@latest_version_num.setter
@@ -212,7 +213,6 @@ class UpdateVersion(object):
 
 	@property
 	def channel(self):
-		""" """
 		return self._channel
 
 	@channel.setter
@@ -221,7 +221,6 @@ class UpdateVersion(object):
 
 	@property
 	def version(self):
-		""" """
 		return self._version
 
 	@version.setter
@@ -230,7 +229,6 @@ class UpdateVersion(object):
 
 	@property
 	def notes(self):
-		""" """
 		return self._notes
 
 	@notes.setter
@@ -239,7 +237,6 @@ class UpdateVersion(object):
 
 	@property
 	def time(self):
-		""" """
 		return self._time
 
 	@time.setter
@@ -271,7 +268,7 @@ def get_time_since_last_update_check():
 	"""
 	``get_time_since_last_update_check`` returns the time stamp for the last time updates were checked.
 
-	:return: time stacmp for last update check
+	:return: time stamp for last update check
 	:rtype: int
 	"""
 	return core.BNGetTimeSinceLastUpdateCheck()

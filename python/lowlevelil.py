@@ -19,8 +19,9 @@
 # IN THE SOFTWARE.
 
 import ctypes
+from enum import Flag
 import struct
-from typing import Generator, List, Optional, Any, Mapping, Union, Tuple
+from typing import Generator, List, Optional, Any, Mapping, Union, Tuple, NewType
 
 # Binary Ninja components
 from .enums import LowLevelILOperation, LowLevelILFlagCondition, InstructionTextTokenType, DataFlowQueryOption
@@ -35,12 +36,14 @@ from . import binaryview
 from . import architecture
 from . import types
 
-ExpressionIndex = int
-InstructionIndex = int
+ExpressionIndex = NewType('ExpressionIndex', int)
+InstructionIndex = NewType('InstructionIndex', int)
 Index = Union[ExpressionIndex, InstructionIndex]
 TokenList = List['function.InstructionTextToken']
 InstructionOrExpression = Union['LowLevelILInstruction', 'LowLevelILExpr', Index]
 ILRegisterType = Union[str, 'ILRegister', int]
+LLILInstructionsType = Generator['LowLevelILInstruction', None, None]
+LLILBasicBlocksType = Generator['LowLevelILBasicBlock', None, None]
 
 class LowLevelILLabel(object):
 	def __init__(self, handle:core.BNLowLevelILLabel=None):
@@ -57,12 +60,12 @@ class ILRegister(object):
 		self._index = reg
 		self._temp = (self._index & 0x80000000) != 0
 		if self._temp:
-			self._name = "temp%d" % (self._index & 0x7fffffff)
+			self._name = architecture.RegisterName("temp%d" % (self._index & 0x7fffffff))
 		else:
-			self._name = self._arch.get_reg_name(self._index)
+			self._name = architecture.RegisterName(self._arch.get_reg_name(self._index))
 
 	@property
-	def info(self):
+	def info(self) -> 'architecture.RegisterInfo':
 		return self._arch.regs[self._name]
 
 	def __repr__(self):
@@ -72,7 +75,7 @@ class ILRegister(object):
 		return self._name
 
 	def __eq__(self, other):
-		if isinstance(other, str) and other in self._arch.regs:
+		if isinstance(other, architecture.RegisterName) and other in self._arch.regs:
 			index = self._arch.regs[other].index
 			assert index is not None
 			other = ILRegister(self._arch, index)
@@ -235,7 +238,7 @@ class ILSemanticFlagClass(object):
 
 
 class ILSemanticFlagGroup(object):
-	def __init__(self, arch:'architecture.Architecture', sem_group:'architecture.SemanticClassIndex'):
+	def __init__(self, arch:'architecture.Architecture', sem_group:'architecture.SemanticGroupIndex'):
 		self._arch = arch
 		self._index = sem_group
 		self._name = self._arch.get_semantic_flag_group_name(self._index)
@@ -264,11 +267,11 @@ class ILSemanticFlagGroup(object):
 		return self._arch
 
 	@property
-	def index(self) -> 'architecture.SemanticClassIndex':
+	def index(self) -> 'architecture.SemanticGroupIndex':
 		return self._index
 
 	@property
-	def name(self) -> str:
+	def name(self) -> 'architecture.SemanticGroupName':
 		return self._name
 
 
@@ -440,8 +443,7 @@ class SSARegisterOrFlag(object):
 
 	@property
 	def reg_or_flag(self) -> Union[ILRegister, ILFlag]:
-		""" """
-		return self._reg_or_flag
+				return self._reg_or_flag
 
 	@property
 	def version(self) -> int:
@@ -651,6 +653,7 @@ class LowLevelILInstruction(object):
 			value:Optional[Any] = None
 			if operand_type == "int":
 				value = instr.operands[i]
+				assert isinstance(value, int)
 				value = (value & ((1 << 63) - 1)) - (value & (1 << 63))
 			elif operand_type == "float":
 				if instr.size == 4:
@@ -701,6 +704,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "int_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value):
@@ -709,6 +713,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "expr_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value):
@@ -717,6 +722,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "reg_or_flag_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value):
@@ -728,6 +734,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "reg_ssa_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value // 2):
@@ -738,6 +745,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "reg_stack_ssa_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value // 2):
@@ -748,6 +756,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "flag_ssa_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value // 2):
@@ -758,6 +767,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "reg_or_flag_ssa_list":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = []
 				for j in range(count.value // 2):
@@ -771,6 +781,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "reg_stack_adjust":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = {}
 				for j in range(count.value // 2):
@@ -783,6 +794,7 @@ class LowLevelILInstruction(object):
 			elif operand_type == "target_map":
 				count = ctypes.c_ulonglong()
 				operand_list = core.BNLowLevelILGetOperandList(func.handle, self.expr_index, i, count)
+				assert operand_list is not None, "core.BNLowLevelILGetOperandList returned None"
 				i += 1
 				value = {}
 				for j in range(count.value // 2):
@@ -843,6 +855,7 @@ class LowLevelILInstruction(object):
 	def tokens(self) -> Optional[TokenList]:
 		"""LLIL tokens (read-only)"""
 		count = ctypes.c_ulonglong()
+		assert self._function.arch is not None
 		tokens = ctypes.POINTER(core.BNInstructionTextToken)()
 		if (self._instr_index is not None) and (self._function.source_function is not None):
 			if not core.BNGetLowLevelILInstructionText(self._function.handle, self._function.source_function.handle,
@@ -900,9 +913,8 @@ class LowLevelILInstruction(object):
 
 	@property
 	def mlils(self) -> List['mediumlevelil.MediumLevelILInstruction']:
-		exprs = self._function.get_medium_level_il_expr_indexes(self.expr_index)
 		result = []
-		for expr in exprs:
+		for expr in self._function.get_medium_level_il_expr_indexes(self.expr_index):
 			result.append(mediumlevelil.MediumLevelILInstruction(self._function.medium_level_il, expr))
 		return result
 
@@ -988,16 +1000,22 @@ class LowLevelILInstruction(object):
 		return result
 
 	def get_reg_value(self, reg:'architecture.RegisterType') -> variable.RegisterValue:
+		if self._function.arch is None:
+			raise Exception("Can not call get_reg_value on function with Architecture set to None")
 		reg = self._function.arch.get_reg_index(reg)
 		value = core.BNGetLowLevelILRegisterValueAtInstruction(self._function.handle, reg, self._instr_index)
 		return variable.RegisterValue(self._function.arch, value)
 
 	def get_reg_value_after(self, reg:'architecture.RegisterType') -> variable.RegisterValue:
+		if self._function.arch is None:
+			raise Exception("Can not call get_reg_value_after on function with Architecture set to None")
 		reg = self._function.arch.get_reg_index(reg)
 		value = core.BNGetLowLevelILRegisterValueAfterInstruction(self._function.handle, reg, self._instr_index)
 		return variable.RegisterValue(self._function.arch, value)
 
 	def get_possible_reg_values(self, reg:'architecture.RegisterType', options:List[DataFlowQueryOption]=[]) -> 'variable.PossibleValueSet':
+		if self._function.arch is None:
+			raise Exception("Can not call get_possible_reg_values on function with Architecture set to None")
 		reg = self._function.arch.get_reg_index(reg)
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
@@ -1011,6 +1029,8 @@ class LowLevelILInstruction(object):
 		return result
 
 	def get_possible_reg_values_after(self, reg:'architecture.RegisterType', options:List[DataFlowQueryOption]=[]) -> 'variable.PossibleValueSet':
+		if self._function.arch is None:
+			raise Exception("Can not call get_possible_reg_values_after on function with Architecture set to None")
 		reg = self._function.arch.get_reg_index(reg)
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
@@ -1024,18 +1044,24 @@ class LowLevelILInstruction(object):
 		return result
 
 	def get_flag_value(self, flag:'architecture.FlagType') -> 'variable.RegisterValue':
+		if self._function.arch is None:
+			raise Exception("Can not call get_flag_value on function with Architecture set to None")
 		flag = self._function.arch.get_flag_index(flag)
 		value = core.BNGetLowLevelILFlagValueAtInstruction(self._function.handle, flag, self._instr_index)
 		result = variable.RegisterValue(self._function.arch, value)
 		return result
 
 	def get_flag_value_after(self, flag:'architecture.FlagType') -> 'variable.RegisterValue':
+		if self._function.arch is None:
+			raise Exception("Can not call get_flag_value_after on function with Architecture set to None")
 		flag = self._function.arch.get_flag_index(flag)
 		value = core.BNGetLowLevelILFlagValueAfterInstruction(self._function.handle, flag, self._instr_index)
 		result = variable.RegisterValue(self._function.arch, value)
 		return result
 
 	def get_possible_flag_values(self, flag:'architecture.FlagType', options:List[DataFlowQueryOption]=[]) -> 'variable.PossibleValueSet':
+		if self._function.arch is None:
+			raise Exception("Can not call get_possible_flag_values on function with Architecture set to None")
 		flag = self._function.arch.get_flag_index(flag)
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
@@ -1049,6 +1075,8 @@ class LowLevelILInstruction(object):
 		return result
 
 	def get_possible_flag_values_after(self, flag:'architecture.FlagType', options:List[DataFlowQueryOption]=[]) -> 'variable.PossibleValueSet':
+		if self._function.arch is None:
+			raise Exception("Can not call get_possible_flag_values_after on function with Architecture set to None")
 		flag = self._function.arch.get_flag_index(flag)
 		option_array = (ctypes.c_int * len(options))()
 		idx = 0
@@ -1178,12 +1206,13 @@ class LowLevelILFunction(object):
 		LLFC_NO                 !overflow  No overflow
 		======================= ========== ===============================
 	"""
-	def __init__(self, arch:'architecture.Architecture'=None, handle:core.BNLowLevelILFunction=None,
+	def __init__(self, arch:Optional['architecture.Architecture']=None, handle:Optional[core.BNLowLevelILFunction]=None,
 		source_func:'function.Function'=None):
 		self._arch = arch
 		self._source_function = source_func
 		if handle is not None:
 			self.handle = core.handle_of_type(handle, core.BNLowLevelILFunction)
+			assert self.handle is not None
 			if self._source_function is None:
 				source_handle = core.BNGetLowLevelILOwnerFunction(self.handle)
 				if source_handle:
@@ -1191,15 +1220,23 @@ class LowLevelILFunction(object):
 				else:
 					self._source_function = None
 			if self._arch is None:
+				if self._source_function is None:
+					raise Exception("Can not instantiate LowLevelILFunction without an architecture")
 				self._arch = self._source_function.arch
 		else:
 			if self._arch is None:
+				if self._source_function is None:
+					raise Exception("Can not instantiate LowLevelILFunction without an architecture")
 				self._arch = self._source_function.arch
+				assert self._arch is not None
 			if self._source_function is None:
 				func_handle = None
 			else:
 				func_handle = self._source_function.handle
-			self.handle = core.BNCreateLowLevelILFunction(arch.handle, func_handle)
+			self.handle = core.BNCreateLowLevelILFunction(self._arch.handle, func_handle)
+			assert self.handle is not None
+		assert self._arch is not None
+		assert self._source_function is not None
 
 	def __del__(self):
 		if self.handle is not None:
@@ -1221,6 +1258,8 @@ class LowLevelILFunction(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
+		assert self.handle is not None
+		assert other.handle is not None
 		return ctypes.addressof(self.handle.contents) == ctypes.addressof(other.handle.contents)
 
 	def __ne__(self, other):
@@ -1229,6 +1268,7 @@ class LowLevelILFunction(object):
 		return not (self == other)
 
 	def __hash__(self):
+		assert self.handle is not None
 		return hash(ctypes.addressof(self.handle.contents))
 
 	def __getitem__(self, i):
@@ -1248,9 +1288,10 @@ class LowLevelILFunction(object):
 	def __setitem__(self, i, j):
 		raise IndexError("instruction modification not implemented")
 
-	def __iter__(self):
+	def __iter__(self) -> Generator['LowLevelILBasicBlock', None, None]:
 		count = ctypes.c_ulonglong()
 		blocks = core.BNGetLowLevelILBasicBlockList(self.handle, count)
+		assert blocks is not None, "core.BNGetLowLevelILBasicBlockList returned None"
 		view = None
 		if self._source_function is not None:
 			view = self._source_function.view
@@ -1269,11 +1310,11 @@ class LowLevelILFunction(object):
 
 	@current_address.setter
 	def current_address(self, value:int) -> None:
-		core.BNLowLevelILSetCurrentAddress(self.handle, self._arch.handle, value)
+		core.BNLowLevelILSetCurrentAddress(self.handle, self.arch.handle, value)
 
 	def set_current_address(self, value:int, arch:Optional['architecture.Architecture']=None):
 		if arch is None:
-			arch = self._arch
+			arch = self.arch
 		core.BNLowLevelILSetCurrentAddress(self.handle, arch.handle, value)
 
 	def set_current_source_block(self, block):
@@ -1294,6 +1335,7 @@ class LowLevelILFunction(object):
 		"""list of LowLevelILBasicBlock objects (read-only)"""
 		count = ctypes.c_ulonglong()
 		blocks = core.BNGetLowLevelILBasicBlockList(self.handle, count)
+		assert blocks is not None, "core.BNGetLowLevelILBasicBlockList returned None"
 		view = None
 		if self._source_function is not None:
 			view = self._source_function.view
@@ -1351,7 +1393,8 @@ class LowLevelILFunction(object):
 		return self.mapped_medium_level_il
 
 	@property
-	def arch(self) -> Optional['architecture.Architecture']:
+	def arch(self) -> 'architecture.Architecture':
+		assert self._arch is not None
 		return self._arch
 
 	@arch.setter
@@ -1368,7 +1411,7 @@ class LowLevelILFunction(object):
 
 	def get_instruction_start(self, addr:int, arch:Optional['architecture.Architecture']=None) -> Optional[int]:
 		if arch is None:
-			arch = self._arch
+			arch = self.arch
 		result = core.BNLowLevelILGetInstructionStart(self.handle, arch.handle, addr)
 		if result >= core.BNGetLowLevelILInstructionCount(self.handle):
 			return None
@@ -1384,18 +1427,22 @@ class LowLevelILFunction(object):
 			branch_list[i].address = branches[i][1]
 		core.BNLowLevelILSetIndirectBranches(self.handle, branch_list, len(branches))
 
-	def expr(self, operation, a:ExpressionIndex = 0, b:ExpressionIndex = 0, c:ExpressionIndex = 0, d:ExpressionIndex = 0, size = 0, flags:'architecture.FlagType' = None):
+	def expr(self, operation, a:int=0, b:int=0, c:int=0, d:int=0, size:int=0,
+		flags:Union['architecture.FlagWriteTypeName', 'architecture.FlagType']=None):
+		_flags = architecture.FlagIndex(0)
 		if isinstance(operation, str):
 			operation = LowLevelILOperation[operation]
 		elif isinstance(operation, LowLevelILOperation):
 			operation = operation.value
-		if isinstance(flags, str):
-			flags = self._arch.get_flag_write_type_by_name(flags)
+		if isinstance(flags, architecture.FlagWriteTypeName):
+			_flags = self.arch.get_flag_write_type_by_name(flags)
 		elif isinstance(flags, ILFlag):
-			flags = flags.index
+			_flags = flags.index
 		elif flags is None:
-			flags = 0
-		return LowLevelILExpr(core.BNLowLevelILAddExpr(self.handle, operation, size, flags, a, b, c, d))
+			_flags = architecture.FlagIndex(0)
+		else:
+			assert False, "flags type unsupported"
+		return LowLevelILExpr(core.BNLowLevelILAddExpr(self.handle, operation, size, _flags, a, b, c, d))
 
 	def replace_expr(self, original:InstructionOrExpression, new:InstructionOrExpression) -> None:
 		"""
@@ -1439,7 +1486,7 @@ class LowLevelILFunction(object):
 		return self.expr(LowLevelILOperation.LLIL_NOP)
 
 	def set_reg(self, size:int, reg:'architecture.RegisterType', value:LowLevelILExpr,
-		flags:'architecture.FlagType'=0) -> LowLevelILExpr:
+		flags:Optional['architecture.FlagType']=None) -> LowLevelILExpr:
 		"""
 		``set_reg`` sets the register ``reg`` of size ``size`` to the expression ``value``
 
@@ -1450,11 +1497,13 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg = value``
 		:rtype: LowLevelILExpr
 		"""
-		_reg = self._arch.get_reg_index(reg)
+		_reg = ExpressionIndex(self.arch.get_reg_index(reg))
+		if flags is None:
+			flags = architecture.FlagIndex(0)
 		return self.expr(LowLevelILOperation.LLIL_SET_REG, _reg, value.index, size = size, flags = flags)
 
 	def set_reg_split(self, size:int, hi:'architecture.RegisterType', lo:'architecture.RegisterType',
-		value:LowLevelILExpr, flags:'architecture.FlagType'=0) -> LowLevelILExpr:
+		value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``set_reg_split`` uses ``hi`` and ``lo`` as a single extended register setting ``hi:lo`` to the expression
 		``value``.
@@ -1467,12 +1516,14 @@ class LowLevelILFunction(object):
 		:return: The expression ``hi:lo = value``
 		:rtype: LowLevelILExpr
 		"""
-		_hi = self._arch.get_reg_index(hi)
-		_lo = self._arch.get_reg_index(lo)
+		_hi = ExpressionIndex(self.arch.get_reg_index(hi))
+		_lo = ExpressionIndex(self.arch.get_reg_index(lo))
+		if flags is None:
+			flags = architecture.FlagIndex(0)
 		return self.expr(LowLevelILOperation.LLIL_SET_REG_SPLIT, _hi, _lo, value.index, size = size, flags = flags)
 
 	def set_reg_stack_top_relative(self, size:int, reg_stack:'architecture.RegisterStackType', entry:LowLevelILExpr,
-		value:LowLevelILExpr, flags:'architecture.FlagType'=0) -> LowLevelILExpr:
+		value:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``set_reg_stack_top_relative`` sets the top-relative entry ``entry`` of size ``size`` in register
 		stack ``reg_stack`` to the expression ``value``
@@ -1485,12 +1536,14 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg_stack[entry] = value``
 		:rtype: LowLevelILExpr
 		"""
-		_reg_stack = self._arch.get_reg_stack_index(reg_stack)
+		_reg_stack = ExpressionIndex(self.arch.get_reg_stack_index(reg_stack))
+		if flags is None:
+			flags = architecture.FlagIndex(0)
 		return self.expr(LowLevelILOperation.LLIL_SET_REG_STACK_REL, _reg_stack, entry.index, value.index,
 			size = size, flags = flags)
 
 	def reg_stack_push(self, size:int, reg_stack:'architecture.RegisterStackType', value:LowLevelILExpr,
-		flags:'architecture.FlagType'=0) -> LowLevelILExpr:
+		flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
 		``reg_stack_push`` pushes the expression ``value`` of size ``size`` onto the top of the register
 		stack ``reg_stack``
@@ -1502,7 +1555,9 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg_stack.push(value)``
 		:rtype: LowLevelILExpr
 		"""
-		_reg_stack = self._arch.get_reg_stack_index(reg_stack)
+		_reg_stack = ExpressionIndex(self.arch.get_reg_stack_index(reg_stack))
+		if flags is None:
+			flags = architecture.FlagIndex(0)
 		return self.expr(LowLevelILOperation.LLIL_REG_STACK_PUSH, _reg_stack, value.index, size = size, flags = flags)
 
 	def set_flag(self, flag:'architecture.FlagName', value:LowLevelILExpr) -> LowLevelILExpr:
@@ -1514,7 +1569,8 @@ class LowLevelILFunction(object):
 		:return: The expression FLAG.flag = value
 		:rtype: LowLevelILExpr
 		"""
-		return self.expr(LowLevelILOperation.LLIL_SET_FLAG, self._arch.get_flag_by_name(flag), value.index)
+		return self.expr(LowLevelILOperation.LLIL_SET_FLAG, ExpressionIndex(self.arch.get_flag_by_name(flag)),
+			value.index)
 
 	def load(self, size:int, addr:LowLevelILExpr) -> LowLevelILExpr:
 		"""
@@ -1570,7 +1626,7 @@ class LowLevelILFunction(object):
 		:return: A register expression for the given string
 		:rtype: LowLevelILExpr
 		"""
-		_reg = self._arch.get_reg_index(reg)
+		_reg = ExpressionIndex(self.arch.get_reg_index(reg))
 		return self.expr(LowLevelILOperation.LLIL_REG, _reg, size=size)
 
 	def reg_split(self, size:int, hi:'architecture.RegisterType', lo:'architecture.RegisterType') -> LowLevelILExpr:
@@ -1583,8 +1639,8 @@ class LowLevelILFunction(object):
 		:return: The expression ``hi:lo``
 		:rtype: LowLevelILExpr
 		"""
-		_hi = self._arch.get_reg_index(hi)
-		_lo = self._arch.get_reg_index(lo)
+		_hi = ExpressionIndex(self.arch.get_reg_index(hi))
+		_lo = ExpressionIndex(self.arch.get_reg_index(lo))
 		return self.expr(LowLevelILOperation.LLIL_REG_SPLIT, _hi, _lo, size=size)
 
 	def reg_stack_top_relative(self, size:int, reg_stack:'architecture.RegisterStackType', entry:LowLevelILExpr) -> LowLevelILExpr:
@@ -1598,7 +1654,7 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg_stack[entry]``
 		:rtype: LowLevelILExpr
 		"""
-		_reg_stack = self._arch.get_reg_stack_index(reg_stack)
+		_reg_stack = self.arch.get_reg_stack_index(reg_stack)
 		return self.expr(LowLevelILOperation.LLIL_REG_STACK_REL, _reg_stack, entry.index, size=size)
 
 	def reg_stack_pop(self, size:int, reg_stack:'architecture.RegisterStackType') -> LowLevelILExpr:
@@ -1611,7 +1667,7 @@ class LowLevelILFunction(object):
 		:return: The expression ``reg_stack.pop``
 		:rtype: LowLevelILExpr
 		"""
-		_reg_stack = self._arch.get_reg_stack_index(reg_stack)
+		_reg_stack = ExpressionIndex(self.arch.get_reg_stack_index(reg_stack))
 		return self.expr(LowLevelILOperation.LLIL_REG_STACK_POP, _reg_stack, size=size)
 
 	def const(self, size:int, value:int) -> LowLevelILExpr:
@@ -1623,7 +1679,7 @@ class LowLevelILFunction(object):
 		:return: A constant expression of given value and size
 		:rtype: LowLevelILExpr
 		"""
-		return self.expr(LowLevelILOperation.LLIL_CONST, value, size=size)
+		return self.expr(LowLevelILOperation.LLIL_CONST, ExpressionIndex(value), size=size)
 
 	def const_pointer(self, size:int, value:int) -> LowLevelILExpr:
 		"""
@@ -1687,7 +1743,7 @@ class LowLevelILFunction(object):
 		:return: A flag expression of given flag name
 		:rtype: LowLevelILExpr
 		"""
-		return self.expr(LowLevelILOperation.LLIL_FLAG, self._arch.get_flag_by_name(reg))
+		return self.expr(LowLevelILOperation.LLIL_FLAG, self.arch.get_flag_by_name(reg))
 
 	def flag_bit(self, size:int, reg:'architecture.FlagName', bit:int) -> LowLevelILExpr:
 		"""
@@ -1699,7 +1755,7 @@ class LowLevelILFunction(object):
 		:return: A constant expression of given value and size ``FLAG.reg = bit``
 		:rtype: LowLevelILExpr
 		"""
-		return self.expr(LowLevelILOperation.LLIL_FLAG_BIT, self._arch.get_flag_by_name(reg), bit, size=size)
+		return self.expr(LowLevelILOperation.LLIL_FLAG_BIT, self.arch.get_flag_by_name(reg), bit, size=size)
 
 	def add(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr, flags:'architecture.FlagType'=None) -> LowLevelILExpr:
 		"""
@@ -2198,7 +2254,10 @@ class LowLevelILFunction(object):
 			cond = LowLevelILFlagCondition[cond]
 		elif isinstance(cond, LowLevelILFlagCondition):
 			cond = cond.value
-		class_index = self._arch.get_semantic_flag_class_index(sem_class)
+		class_index = architecture.SemanticClassIndex(0)
+		if sem_class is not None:
+			class_index = self.arch.get_semantic_flag_class_index(sem_class)
+			assert isinstance(class_index, architecture.SemanticClassIndex)
 		return self.expr(LowLevelILOperation.LLIL_FLAG_COND, cond, class_index)
 
 	def flag_group(self, sem_group):
@@ -2209,7 +2268,7 @@ class LowLevelILFunction(object):
 		:return: A flag_group expression
 		:rtype: LowLevelILExpr
 		"""
-		group = self._arch.get_semantic_flag_group_index(sem_group)
+		group = self.arch.get_semantic_flag_group_index(sem_group)
 		return self.expr(LowLevelILOperation.LLIL_FLAG_GROUP, group)
 
 	def compare_equal(self, size:int, a:LowLevelILExpr, b:LowLevelILExpr) -> LowLevelILExpr:
@@ -2373,7 +2432,7 @@ class LowLevelILFunction(object):
 			param_list.append(param.index)
 		call_param = self.expr(LowLevelILOperation.LLIL_CALL_PARAM, len(params), self.add_operand_list(param_list).index)
 		return self.expr(LowLevelILOperation.LLIL_INTRINSIC, len(outputs), self.add_operand_list(output_list).index,
-			self._arch.get_intrinsic_index(intrinsic), call_param.index, flags = flags)
+			self.arch.get_intrinsic_index(intrinsic), call_param.index, flags = flags)
 
 	def breakpoint(self) -> LowLevelILExpr:
 		"""
@@ -2740,8 +2799,8 @@ class LowLevelILFunction(object):
 		:return: the label list expression
 		:rtype: LowLevelILExpr
 		"""
-		label_list = (ctypes.POINTER(core.BNLowLevelILLabel) * len(labels))()
-		value_list = (ctypes.POINTER(ctypes.c_ulonglong) * len(labels))()
+		label_list = (ctypes.POINTER(core.BNLowLevelILLabel) * len(labels))()  # type: ignore
+		value_list = (ctypes.POINTER(ctypes.c_ulonglong) * len(labels))()  # type: ignore
 		for i, (key, value) in enumerate(labels.items()):
 			value_list[i] = key
 			label_list[i] = value.handle
@@ -2823,14 +2882,14 @@ class LowLevelILFunction(object):
 		return core.BNGetLowLevelILNonSSAInstructionIndex(self.handle, instr)
 
 	def get_ssa_reg_definition(self, reg_ssa:SSARegister) -> Optional[LowLevelILInstruction]:
-		reg = self._arch.get_reg_index(reg_ssa.reg)
+		reg = self.arch.get_reg_index(reg_ssa.reg)
 		result = core.BNGetLowLevelILSSARegisterDefinition(self.handle, reg, reg_ssa.version)
 		if result >= core.BNGetLowLevelILInstructionCount(self.handle):
 			return None
 		return self[result]
 
 	def get_ssa_flag_definition(self, flag_ssa:SSAFlag) -> Optional[LowLevelILInstruction]:
-		flag = self._arch.get_flag_index(flag_ssa.flag)
+		flag = self.arch.get_flag_index(flag_ssa.flag)
 		result = core.BNGetLowLevelILSSAFlagDefinition(self.handle, flag, flag_ssa.version)
 		if result >= core.BNGetLowLevelILInstructionCount(self.handle):
 			return None
@@ -2843,9 +2902,10 @@ class LowLevelILFunction(object):
 		return self[result]
 
 	def get_ssa_reg_uses(self, reg_ssa:SSARegister) -> List[LowLevelILInstruction]:
-		reg = self._arch.get_reg_index(reg_ssa.reg)
+		reg = self.arch.get_reg_index(reg_ssa.reg)
 		count = ctypes.c_ulonglong()
 		instrs = core.BNGetLowLevelILSSARegisterUses(self.handle, reg, reg_ssa.version, count)
+		assert instrs is not None, "core.BNGetLowLevelILSSARegisterUses returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(self[instrs[i]])
@@ -2853,9 +2913,10 @@ class LowLevelILFunction(object):
 		return result
 
 	def get_ssa_flag_uses(self, flag_ssa:SSAFlag) -> List[LowLevelILInstruction]:
-		flag = self._arch.get_flag_index(flag_ssa.flag)
+		flag = self.arch.get_flag_index(flag_ssa.flag)
 		count = ctypes.c_ulonglong()
 		instrs = core.BNGetLowLevelILSSAFlagUses(self.handle, flag, flag_ssa.version, count)
+		assert instrs is not None, "core.BNGetLowLevelILSSAFlagUses returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(self[instrs[i]])
@@ -2865,6 +2926,7 @@ class LowLevelILFunction(object):
 	def get_ssa_memory_uses(self, index:int) -> List[LowLevelILInstruction]:
 		count = ctypes.c_ulonglong()
 		instrs = core.BNGetLowLevelILSSAMemoryUses(self.handle, index, count)
+		assert instrs is not None, "core.BNGetLowLevelILSSAMemoryUses returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(self[instrs[i]])
@@ -2872,18 +2934,18 @@ class LowLevelILFunction(object):
 		return result
 
 	def get_ssa_reg_value(self, reg_ssa:SSARegister) -> 'variable.RegisterValue':
-		reg = self._arch.get_reg_index(reg_ssa.reg)
+		reg = self.arch.get_reg_index(reg_ssa.reg)
 		value = core.BNGetLowLevelILSSARegisterValue(self.handle, reg, reg_ssa.version)
 		result = variable.RegisterValue(self._arch, value)
 		return result
 
 	def get_ssa_flag_value(self, flag_ssa:SSAFlag) -> 'variable.RegisterValue':
-		flag = self._arch.get_flag_index(flag_ssa.flag)
+		flag = self.arch.get_flag_index(flag_ssa.flag)
 		value = core.BNGetLowLevelILSSAFlagValue(self.handle, flag, flag_ssa.version)
 		result = variable.RegisterValue(self._arch, value)
 		return result
 
-	def get_medium_level_il_instruction_index(self, instr:InstructionIndex) -> Optional[InstructionIndex]:
+	def get_medium_level_il_instruction_index(self, instr:InstructionIndex) -> Optional['mediumlevelil.InstructionIndex']:
 		med_il = self.medium_level_il
 		if med_il is None:
 			return None
@@ -2892,7 +2954,7 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def get_medium_level_il_expr_index(self, expr:int) -> Optional[int]:
+	def get_medium_level_il_expr_index(self, expr:ExpressionIndex) -> Optional['mediumlevelil.ExpressionIndex']:
 		med_il = self.medium_level_il
 		if med_il is None:
 			return None
@@ -2901,9 +2963,10 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def get_medium_level_il_expr_indexes(self, expr:int) -> List[int]:
+	def get_medium_level_il_expr_indexes(self, expr:ExpressionIndex) -> List['mediumlevelil.ExpressionIndex']:
 		count = ctypes.c_ulonglong()
 		exprs = core.BNGetMediumLevelILExprIndexes(self.handle, expr, count)
+		assert exprs is not None, "core.BNGetMediumLevelILExprIndexes returned None"
 		result = []
 		for i in range(0, count.value):
 			result.append(exprs[i])
@@ -2919,7 +2982,7 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def get_mapped_medium_level_il_expr_index(self, expr:ExpressionIndex) -> Optional[ExpressionIndex]:
+	def get_mapped_medium_level_il_expr_index(self, expr:ExpressionIndex) -> Optional['mediumlevelil.ExpressionIndex']:
 		med_il = self.mapped_medium_level_il
 		if med_il is None:
 			return None
@@ -2928,7 +2991,7 @@ class LowLevelILFunction(object):
 			return None
 		return result
 
-	def get_high_level_il_instruction_index(self, instr:InstructionIndex) -> Optional[InstructionIndex]:
+	def get_high_level_il_instruction_index(self, instr:InstructionIndex) -> Optional['highlevelil.InstructionIndex']:
 		med_il = self.medium_level_il
 		if med_il is None:
 			return None
@@ -2937,7 +3000,7 @@ class LowLevelILFunction(object):
 			return None
 		return med_il.get_high_level_il_instruction_index(mlil_instr)
 
-	def get_high_level_il_expr_index(self, expr:ExpressionIndex) -> Optional[ExpressionIndex]:
+	def get_high_level_il_expr_index(self, expr:ExpressionIndex) -> Optional['highlevelil.ExpressionIndex']:
 		med_il = self.medium_level_il
 		if med_il is None:
 			return None
@@ -2974,7 +3037,7 @@ class LowLevelILBasicBlock(basicblock.BasicBlock):
 			return False
 		return True
 
-	def __iter__(self):
+	def __iter__(self) -> Generator['LowLevelILInstruction', None, None]:
 		for idx in range(self.start, self.end):
 			yield self._il_function[idx]
 

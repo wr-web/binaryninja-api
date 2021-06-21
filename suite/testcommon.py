@@ -865,18 +865,18 @@ class TestBuilder(Builder):
                 for func in bv.functions:
                     for bb in func.mlil.basic_blocks:
                         for ins in bb:
-                            retinfo.append("MLIL stack begin var: " + str(ins.get_var_for_stack_location(0)))
-                            retinfo.append("MLIL first stack element: " + str(ins.get_stack_contents(0, 1)))
-                            retinfo.append("MLIL second stack element: " + str(ins.get_stack_contents_after(0, 1)))
-                            retinfo.append("MLIL possible first stack element: " + str(ins.get_possible_stack_contents(0, 1)))
-                            retinfo.append("MLIL possible second stack element: " + str(ins.get_possible_stack_contents_after(0, 1)))
+                            retinfo.append(f"MLIL stack begin var: {ins.get_var_for_stack_location(0)}")
+                            retinfo.append(f"MLIL first stack element: {ins.get_stack_contents(0, 1)}")
+                            retinfo.append(f"MLIL second stack element: {ins.get_stack_contents_after(0, 1)}")
+                            retinfo.append(f"MLIL possible first stack element: {ins.get_possible_stack_contents(0, 1)}")
+                            retinfo.append(f"MLIL possible second stack element: {ins.get_possible_stack_contents_after(0, 1)}")
 
                             for reg in reg_list:
-                                retinfo.append("MLIL reg {} var at {}: {}".format(reg, hex(ins.address), str(ins.get_var_for_reg(reg))))
-                                retinfo.append("MLIL reg {} value at {}: {}".format(reg, hex(ins.address), str(ins.get_reg_value(reg))))
-                                retinfo.append("MLIL reg {} value after {}: {}".format(reg, hex(ins.address), str(ins.get_reg_value_after(reg))))
-                                retinfo.append("MLIL reg {} possible value at {}: {}".format(reg, hex(ins.address), fixSet(str(ins.get_possible_reg_values(reg)))))
-                                retinfo.append("MLIL reg {} possible value after {}: {}".format(reg, hex(ins.address), fixSet(str(ins.get_possible_reg_values_after(reg)))))
+                                retinfo.append(f"MLIL reg {reg} var at {ins.address:#x}: {ins.get_var_for_reg(reg)}")
+                                retinfo.append(f"MLIL reg {reg} value at {ins.address:#x}: {ins.get_reg_value(reg)}")
+                                retinfo.append(f"MLIL reg {reg} value after {ins.address:#x}: {ins.get_reg_value_after(reg)}")
+                                retinfo.append(f"MLIL reg {reg} possible value at {ins.address:#x}: {ins.get_possible_reg_values(reg)}")
+                                retinfo.append(f"MLIL reg {reg} possible value after {ins.address:#x}: {ins.get_possible_reg_values_after(reg)}")
 
                             for flag in flag_list:
                                 retinfo.append("MLIL flag {} value at {}: {}".format(flag, hex(ins.address), str(ins.get_flag_value(flag))))
@@ -1062,11 +1062,11 @@ class TestBuilder(Builder):
 
             mlil_range_var_refs = func.get_mlil_var_refs_from(0x1175, 0x8c)
             for ref in mlil_range_var_refs:
-                retinfo.append("var {} is referenced at {}".format(ref.var, ref.src))
+                retinfo.append(f"var {ref.var} is referenced at {ref.src}")
 
             hlil_range_var_refs = func.get_hlil_var_refs_from(0x1175, 0x8c)
             for ref in hlil_range_var_refs:
-                retinfo.append("var {} is referenced at {}".format(ref.var, ref.src))
+                retinfo.append(f"var {ref.var} is referenced at {ref.src}")
 
         self.delete_package("type_xref.bndb")
         return fixOutput(sorted(retinfo))

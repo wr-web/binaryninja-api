@@ -181,8 +181,9 @@ int main(int argc, char* argv[])
 	FILE* enums = fopen(argv[3], "w");
 
 	fprintf(out, "import ctypes, os\n\n");
+	fprintf(out, "from typing import Optional");
 	fprintf(enums, "import enum");
-
+	
 	fprintf(out, "# Load core module\n");
 	fprintf(out, "import platform\n");
 	fprintf(out, "core = None\n");
@@ -200,7 +201,16 @@ int main(int argc, char* argv[])
 	fprintf(out, "else:\n");
 	fprintf(out, "\traise Exception(\"OS not supported\")\n\n\n");
 
-	fprintf(out, "from binaryninja import cstr, pyNativeStr\n\n\n");
+	fprintf(out, "def cstr(var) -> Optional[str]:\n");
+	fprintf(out, "	if var is None:\n");
+	fprintf(out, "		return None\n");
+	fprintf(out, "	return var.encode(\"utf-8\")\n");
+
+	fprintf(out, "def pyNativeStr(arg):\n");
+	fprintf(out, "	if isinstance(arg, str):\n");
+	fprintf(out, "		return arg\n");
+	fprintf(out, "	else:\n");
+	fprintf(out, "		return arg.decode('utf8')\n");
 
 	// Create type objects
 	fprintf(out, "# Type definitions\n");

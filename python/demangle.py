@@ -22,11 +22,8 @@ import ctypes
 
 # Binary Ninja components
 from . import _binaryninjacore as core
-from .binaryview import BinaryView
+from . import binaryview
 from . import types
-
-# 2-3 compatibility
-from .compatibility import pyNativeStr
 
 
 def get_qualified_name(names):
@@ -67,11 +64,11 @@ def demangle_ms(arch, mangled_name, options = False):
 	outName = ctypes.POINTER(ctypes.c_char_p)()
 	outSize = ctypes.c_ulonglong()
 	names = []
-	if (isinstance(options, BinaryView) and core.BNDemangleMSWithOptions(arch.handle, mangled_name, ctypes.byref(handle), ctypes.byref(outName), ctypes.byref(outSize), options)) or \
+	if (isinstance(options, binaryview.BinaryView) and core.BNDemangleMSWithOptions(arch.handle, mangled_name, ctypes.byref(handle), ctypes.byref(outName), ctypes.byref(outSize), options)) or \
 		(isinstance(options, bool) and core.BNDemangleMS(arch.handle, mangled_name, ctypes.byref(handle), ctypes.byref(outName), ctypes.byref(outSize), options)) or \
 		(options is None and core.BNDemangleMSWithOptions(arch.handle, mangled_name, ctypes.byref(handle), ctypes.byref(outName), ctypes.byref(outSize), None)):
 		for i in range(outSize.value):
-			names.append(pyNativeStr(outName[i]))
+			names.append(outName[i].decode('utf8'))
 		core.BNFreeDemangledName(ctypes.byref(outName), outSize.value)
 		return (types.Type(handle), names)
 	return (None, mangled_name)
@@ -92,11 +89,11 @@ def demangle_gnu3(arch, mangled_name, options = None):
 	outName = ctypes.POINTER(ctypes.c_char_p)()
 	outSize = ctypes.c_ulonglong()
 	names = []
-	if (isinstance(options, BinaryView) and core.BNDemangleGNU3WithOptions(arch.handle, mangled_name, ctypes.byref(handle), ctypes.byref(outName), ctypes.byref(outSize), options)) or \
+	if (isinstance(options, binaryview.BinaryView) and core.BNDemangleGNU3WithOptions(arch.handle, mangled_name, ctypes.byref(handle), ctypes.byref(outName), ctypes.byref(outSize), options)) or \
 		(isinstance(options, bool) and core.BNDemangleGNU3(arch.handle, mangled_name, ctypes.byref(handle), ctypes.byref(outName), ctypes.byref(outSize), options)) or \
 		(options is None and core.BNDemangleGNU3WithOptions(arch.handle, mangled_name, ctypes.byref(handle), ctypes.byref(outName), ctypes.byref(outSize), None)):
 		for i in range(outSize.value):
-			names.append(pyNativeStr(outName[i]))
+			names.append(outName[i].decode('utf8'))
 		core.BNFreeDemangledName(ctypes.byref(outName), outSize.value)
 		if not handle:
 			return (None, names)
@@ -146,8 +143,10 @@ def simplify_name_to_qualified_name(input_name, simplify = True):
 	result = None
 	if isinstance(input_name, str):
 		result = core.BNRustSimplifyStrToFQN(input_name, simplify)
+		assert result is not None, "core.BNRustSimplifyStrToFQN returned None"
 	elif isinstance(input_name, types.QualifiedName):
 		result = core.BNRustSimplifyStrToFQN(str(input_name), True)
+		assert result is not None, "core.BNRustSimplifyStrToFQN returned None"
 	else:
 		raise TypeError("Parameter must be of type `str` or `types.QualifiedName`")
 
