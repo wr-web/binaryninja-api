@@ -24,8 +24,9 @@ using namespace BinaryNinja;
 using namespace std;
 
 
-FlowGraphLayoutRequest::FlowGraphLayoutRequest(FlowGraph* graph, const std::function<void()>& completeFunc):
-	m_completeFunc(completeFunc)
+FlowGraphLayoutRequest::FlowGraphLayoutRequest(
+    FlowGraph* graph, const std::function<void()>& completeFunc) :
+    m_completeFunc(completeFunc)
 {
 	m_object = BNStartFlowGraphLayout(graph->GetObject(), this, CompleteCallback);
 }
@@ -65,7 +66,8 @@ void FlowGraphLayoutRequest::Abort()
 	// Must clear the callback with the core before clearing our own function object, as until it
 	// is cleared in the core it can be called at any time from a different thread.
 	BNAbortFlowGraphLayoutRequest(m_object);
-	m_completeFunc = []() {};
+	m_completeFunc = []() {
+	};
 }
 
 
@@ -141,14 +143,10 @@ void FlowGraph::PrepareForLayout()
 }
 
 
-void FlowGraph::PopulateNodes()
-{
-}
+void FlowGraph::PopulateNodes() {}
 
 
-void FlowGraph::CompleteLayout()
-{
-}
+void FlowGraph::CompleteLayout() {}
 
 
 Ref<Function> FlowGraph::GetFunction() const
@@ -404,9 +402,7 @@ bool FlowGraph::IsOptionSet(BNFlowGraphOption option)
 }
 
 
-CoreFlowGraph::CoreFlowGraph(BNFlowGraph* graph): FlowGraph(graph)
-{
-}
+CoreFlowGraph::CoreFlowGraph(BNFlowGraph* graph) : FlowGraph(graph) {}
 
 
 Ref<FlowGraph> CoreFlowGraph::Update()

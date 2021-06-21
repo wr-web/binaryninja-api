@@ -1,21 +1,24 @@
 #pragma once
 
-#include <QtWidgets/QAbstractScrollArea>
-#include <QtCore/QTimer>
 #include "binaryninjaapi.h"
-#include "viewframe.h"
-#include "render.h"
 #include "menus.h"
+#include "render.h"
 #include "statusbarwidget.h"
 #include "uicontext.h"
+#include "viewframe.h"
+#include <QtCore/QTimer>
+#include <QtWidgets/QAbstractScrollArea>
 
 #define HEX_EDITOR_UPDATE_CHECK_INTERVAL 200
 
-class BINARYNINJAUIAPI HexEditor : public QAbstractScrollArea, public View, public PreviewScrollHandler,
-	public BinaryNinja::BinaryDataNotification
+class BINARYNINJAUIAPI HexEditor :
+    public QAbstractScrollArea,
+    public View,
+    public PreviewScrollHandler,
+    public BinaryNinja::BinaryDataNotification
 {
 	Q_OBJECT
-public:
+ public:
 	explicit HexEditor(BinaryViewRef data, ViewFrame* view, uint64_t startAddr = 0);
 	virtual ~HexEditor();
 
@@ -27,9 +30,12 @@ public:
 	virtual BNAddressRange getSelectionOffsets() override;
 	virtual bool navigate(uint64_t pos) override;
 
-	virtual void OnBinaryDataWritten(BinaryNinja::BinaryView* data, uint64_t offset, size_t len) override;
-	virtual void OnBinaryDataInserted(BinaryNinja::BinaryView* data, uint64_t offset, size_t len) override;
-	virtual void OnBinaryDataRemoved(BinaryNinja::BinaryView* data, uint64_t offset, uint64_t len) override;
+	virtual void OnBinaryDataWritten(
+	    BinaryNinja::BinaryView* data, uint64_t offset, size_t len) override;
+	virtual void OnBinaryDataInserted(
+	    BinaryNinja::BinaryView* data, uint64_t offset, size_t len) override;
+	virtual void OnBinaryDataRemoved(
+	    BinaryNinja::BinaryView* data, uint64_t offset, uint64_t len) override;
 
 	virtual void writeData(const BinaryNinja::DataBuffer& data, uint64_t addr) override;
 	virtual void selectAll();
@@ -54,26 +60,26 @@ public:
 
 	static void registerActions();
 
-private:
-	class HexEditorHighlightWidget: public MenuHelper
+ private:
+	class HexEditorHighlightWidget : public MenuHelper
 	{
-	public:
+	 public:
 		HexEditorHighlightWidget(HexEditor* parent);
 
-	protected:
+	 protected:
 		virtual void showMenu();
 
-	private:
+	 private:
 		HexEditor* m_editor;
 	};
 
-	class HexEditorStatusBarWidget: public StatusBarWidget
+	class HexEditorStatusBarWidget : public StatusBarWidget
 	{
-	public:
+	 public:
 		HexEditorStatusBarWidget(HexEditor* parent);
 		virtual void updateStatus() override;
 
-	private:
+	 private:
 		HexEditor* m_editor;
 		HexEditorHighlightWidget* m_highlight;
 	};
@@ -173,7 +179,7 @@ private:
 
 	ContextMenuManager* m_contextMenuManager;
 
-protected:
+ protected:
 	virtual void resizeEvent(QResizeEvent* event) override;
 	virtual void paintEvent(QPaintEvent* event) override;
 	virtual void focusInEvent(QFocusEvent* event) override;
@@ -185,25 +191,25 @@ protected:
 	virtual bool event(QEvent* event) override;
 	virtual void wheelEvent(QWheelEvent* event) override;
 
-Q_SIGNALS:
+ Q_SIGNALS:
 
-public Q_SLOTS:
+ public Q_SLOTS:
 	void disassembly();
 	void createFunc();
 	void createFuncWithPlatform(PlatformRef platform, bool autoSelect = false);
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void scrollBarMoved(int value);
 	void scrollBarAction(int action);
 	void cursorTimerEvent();
 	void updateTimerEvent();
 };
 
-class HexEditorViewType: public ViewType
+class HexEditorViewType : public ViewType
 {
 	static HexEditorViewType* m_instance;
 
-public:
+ public:
 	HexEditorViewType();
 	virtual int getPriority(BinaryViewRef data, const QString& filename) override;
 	virtual QWidget* create(BinaryViewRef data, ViewFrame* viewFrame) override;

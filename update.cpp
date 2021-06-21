@@ -24,19 +24,18 @@ using namespace BinaryNinja;
 using namespace std;
 
 
-namespace BinaryNinja
+namespace BinaryNinja {
+struct UpdateProgress
 {
-	struct UpdateProgress
-	{
-		function<bool(uint64_t progress, uint64_t total)> func;
+	function<bool(uint64_t progress, uint64_t total)> func;
 
-		static bool UpdateCallback(void* ctxt, uint64_t progress, uint64_t total)
-		{
-			UpdateProgress* self = (UpdateProgress*)ctxt;
-			return self->func(progress, total);
-		}
-	};
-}
+	static bool UpdateCallback(void* ctxt, uint64_t progress, uint64_t total)
+	{
+		UpdateProgress* self = (UpdateProgress*)ctxt;
+		return self->func(progress, total);
+	}
+};
+}  // namespace BinaryNinja
 
 
 vector<UpdateChannel> UpdateChannel::GetList()
@@ -86,19 +85,19 @@ bool UpdateChannel::AreUpdatesAvailable(uint64_t* expireTime, uint64_t* serverTi
 
 BNUpdateResult UpdateChannel::UpdateToVersion(const string& version)
 {
-	return UpdateToVersion(version, [](uint64_t, uint64_t){ return true; });
+	return UpdateToVersion(version, [](uint64_t, uint64_t) { return true; });
 }
 
 
-BNUpdateResult UpdateChannel::UpdateToVersion(const string& version,
-                                              const function<bool(uint64_t progress, uint64_t total)>& progress)
+BNUpdateResult UpdateChannel::UpdateToVersion(
+    const string& version, const function<bool(uint64_t progress, uint64_t total)>& progress)
 {
 	UpdateProgress up;
 	up.func = progress;
 
 	char* errors;
-	BNUpdateResult result = BNUpdateToVersion(name.c_str(), version.c_str(), &errors,
-	                                          UpdateProgress::UpdateCallback, &up);
+	BNUpdateResult result = BNUpdateToVersion(
+	    name.c_str(), version.c_str(), &errors, UpdateProgress::UpdateCallback, &up);
 
 	if (errors)
 	{
@@ -113,17 +112,19 @@ BNUpdateResult UpdateChannel::UpdateToVersion(const string& version,
 
 BNUpdateResult UpdateChannel::UpdateToLatestVersion()
 {
-	return UpdateToLatestVersion([](uint64_t, uint64_t){ return true; });
+	return UpdateToLatestVersion([](uint64_t, uint64_t) { return true; });
 }
 
 
-BNUpdateResult UpdateChannel::UpdateToLatestVersion(const function<bool(uint64_t progress, uint64_t total)>& progress)
+BNUpdateResult UpdateChannel::UpdateToLatestVersion(
+    const function<bool(uint64_t progress, uint64_t total)>& progress)
 {
 	UpdateProgress up;
 	up.func = progress;
 
 	char* errors;
-	BNUpdateResult result = BNUpdateToLatestVersion(name.c_str(), &errors, UpdateProgress::UpdateCallback, &up);
+	BNUpdateResult result =
+	    BNUpdateToLatestVersion(name.c_str(), &errors, UpdateProgress::UpdateCallback, &up);
 
 	if (errors)
 	{

@@ -1,14 +1,14 @@
 #pragma once
 
-#include <QtCore/QFile>
-#include "binaryninjaapi.h"
 #include "action.h"
+#include "binaryninjaapi.h"
+#include <QtCore/QFile>
 
 class BINARYNINJAUIAPI QFileAccessor : public BinaryNinja::FileAccessor
 {
 	QFile* m_file;
 
-public:
+ public:
 	QFileAccessor(const QString& name, bool write = false);
 	virtual ~QFileAccessor();
 

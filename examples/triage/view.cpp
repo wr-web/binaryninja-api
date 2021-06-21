@@ -1,16 +1,16 @@
-#include <QtWidgets/QGroupBox>
-#include <QtWidgets/QVBoxLayout>
-#include <QtWidgets/QSplitter>
 #include "view.h"
 #include "entropy.h"
-#include "imports.h"
 #include "exports.h"
-#include "sections.h"
-#include "headers.h"
 #include "fontsettings.h"
+#include "headers.h"
+#include "imports.h"
+#include "sections.h"
+#include <QtWidgets/QGroupBox>
+#include <QtWidgets/QSplitter>
+#include <QtWidgets/QVBoxLayout>
 
 
-TriageView::TriageView(QWidget* parent, BinaryViewRef data): QScrollArea(parent)
+TriageView::TriageView(QWidget* parent, BinaryViewRef data) : QScrollArea(parent)
 {
 	setBinaryDataNavigable(true);
 	setupView(this);
@@ -99,7 +99,8 @@ TriageView::TriageView(QWidget* parent, BinaryViewRef data): QScrollArea(parent)
 	setWidgetResizable(true);
 	setWidget(container);
 
-	if (m_fullAnalysisButton && (BinaryNinja::Settings::Instance()->Get<std::string>("analysis.mode", data) == "full"))
+	if (m_fullAnalysisButton &&
+	    (BinaryNinja::Settings::Instance()->Get<std::string>("analysis.mode", data) == "full"))
 		m_fullAnalysisButton->hide();
 }
 
@@ -122,7 +123,7 @@ BNAddressRange TriageView::getSelectionOffsets()
 {
 	if (m_byteView)
 		return m_byteView->getSelectionOffsets();
-	return { m_currentOffset, m_currentOffset };
+	return {m_currentOffset, m_currentOffset};
 }
 
 void TriageView::setSelectionOffsets(BNAddressRange range)
@@ -156,7 +157,7 @@ bool TriageView::navigate(uint64_t addr)
 void TriageView::startFullAnalysis()
 {
 	BinaryNinja::Settings::Instance()->Set("analysis.mode", "full", m_data);
-	for (auto& f: m_data->GetAnalysisFunctionList())
+	for (auto& f : m_data->GetAnalysisFunctionList())
 	{
 		if (f->IsAnalysisSkipped())
 			f->Reanalyze();
@@ -215,9 +216,7 @@ void TriageView::focusInEvent(QFocusEvent*)
 }
 
 
-TriageViewType::TriageViewType(): ViewType("Triage", "Triage Summary")
-{
-}
+TriageViewType::TriageViewType() : ViewType("Triage", "Triage Summary") {}
 
 
 int TriageViewType::getPriority(BinaryViewRef data, const QString&)

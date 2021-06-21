@@ -1,7 +1,7 @@
+#include "byte.h"
+#include "files.h"
 #include "uitypes.h"
 #include "view.h"
-#include "files.h"
-#include "byte.h"
 
 
 extern "C"
@@ -17,7 +17,7 @@ extern "C"
 		SettingsRef settings = BinaryNinja::Settings::Instance();
 		settings->RegisterGroup("triage", "Triage");
 		settings->RegisterSetting("triage.preferSummaryView",
-			R"({
+		    R"({
 				"title" : "Always Prefer Triage Summary View",
 				"type" : "boolean",
 				"default" : false,
@@ -25,7 +25,7 @@ extern "C"
 			})");
 
 		settings->RegisterSetting("triage.preferSummaryViewForRaw",
-			R"({
+		    R"({
 				"title" : "Prefer Triage Summary View for Raw Files",
 				"type" : "boolean",
 				"default" : false,
@@ -35,7 +35,7 @@ extern "C"
 		ViewType::registerViewType(new TriageViewType());
 
 		settings->RegisterSetting("triage.analysisMode",
-			R"({
+		    R"({
 				"title" : "Triage Analysis Mode",
 				"type" : "string",
 				"default" : "basic",
@@ -48,7 +48,7 @@ extern "C"
 			})");
 
 		settings->RegisterSetting("triage.linearSweep",
-			R"({
+		    R"({
 				"title" : "Triage Linear Sweep Mode",
 				"type" : "string",
 				"default" : "partial",
@@ -61,7 +61,7 @@ extern "C"
 			})");
 
 		settings->RegisterSetting("triage.hiddenFiles",
-			R"({
+		    R"({
 				"title" : "Triage Shows Hidden Files",
 				"type" : "boolean",
 				"default" : false,
@@ -71,21 +71,23 @@ extern "C"
 		UIAction::registerAction("Open for Triage...", QKeySequence("Ctrl+Alt+O"));
 		UIAction::registerAction("Open Selected Files");
 
-		UIActionHandler::globalActions()->bindAction("Open for Triage...", UIAction([](const UIActionContext& context) {
-			UIContext* currentContext = context.context;
-			if (!currentContext)
-				return;
+		UIActionHandler::globalActions()->bindAction(
+		    "Open for Triage...", UIAction([](const UIActionContext& context) {
+			    UIContext* currentContext = context.context;
+			    if (!currentContext)
+				    return;
 
-			// Do not try to set the parent window when creating tabs, as this will create a parent relationship in
-			// the bindings and will cause the widget to be destructed early. The correct parent will be assigned
-			// when createTabForWidget is called.
-			TriageFilePicker* fp = new TriageFilePicker(currentContext);
-			currentContext->createTabForWidget("Open for Triage", fp);
-		}));
+			    // Do not try to set the parent window when creating tabs, as this will create a parent
+			    // relationship in the bindings and will cause the widget to be destructed early. The
+			    // correct parent will be assigned when createTabForWidget is called.
+			    TriageFilePicker* fp = new TriageFilePicker(currentContext);
+			    currentContext->createTabForWidget("Open for Triage", fp);
+		    }));
 
 		Menu::mainMenu("File")->addAction("Open for Triage...", "Open");
 
-		UIContext::registerFileOpenMode("Triage...", "Open file(s) for quick analysis in the Triage Summary view.", "Open for Triage...");
+		UIContext::registerFileOpenMode("Triage...",
+		    "Open file(s) for quick analysis in the Triage Summary view.", "Open for Triage...");
 
 		ViewType::registerViewType(new ByteViewType());
 		return true;

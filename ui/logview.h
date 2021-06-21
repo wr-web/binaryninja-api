@@ -1,19 +1,19 @@
 #pragma once
 
-#include <QtWidgets/QListView>
 #include <QtCore/QItemSelection>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
-#include <QtWidgets/QStyledItemDelegate>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QListView>
+#include <QtWidgets/QStyledItemDelegate>
 #include <QtWidgets/QToolButton>
 #include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "binaryninjaapi.h"
 #include "action.h"
+#include "binaryninjaapi.h"
 #include "dockhandler.h"
 
 #define LOG_UPDATE_INTERVAL 100
@@ -28,11 +28,12 @@ struct BINARYNINJAUIAPI LogListItem
 	std::string text;
 	bool selected;
 
-	LogListItem(BNLogLevel level, std::string text, bool selected = false) : level(level), text(text), selected(selected) { };
+	LogListItem(BNLogLevel level, std::string text, bool selected = false) :
+	    level(level), text(text), selected(selected) {};
 };
 
 
-class BINARYNINJAUIAPI LogListModel: public QAbstractItemModel, public BinaryNinja::LogListener
+class BINARYNINJAUIAPI LogListModel : public QAbstractItemModel, public BinaryNinja::LogListener
 {
 	Q_OBJECT
 
@@ -45,7 +46,7 @@ class BINARYNINJAUIAPI LogListModel: public QAbstractItemModel, public BinaryNin
 	std::mutex m_mutex;
 	std::mutex m_pendingMutex;
 
-public:
+ public:
 	LogListModel(QWidget* parent);
 	~LogListModel();
 
@@ -65,12 +66,12 @@ public:
 	virtual QVariant data(const QModelIndex& i, int role) const override;
 	virtual bool setData(const QModelIndex& i, const QVariant& value, int role) override;
 
-public Q_SLOTS:
+ public Q_SLOTS:
 	void notifyDataChanged();
 };
 
 
-class BINARYNINJAUIAPI LogItemDelegate: public QStyledItemDelegate
+class BINARYNINJAUIAPI LogItemDelegate : public QStyledItemDelegate
 {
 	Q_OBJECT
 
@@ -82,27 +83,30 @@ class BINARYNINJAUIAPI LogItemDelegate: public QStyledItemDelegate
 	QFont m_font;
 	int m_height;
 
-	bool IsNavigable(const QString& str, const std::pair<int, int>& offsetLen, uint64_t& value, bool highlight) const;
+	bool IsNavigable(const QString& str, const std::pair<int, int>& offsetLen, uint64_t& value,
+	    bool highlight) const;
 
-public:
+ public:
 	LogItemDelegate(QWidget* parent);
 
 	void updateFonts();
 	virtual QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& idx) const override;
-	virtual void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& idx) const override;
+	virtual void paint(
+	    QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& idx) const override;
 
-protected:
-	bool editorEvent(QEvent* event, QAbstractItemModel* model, const QStyleOptionViewItem& option, const QModelIndex& index) override;
+ protected:
+	bool editorEvent(QEvent* event, QAbstractItemModel* model, const QStyleOptionViewItem& option,
+	    const QModelIndex& index) override;
 
-Q_SIGNALS:
+ Q_SIGNALS:
 	void notifyDataChanged();
 
-public Q_SLOTS:
+ public Q_SLOTS:
 	void viewChanged(QWidget* frame);
 };
 
 
-class BINARYNINJAUIAPI LogView: public QListView, public DockContextHandler
+class BINARYNINJAUIAPI LogView : public QListView, public DockContextHandler
 {
 	Q_OBJECT
 	Q_INTERFACES(DockContextHandler)
@@ -117,7 +121,7 @@ class BINARYNINJAUIAPI LogView: public QListView, public DockContextHandler
 	bool m_scrolledToEnd;
 	bool m_hasSelection = false;
 
-public:
+ public:
 	LogView(QWidget* parent, LogStatus* logStatus);
 
 	virtual void copy();
@@ -128,21 +132,21 @@ public:
 	static bool IsHexString(const QString& str, std::pair<int, int> offsetLen);
 	static bool StartsWith0x(const QString& str, std::pair<int, int> offsetLen);
 
-protected:
+ protected:
 	void contextMenuEvent(QContextMenuEvent* event) override;
 	void notifyFontChanged() override;
 	void notifyThemeChanged() override;
 	void notifyViewChanged(ViewFrame* frame) override;
 	void notifyVisibilityChanged(bool visible) override;
 
-Q_SIGNALS:
+ Q_SIGNALS:
 	void notifyUiStatus();
 	void viewChanged(QWidget* frame);
 
-public Q_SLOTS:
+ public Q_SLOTS:
 	void clear();
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void scrollRangeChanged(int minimum, int maximum);
 	void scrollValueChanged(int value);
 	void updateSelection(const QItemSelection& selected, const QItemSelection& deselected);
@@ -151,7 +155,7 @@ private Q_SLOTS:
 };
 
 
-class BINARYNINJAUIAPI LogStatus: public QWidget
+class BINARYNINJAUIAPI LogStatus : public QWidget
 {
 	Q_OBJECT
 
@@ -161,7 +165,7 @@ class BINARYNINJAUIAPI LogStatus: public QWidget
 	int m_errorCount = 0;
 	int m_warnCount = 0;
 
-public:
+ public:
 	LogStatus(QWidget* parent);
 
 	void incrementErrorCount(int count);
@@ -170,6 +174,6 @@ public:
 
 	void updateTheme();
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void clearStatus();
 };

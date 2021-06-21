@@ -33,45 +33,45 @@ LinearDisassemblyLine LinearDisassemblyLine::FromAPIObject(BNLinearDisassemblyLi
 	result.contents.addr = line->contents.addr;
 	result.contents.instrIndex = line->contents.instrIndex;
 	result.contents.highlight = line->contents.highlight;
-	result.contents.tokens = InstructionTextToken::ConvertInstructionTextTokenList(line->contents.tokens, line->contents.count);
+	result.contents.tokens = InstructionTextToken::ConvertInstructionTextTokenList(
+	    line->contents.tokens, line->contents.count);
 	result.contents.tags = Tag::ConvertTagList(line->contents.tags, line->contents.tagCount);
 	result.contents.typeInfo.hasTypeInfo = line->contents.typeInfo.hasTypeInfo;
 	result.contents.typeInfo.fieldIndex = line->contents.typeInfo.fieldIndex;
-	result.contents.typeInfo.parentType = line->contents.typeInfo.parentType ?
-		new Type(BNNewTypeReference(line->contents.typeInfo.parentType)) : nullptr;
+	result.contents.typeInfo.parentType =
+	    line->contents.typeInfo.parentType ?
+	        new Type(BNNewTypeReference(line->contents.typeInfo.parentType)) :
+	        nullptr;
 
 	return result;
 }
 
 
-LinearViewObjectIdentifier::LinearViewObjectIdentifier():
-	type(SingleLinearViewObject), start(0), end(0)
-{
-}
+LinearViewObjectIdentifier::LinearViewObjectIdentifier() :
+    type(SingleLinearViewObject), start(0), end(0)
+{}
 
 
-LinearViewObjectIdentifier::LinearViewObjectIdentifier(const string& _name):
-	name(_name), type(SingleLinearViewObject), start(0), end(0)
-{
-}
+LinearViewObjectIdentifier::LinearViewObjectIdentifier(const string& _name) :
+    name(_name), type(SingleLinearViewObject), start(0), end(0)
+{}
 
 
-LinearViewObjectIdentifier::LinearViewObjectIdentifier(const string& _name, uint64_t addr):
-	name(_name), type(AddressLinearViewObject), start(addr), end(addr)
-{
-}
+LinearViewObjectIdentifier::LinearViewObjectIdentifier(const string& _name, uint64_t addr) :
+    name(_name), type(AddressLinearViewObject), start(addr), end(addr)
+{}
 
 
-LinearViewObjectIdentifier::LinearViewObjectIdentifier(const string& _name, uint64_t _start, uint64_t _end):
-	name(_name), type(AddressRangeLinearViewObject), start(_start), end(_end)
-{
-}
+LinearViewObjectIdentifier::LinearViewObjectIdentifier(
+    const string& _name, uint64_t _start, uint64_t _end) :
+    name(_name),
+    type(AddressRangeLinearViewObject), start(_start), end(_end)
+{}
 
 
-LinearViewObjectIdentifier::LinearViewObjectIdentifier(const LinearViewObjectIdentifier& other):
-	name(other.name), type(other.type), start(other.start), end(other.end)
-{
-}
+LinearViewObjectIdentifier::LinearViewObjectIdentifier(const LinearViewObjectIdentifier& other) :
+    name(other.name), type(other.type), start(other.start), end(other.end)
+{}
 
 
 LinearViewObject::LinearViewObject(BNLinearViewObject* obj)
@@ -146,11 +146,12 @@ int LinearViewObject::CompareChildren(LinearViewObject* a, LinearViewObject* b)
 }
 
 
-vector<LinearDisassemblyLine> LinearViewObject::GetLines(LinearViewObject* prev, LinearViewObject* next)
+vector<LinearDisassemblyLine> LinearViewObject::GetLines(
+    LinearViewObject* prev, LinearViewObject* next)
 {
 	size_t count;
-	BNLinearDisassemblyLine* lines = BNGetLinearViewObjectLines(m_object, prev ? prev->GetObject() : nullptr,
-		next ? next->GetObject() : nullptr, &count);
+	BNLinearDisassemblyLine* lines = BNGetLinearViewObjectLines(
+	    m_object, prev ? prev->GetObject() : nullptr, next ? next->GetObject() : nullptr, &count);
 
 	vector<LinearDisassemblyLine> result;
 	result.reserve(count);
@@ -208,71 +209,81 @@ Ref<LinearViewObject> LinearViewObject::GetChildForOrderingIndex(uint64_t idx)
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateDisassembly(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateDisassembly(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewDisassembly(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(
+	    BNCreateLinearViewDisassembly(view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateLiftedIL(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateLiftedIL(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewLiftedIL(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(
+	    BNCreateLinearViewLiftedIL(view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateLowLevelIL(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateLowLevelIL(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewLowLevelIL(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(
+	    BNCreateLinearViewLowLevelIL(view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateLowLevelILSSAForm(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateLowLevelILSSAForm(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewLowLevelILSSAForm(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(BNCreateLinearViewLowLevelILSSAForm(
+	    view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateMediumLevelIL(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateMediumLevelIL(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewMediumLevelIL(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(BNCreateLinearViewMediumLevelIL(
+	    view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateMediumLevelILSSAForm(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateMediumLevelILSSAForm(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewMediumLevelILSSAForm(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(BNCreateLinearViewMediumLevelILSSAForm(
+	    view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateMappedMediumLevelIL(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateMappedMediumLevelIL(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewMappedMediumLevelIL(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(BNCreateLinearViewMappedMediumLevelIL(
+	    view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateMappedMediumLevelILSSAForm(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateMappedMediumLevelILSSAForm(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewMappedMediumLevelILSSAForm(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(BNCreateLinearViewMappedMediumLevelILSSAForm(
+	    view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateHighLevelIL(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateHighLevelIL(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewHighLevelIL(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(
+	    BNCreateLinearViewHighLevelIL(view->GetObject(), settings ? settings->GetObject() : nullptr));
 }
 
 
-Ref<LinearViewObject> LinearViewObject::CreateHighLevelILSSAForm(BinaryView* view, DisassemblySettings* settings)
+Ref<LinearViewObject> LinearViewObject::CreateHighLevelILSSAForm(
+    BinaryView* view, DisassemblySettings* settings)
 {
-	return new LinearViewObject(BNCreateLinearViewHighLevelILSSAForm(view->GetObject(),
-		settings ? settings->GetObject() : nullptr));
+	return new LinearViewObject(BNCreateLinearViewHighLevelILSSAForm(
+	    view->GetObject(), settings ? settings->GetObject() : nullptr));
 }

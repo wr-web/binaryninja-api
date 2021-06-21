@@ -1,25 +1,25 @@
 #pragma once
 
+#include "binaryninjaapi.h"
+#include "uicontext.h"
 #include <QtCore/QString>
 #include <map>
 #include <set>
 #include <string>
-#include "binaryninjaapi.h"
-#include "uicontext.h"
 
 class ViewFrame;
 class ViewType;
 
-// This base class is required for building the Python bindings. The other base classes of FileContext are
-// ignored (as they have no functions that should be exported to Python), but this would leave the binding
-// generator with a derived class with no base and a compiler error.
+// This base class is required for building the Python bindings. The other base classes of
+// FileContext are ignored (as they have no functions that should be exported to Python), but this
+// would leave the binding generator with a derived class with no base and a compiler error.
 class FileContextBase
 {
-public:
+ public:
 	FileContextBase() {}
 };
 
-class BINARYNINJAUIAPI FileContext: public FileContextBase, public BinaryNinja::NavigationHandler
+class BINARYNINJAUIAPI FileContext : public FileContextBase, public BinaryNinja::NavigationHandler
 {
 	QString m_filename;
 	bool m_isValidSaveFilename;
@@ -35,8 +35,9 @@ class BINARYNINJAUIAPI FileContext: public FileContextBase, public BinaryNinja::
 
 	void createBinaryViews();
 
-public:
-	FileContext(FileMetadataRef file, BinaryViewRef rawData, const QString& filename = QString(), bool isValidSaveName = false, bool createViews = true);
+ public:
+	FileContext(FileMetadataRef file, BinaryViewRef rawData, const QString& filename = QString(),
+	    bool isValidSaveName = false, bool createViews = true);
 	virtual ~FileContext();
 
 	void registerReference(QWidget* widget);
@@ -46,7 +47,7 @@ public:
 
 	BinaryViewRef getRawData() const { return m_rawData; }
 	QString getFilename() const { return m_filename; }
-	void setFilename(QString newName) {m_filename = newName;}
+	void setFilename(QString newName) { m_filename = newName; }
 	ViewFrame* getCurrentViewFrame() const { return m_currentViewFrame; }
 
 	bool isValidSaveFilename() const { return m_isValidSaveFilename; }

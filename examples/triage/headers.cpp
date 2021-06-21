@@ -1,13 +1,15 @@
-#include <string.h>
-#include <time.h>
 #include "headers.h"
 #include "fontsettings.h"
 #include "theme.h"
 #include "viewframe.h"
+#include <string.h>
+#include <time.h>
 
 
-NavigationLabel::NavigationLabel(const QString& text, QColor color, const std::function<void()>& func):
-	QLabel(text), m_func(func)
+NavigationLabel::NavigationLabel(
+    const QString& text, QColor color, const std::function<void()>& func) :
+    QLabel(text),
+    m_func(func)
 {
 	QPalette style(palette());
 	style.setColor(QPalette::WindowText, color);
@@ -22,8 +24,8 @@ void NavigationLabel::mousePressEvent(QMouseEvent*)
 }
 
 
-NavigationAddressLabel::NavigationAddressLabel(const QString& text):
-	NavigationLabel(text, getThemeColor(AddressColor), [this]() { clickEvent(); })
+NavigationAddressLabel::NavigationAddressLabel(const QString& text) :
+    NavigationLabel(text, getThemeColor(AddressColor), [this]() { clickEvent(); })
 {
 	m_address = text.toULongLong(nullptr, 0);
 }
@@ -37,8 +39,8 @@ void NavigationAddressLabel::clickEvent()
 }
 
 
-NavigationCodeLabel::NavigationCodeLabel(const QString& text):
-	NavigationLabel(text, getThemeColor(CodeSymbolColor), [this]() { clickEvent(); })
+NavigationCodeLabel::NavigationCodeLabel(const QString& text) :
+    NavigationLabel(text, getThemeColor(CodeSymbolColor), [this]() { clickEvent(); })
 {
 	m_address = text.toULongLong(nullptr, 0);
 }
@@ -52,20 +54,19 @@ void NavigationCodeLabel::clickEvent()
 }
 
 
-Headers::Headers(): m_columns(1), m_rowsPerColumn(8)
-{
-}
+Headers::Headers() : m_columns(1), m_rowsPerColumn(8) {}
 
 
 void Headers::AddField(const QString& title, const QString& value, HeaderFieldType type)
 {
-	m_fields.push_back(HeaderField { title, {value}, type });
+	m_fields.push_back(HeaderField {title, {value}, type});
 }
 
 
-void Headers::AddField(const QString& title, const std::vector<QString>& values, HeaderFieldType type)
+void Headers::AddField(
+    const QString& title, const std::vector<QString>& values, HeaderFieldType type)
 {
-	m_fields.push_back(HeaderField { title, values, type });
+	m_fields.push_back(HeaderField {title, values, type});
 }
 
 
@@ -75,15 +76,18 @@ GenericHeaders::GenericHeaders(BinaryViewRef data)
 	if (data->GetDefaultPlatform())
 		AddField("Platform", QString::fromStdString(data->GetDefaultPlatform()->GetName()));
 	if (data->IsValidOffset(data->GetEntryPoint()))
-		AddField("Entry Point", QString("0x") + QString::number(data->GetEntryPoint(), 16), CodeHeaderField);
+		AddField(
+		    "Entry Point", QString("0x") + QString::number(data->GetEntryPoint(), 16), CodeHeaderField);
 	if (data->IsValidOffset(data->GetStart()))
-		AddField("Current Base", QString("0x") + QString::number(data->GetStart(), 16), AddressHeaderField);
+		AddField(
+		    "Current Base", QString("0x") + QString::number(data->GetStart(), 16), AddressHeaderField);
 }
 
 
 PEHeaders::PEHeaders(BinaryViewRef data)
 {
-	uint64_t peOffset = data->GetStart() + GetValueOfStructMember(data, "DOS_Header", data->GetStart(), "e_lfanew");
+	uint64_t peOffset =
+	    data->GetStart() + GetValueOfStructMember(data, "DOS_Header", data->GetStart(), "e_lfanew");
 	uint64_t optHeaderStart = GetAddressAfterStruct(data, "COFF_Header", peOffset);
 
 	BinaryNinja::DataBuffer peMagic = data->ReadBuffer(optHeaderStart, 2);
@@ -107,7 +111,8 @@ PEHeaders::PEHeaders(BinaryViewRef data)
 		if (data->GetDefaultPlatform())
 			AddField("Platform", QString::fromStdString(data->GetDefaultPlatform()->GetName()));
 		if (data->IsValidOffset(data->GetEntryPoint()))
-			AddField("Entry Point", QString("0x") + QString::number(data->GetEntryPoint(), 16), CodeHeaderField);
+			AddField("Entry Point", QString("0x") + QString::number(data->GetEntryPoint(), 16),
+			    CodeHeaderField);
 		return;
 	}
 
@@ -127,15 +132,18 @@ PEHeaders::PEHeaders(BinaryViewRef data)
 	QDateTime t = QDateTime::fromSecsSinceEpoch(secs);
 	AddField("Timestamp", t.toString());
 
-	AddField("Current Base", QString("0x") + QString::number(data->GetStart(), 16), AddressHeaderField);
+	AddField(
+	    "Current Base", QString("0x") + QString::number(data->GetStart(), 16), AddressHeaderField);
 
 	uint64_t base = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "imageBase");
 	AddField("Image Base", QString("0x") + QString::number(base, 16), AddressHeaderField);
 
-	uint64_t entryPoint = base + GetValueOfStructMember(data, optHeaderName, optHeaderStart, "addressOfEntryPoint");
+	uint64_t entryPoint =
+	    base + GetValueOfStructMember(data, optHeaderName, optHeaderStart, "addressOfEntryPoint");
 	AddField("Entry Point", QString("0x") + QString::number(entryPoint, 16), CodeHeaderField);
 
-	uint64_t sectionAlign = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sectionAlignment");
+	uint64_t sectionAlign =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sectionAlignment");
 	AddField("Section Alignment", QString("0x") + QString::number(sectionAlign, 16));
 
 	uint64_t fileAlign = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "fileAlignment");
@@ -144,71 +152,89 @@ PEHeaders::PEHeaders(BinaryViewRef data)
 	uint64_t checksum = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "checkSum");
 	AddField("Checksum", QString("0x") + QString::number(checksum, 16));
 
-	uint64_t codeBase = base + GetValueOfStructMember(data, optHeaderName, optHeaderStart, "baseOfCode");
+	uint64_t codeBase =
+	    base + GetValueOfStructMember(data, optHeaderName, optHeaderStart, "baseOfCode");
 	AddField("Base of Code", QString("0x") + QString::number(codeBase, 16), AddressHeaderField);
 
 	if (!is64bit)
 	{
-		uint64_t dataBase = base + GetValueOfStructMember(data, optHeaderName, optHeaderStart, "baseOfData");
+		uint64_t dataBase =
+		    base + GetValueOfStructMember(data, optHeaderName, optHeaderStart, "baseOfData");
 		AddField("Base of Data", QString("0x") + QString::number(dataBase, 16), AddressHeaderField);
 	}
 
 	uint64_t codeSize = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfCode");
 	AddField("Size of Code", QString("0x") + QString::number(codeSize, 16));
 
-	uint64_t initDataSize = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfInitializedData");
+	uint64_t initDataSize =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfInitializedData");
 	AddField("Size of Init Data", QString("0x") + QString::number(initDataSize, 16));
 
-	uint64_t uninitDataSize = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfUninitializedData");
+	uint64_t uninitDataSize =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfUninitializedData");
 	AddField("Size of Uninit Data", QString("0x") + QString::number(uninitDataSize, 16));
 
-	uint64_t headerSize = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfHeaders");
+	uint64_t headerSize =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfHeaders");
 	AddField("Size of Headers", QString("0x") + QString::number(headerSize, 16));
 
 	uint64_t imageSize = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfImage");
 	AddField("Size of Image", QString("0x") + QString::number(imageSize, 16));
 
-	uint64_t stackCommit = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfStackCommit");
-	uint64_t stackReserve = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfStackReserve");
+	uint64_t stackCommit =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfStackCommit");
+	uint64_t stackReserve =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfStackReserve");
 	AddField("Stack Size", QString("0x") + QString::number(stackCommit, 16) + QString(" / 0x") +
-		QString::number(stackReserve, 16));
+	                           QString::number(stackReserve, 16));
 
-	uint64_t heapCommit = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfHeapCommit");
-	uint64_t heapReserve = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfHeapReserve");
+	uint64_t heapCommit =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfHeapCommit");
+	uint64_t heapReserve =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "sizeOfHeapReserve");
 	AddField("Heap Size", QString("0x") + QString::number(heapCommit, 16) + QString(" / 0x") +
-		QString::number(heapReserve, 16));
+	                          QString::number(heapReserve, 16));
 
-	uint64_t linkerMajor = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "majorLinkerVersion");
-	uint64_t linkerMinor = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "minorLinkerVersion");
+	uint64_t linkerMajor =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "majorLinkerVersion");
+	uint64_t linkerMinor =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "minorLinkerVersion");
 	AddField("Linker Version", QString::number(linkerMajor) + QString(".") +
-		QString::number(linkerMinor).rightJustified(2, '0'));
+	                               QString::number(linkerMinor).rightJustified(2, '0'));
 
-	uint64_t imageMajor = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "majorImageVersion");
-	uint64_t imageMinor = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "minorImageVersion");
+	uint64_t imageMajor =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "majorImageVersion");
+	uint64_t imageMinor =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "minorImageVersion");
 	AddField("Image Version", QString::number(imageMajor) + QString(".") +
-		QString::number(imageMinor).rightJustified(2, '0'));
+	                              QString::number(imageMinor).rightJustified(2, '0'));
 
-	uint64_t osMajor = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "majorOperatingSystemVersion");
-	uint64_t osMinor = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "minorOperatingSystemVersion");
-	AddField("OS Version", QString::number(osMajor) + QString(".") +
-		QString::number(osMinor).rightJustified(2, '0'));
+	uint64_t osMajor =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "majorOperatingSystemVersion");
+	uint64_t osMinor =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "minorOperatingSystemVersion");
+	AddField("OS Version",
+	    QString::number(osMajor) + QString(".") + QString::number(osMinor).rightJustified(2, '0'));
 
-	uint64_t subMajor = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "majorSubsystemVersion");
-	uint64_t subMinor = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "minorSubsystemVersion");
-	AddField("Subsystem Version", QString::number(subMajor) + QString(".") +
-		QString::number(subMinor).rightJustified(2, '0'));
+	uint64_t subMajor =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "majorSubsystemVersion");
+	uint64_t subMinor =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "minorSubsystemVersion");
+	AddField("Subsystem Version",
+	    QString::number(subMajor) + QString(".") + QString::number(subMinor).rightJustified(2, '0'));
 
 	uint64_t coffCharValue = GetValueOfStructMember(data, "COFF_Header", peOffset, "characteristics");
 	TypeRef coffCharEnum = data->GetTypeByName(BinaryNinja::QualifiedName("coff_characteristics"));
 	if (coffCharEnum && (coffCharEnum->GetClass() == EnumerationTypeClass))
 	{
 		std::vector<QString> coffCharValues;
-		for (auto& member: coffCharEnum->GetEnumeration()->GetMembers())
+		for (auto& member : coffCharEnum->GetEnumeration()->GetMembers())
 		{
 			if (coffCharValue & member.value)
 			{
 				if (QString::fromStdString(member.name).startsWith("IMAGE_FILE_"))
-					coffCharValues.push_back(QString::fromStdString(member.name).mid((int)strlen("IMAGE_FILE_")));
+					coffCharValues.push_back(
+					    QString::fromStdString(member.name).mid((int)strlen("IMAGE_FILE_")));
 				else
 					coffCharValues.push_back(QString::fromStdString(member.name));
 			}
@@ -217,17 +243,19 @@ PEHeaders::PEHeaders(BinaryViewRef data)
 			AddField("COFF Characteristics", coffCharValues);
 	}
 
-	uint64_t dllCharValue = GetValueOfStructMember(data, optHeaderName, optHeaderStart, "dllCharacteristics");
+	uint64_t dllCharValue =
+	    GetValueOfStructMember(data, optHeaderName, optHeaderStart, "dllCharacteristics");
 	TypeRef dllCharEnum = data->GetTypeByName(BinaryNinja::QualifiedName("pe_dll_characteristics"));
 	if (dllCharEnum && (dllCharEnum->GetClass() == EnumerationTypeClass))
 	{
 		std::vector<QString> dllCharValues;
-		for (auto& member: dllCharEnum->GetEnumeration()->GetMembers())
+		for (auto& member : dllCharEnum->GetEnumeration()->GetMembers())
 		{
 			if (dllCharValue & member.value)
 			{
 				if (QString::fromStdString(member.name).startsWith("IMAGE_DLLCHARACTERISTICS_"))
-					dllCharValues.push_back(QString::fromStdString(member.name).mid((int)strlen("IMAGE_DLLCHARACTERISTICS_")));
+					dllCharValues.push_back(
+					    QString::fromStdString(member.name).mid((int)strlen("IMAGE_DLLCHARACTERISTICS_")));
 				else
 					dllCharValues.push_back(QString::fromStdString(member.name));
 			}
@@ -241,8 +269,8 @@ PEHeaders::PEHeaders(BinaryViewRef data)
 }
 
 
-uint64_t PEHeaders::GetValueOfStructMember(BinaryViewRef data, const std::string& structName, uint64_t structStart,
-	const std::string& fieldName)
+uint64_t PEHeaders::GetValueOfStructMember(BinaryViewRef data, const std::string& structName,
+    uint64_t structStart, const std::string& fieldName)
 {
 	TypeRef type = data->GetTypeByName(structName);
 	if (!type)
@@ -250,7 +278,7 @@ uint64_t PEHeaders::GetValueOfStructMember(BinaryViewRef data, const std::string
 	if (type->GetClass() != StructureTypeClass)
 		return 0;
 	StructureRef s = type->GetStructure();
-	for (auto& member: s->GetMembers())
+	for (auto& member : s->GetMembers())
 	{
 		if (member.name == fieldName)
 		{
@@ -267,7 +295,8 @@ uint64_t PEHeaders::GetValueOfStructMember(BinaryViewRef data, const std::string
 }
 
 
-uint64_t PEHeaders::GetAddressAfterStruct(BinaryViewRef data, const std::string& structName, uint64_t structStart)
+uint64_t PEHeaders::GetAddressAfterStruct(
+    BinaryViewRef data, const std::string& structName, uint64_t structStart)
 {
 	TypeRef type = data->GetTypeByName(structName);
 	if (!type)
@@ -276,12 +305,13 @@ uint64_t PEHeaders::GetAddressAfterStruct(BinaryViewRef data, const std::string&
 }
 
 
-QString PEHeaders::GetNameOfEnumerationMember(BinaryViewRef data, const std::string& enumName, uint64_t value)
+QString PEHeaders::GetNameOfEnumerationMember(
+    BinaryViewRef data, const std::string& enumName, uint64_t value)
 {
 	TypeRef type = data->GetTypeByName(enumName);
 	if (type && (type->GetClass() == EnumerationTypeClass))
 	{
-		for (auto& member: type->GetEnumeration()->GetMembers())
+		for (auto& member : type->GetEnumeration()->GetMembers())
 		{
 			if (member.value == value)
 				return QString::fromStdString(member.name);
@@ -291,17 +321,17 @@ QString PEHeaders::GetNameOfEnumerationMember(BinaryViewRef data, const std::str
 }
 
 
-HeaderWidget::HeaderWidget(QWidget* parent, const Headers& header): QWidget(parent)
+HeaderWidget::HeaderWidget(QWidget* parent, const Headers& header) : QWidget(parent)
 {
 	QGridLayout* layout = new QGridLayout();
 	layout->setContentsMargins(0, 0, 0, 0);
 	layout->setVerticalSpacing(1);
 	int row = 0;
 	int col = 0;
-	for (auto& field: header.GetFields())
+	for (auto& field : header.GetFields())
 	{
 		layout->addWidget(new QLabel(field.title + ": "), row, col * 3);
-		for (auto& value: field.values)
+		for (auto& value : field.values)
 		{
 			QWidget* label;
 			if (field.type == AddressHeaderField)
@@ -320,7 +350,8 @@ HeaderWidget::HeaderWidget(QWidget* parent, const Headers& header): QWidget(pare
 			layout->addWidget(label, row, col * 3 + 1);
 			row++;
 		}
-		if ((header.GetColumns() > 1) && (row >= (int)header.GetRowsPerColumn()) && ((col + 1) < (int)header.GetColumns()))
+		if ((header.GetColumns() > 1) && (row >= (int)header.GetRowsPerColumn()) &&
+		    ((col + 1) < (int)header.GetColumns()))
 		{
 			row = 0;
 			col++;

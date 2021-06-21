@@ -1,13 +1,13 @@
 #pragma once
 
-#include <QtWidgets/QDialog>
-#include <QtWidgets/QCheckBox>
-#include <QtWidgets/QRadioButton>
-#include <QtWidgets/QLineEdit>
 #include "binaryninjaapi.h"
 #include "uicontext.h"
+#include <QtWidgets/QCheckBox>
+#include <QtWidgets/QDialog>
+#include <QtWidgets/QLineEdit>
+#include <QtWidgets/QRadioButton>
 
-class BINARYNINJAUIAPI CompileOptions: public QDialog
+class BINARYNINJAUIAPI CompileOptions : public QDialog
 {
 	Q_OBJECT
 
@@ -36,11 +36,11 @@ class BINARYNINJAUIAPI CompileOptions: public QDialog
 	QString optionValue(const std::map<std::string, std::string>& options, const std::string& name);
 	void updateOptions(const std::map<std::string, std::string>& options);
 
-public:
+ public:
 	CompileOptions(QWidget* parent, const std::map<std::string, std::string>& initialOptions);
 
 	std::map<std::string, std::string> getSettings();
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void reset();
 };

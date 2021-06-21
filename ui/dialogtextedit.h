@@ -1,18 +1,18 @@
 #pragma once
 
-#include <QtWidgets/QTextEdit>
 #include "uicontext.h"
+#include <QtWidgets/QTextEdit>
 
-class BINARYNINJAUIAPI DialogTextEdit: public QTextEdit
+class BINARYNINJAUIAPI DialogTextEdit : public QTextEdit
 {
 	Q_OBJECT
 
-public:
+ public:
 	DialogTextEdit(QWidget* parent);
 
-protected:
+ protected:
 	virtual void keyPressEvent(QKeyEvent* event) override;
 
-Q_SIGNALS:
+ Q_SIGNALS:
 	void contentAccepted();
 };

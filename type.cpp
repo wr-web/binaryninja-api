@@ -25,37 +25,28 @@ using namespace BinaryNinja;
 using namespace std;
 
 
-NameList::NameList(const string& join): m_join(join)
-{
-}
+NameList::NameList(const string& join) : m_join(join) {}
 
 
-NameList::NameList(const string& name, const string& join): m_join(join)
+NameList::NameList(const string& name, const string& join) : m_join(join)
 {
 	if (!name.empty())
 		m_name.push_back(name);
 }
 
 
-NameList::NameList(const vector<string>& name, const string& join): m_join(join), m_name(name)
-{
-}
+NameList::NameList(const vector<string>& name, const string& join) : m_join(join), m_name(name) {}
 
 
-NameList::NameList(const NameList& name, const string& join): m_join(join), m_name(name.m_name)
-{
-}
+NameList::NameList(const NameList& name, const string& join) : m_join(join), m_name(name.m_name) {}
 
-NameList::NameList(const NameList& name): m_join(name.m_join), m_name(name.m_name)
-{
-}
+NameList::NameList(const NameList& name) : m_join(name.m_join), m_name(name.m_name) {}
 
-NameList::~NameList()
-{}
+NameList::~NameList() {}
 
 NameList& NameList::operator=(const string& name)
 {
-	m_name = vector<string>{name};
+	m_name = vector<string> {name};
 	return *this;
 }
 
@@ -172,7 +163,8 @@ void NameList::insert(vector<string>::iterator loc, const string& name)
 }
 
 
-void NameList::insert(vector<string>::iterator loc, vector<string>::iterator b, vector<string>::iterator e)
+void NameList::insert(
+    vector<string>::iterator loc, vector<string>::iterator b, vector<string>::iterator e)
 {
 	m_name.insert(loc, b, e);
 }
@@ -215,7 +207,7 @@ string NameList::GetString() const
 {
 	bool first = true;
 	string out;
-	for (auto &name : m_name)
+	for (auto& name : m_name)
 	{
 		if (!first)
 		{
@@ -262,34 +254,24 @@ NameList NameList::FromAPIObject(BNNameList* name)
 }
 
 
-
-QualifiedName::QualifiedName(): NameList("::")
-{
-}
+QualifiedName::QualifiedName() : NameList("::") {}
 
 
-QualifiedName::QualifiedName(const string& name): NameList(name, "::")
-{
-}
+QualifiedName::QualifiedName(const string& name) : NameList(name, "::") {}
 
 
-QualifiedName::QualifiedName(const vector<string>& name): NameList(name, "::")
-{
-}
+QualifiedName::QualifiedName(const vector<string>& name) : NameList(name, "::") {}
 
 
-QualifiedName::QualifiedName(const QualifiedName& name): NameList(name.m_name, "::")
-{
-}
+QualifiedName::QualifiedName(const QualifiedName& name) : NameList(name.m_name, "::") {}
 
 
-QualifiedName::~QualifiedName()
-{}
+QualifiedName::~QualifiedName() {}
 
 
 QualifiedName& QualifiedName::operator=(const string& name)
 {
-	m_name = vector<string>{name};
+	m_name = vector<string> {name};
 	m_join = "::";
 	return *this;
 }
@@ -350,33 +332,24 @@ QualifiedName QualifiedName::FromAPIObject(BNQualifiedName* name)
 }
 
 
-NameSpace::NameSpace(): NameList("::")
-{
-}
+NameSpace::NameSpace() : NameList("::") {}
 
 
-NameSpace::NameSpace(const string& name): NameList(name, "::")
-{
-}
+NameSpace::NameSpace(const string& name) : NameList(name, "::") {}
 
 
-NameSpace::NameSpace(const vector<string>& name): NameList(name, "::")
-{
-}
+NameSpace::NameSpace(const vector<string>& name) : NameList(name, "::") {}
 
 
-NameSpace::NameSpace(const NameSpace& name): NameList(name.m_name, "::")
-{
-}
+NameSpace::NameSpace(const NameSpace& name) : NameList(name.m_name, "::") {}
 
 
-NameSpace::~NameSpace()
-{}
+NameSpace::~NameSpace() {}
 
 
 NameSpace& NameSpace::operator=(const string& name)
 {
-	m_name = vector<string>{name};
+	m_name = vector<string> {name};
 	m_join = "::";
 	return *this;
 }
@@ -409,7 +382,8 @@ NameSpace NameSpace::operator+(const NameSpace& other) const
 
 bool NameSpace::IsDefaultNameSpace() const
 {
-	return ((GetString() == DEFAULT_INTERNAL_NAMESPACE) || (GetString() == DEFAULT_EXTERNAL_NAMESPACE));
+	return (
+	    (GetString() == DEFAULT_INTERNAL_NAMESPACE) || (GetString() == DEFAULT_EXTERNAL_NAMESPACE));
 }
 
 
@@ -523,7 +497,8 @@ Confidence<Ref<CallingConvention>> Type::GetCallingConvention() const
 {
 	BNCallingConventionWithConfidence cc = BNGetTypeCallingConvention(m_object);
 	if (cc.convention)
-		return Confidence<Ref<CallingConvention>>(new CoreCallingConvention(cc.convention), cc.confidence);
+		return Confidence<Ref<CallingConvention>>(
+		    new CoreCallingConvention(cc.convention), cc.confidence);
 	return nullptr;
 }
 
@@ -539,7 +514,8 @@ vector<FunctionParameter> Type::GetParameters() const
 	{
 		FunctionParameter param;
 		param.name = types[i].name;
-		param.type = Confidence<Ref<Type>>(new Type(BNNewTypeReference(types[i].type)), types[i].typeConfidence);
+		param.type =
+		    Confidence<Ref<Type>>(new Type(BNNewTypeReference(types[i].type)), types[i].typeConfidence);
 		param.defaultLocation = types[i].defaultLocation;
 		param.location.type = types[i].location.type;
 		param.location.index = types[i].location.index;
@@ -650,27 +626,29 @@ string Type::GetStringAfterName(Platform* platform) const
 vector<InstructionTextToken> Type::GetTokens(Platform* platform, uint8_t baseConfidence) const
 {
 	size_t count;
-	BNInstructionTextToken* tokens = BNGetTypeTokens(m_object,
-		platform ? platform->GetObject() : nullptr, baseConfidence, &count);
+	BNInstructionTextToken* tokens =
+	    BNGetTypeTokens(m_object, platform ? platform->GetObject() : nullptr, baseConfidence, &count);
 
 	return InstructionTextToken::ConvertAndFreeInstructionTextTokenList(tokens, count);
 }
 
 
-vector<InstructionTextToken> Type::GetTokensBeforeName(Platform* platform, uint8_t baseConfidence) const
+vector<InstructionTextToken> Type::GetTokensBeforeName(
+    Platform* platform, uint8_t baseConfidence) const
 {
 	size_t count;
-	BNInstructionTextToken* tokens = BNGetTypeTokensBeforeName(m_object,
-		platform ? platform->GetObject() : nullptr, baseConfidence, &count);
+	BNInstructionTextToken* tokens = BNGetTypeTokensBeforeName(
+	    m_object, platform ? platform->GetObject() : nullptr, baseConfidence, &count);
 	return InstructionTextToken::ConvertAndFreeInstructionTextTokenList(tokens, count);
 }
 
 
-vector<InstructionTextToken> Type::GetTokensAfterName(Platform* platform, uint8_t baseConfidence) const
+vector<InstructionTextToken> Type::GetTokensAfterName(
+    Platform* platform, uint8_t baseConfidence) const
 {
 	size_t count;
-	BNInstructionTextToken* tokens = BNGetTypeTokensAfterName(m_object,
-		platform ? platform->GetObject() : nullptr, baseConfidence, &count);
+	BNInstructionTextToken* tokens = BNGetTypeTokensAfterName(
+	    m_object, platform ? platform->GetObject() : nullptr, baseConfidence, &count);
 
 	return InstructionTextToken::ConvertAndFreeInstructionTextTokenList(tokens, count);
 }
@@ -736,8 +714,8 @@ Ref<Type> Type::NamedType(const QualifiedName& name, Type* type)
 Ref<Type> Type::NamedType(const string& id, const QualifiedName& name, Type* type)
 {
 	BNQualifiedName nameObj = name.GetAPIObject();
-	BNType* coreObj = BNCreateNamedTypeReferenceFromTypeAndId(id.c_str(), &nameObj,
-		type ? type->GetObject() : nullptr);
+	BNType* coreObj = BNCreateNamedTypeReferenceFromTypeAndId(
+	    id.c_str(), &nameObj, type ? type->GetObject() : nullptr);
 	QualifiedName::FreeAPIObject(&nameObj);
 	return coreObj ? new Type(coreObj) : nullptr;
 }
@@ -759,7 +737,7 @@ Ref<Type> Type::EnumerationType(Architecture* arch, Enumeration* enm, size_t wid
 
 
 Ref<Type> Type::PointerType(Architecture* arch, const Confidence<Ref<Type>>& type,
-	const Confidence<bool>& cnst, const Confidence<bool>& vltl, BNReferenceType refType)
+    const Confidence<bool>& cnst, const Confidence<bool>& vltl, BNReferenceType refType)
 {
 	BNTypeWithConfidence typeConf;
 	typeConf.type = type->GetObject();
@@ -778,7 +756,7 @@ Ref<Type> Type::PointerType(Architecture* arch, const Confidence<Ref<Type>>& typ
 
 
 Ref<Type> Type::PointerType(size_t width, const Confidence<Ref<Type>>& type,
-	const Confidence<bool>& cnst, const Confidence<bool>& vltl, BNReferenceType refType)
+    const Confidence<bool>& cnst, const Confidence<bool>& vltl, BNReferenceType refType)
 {
 	BNTypeWithConfidence typeConf;
 	typeConf.type = type->GetObject();
@@ -806,9 +784,9 @@ Ref<Type> Type::ArrayType(const Confidence<Ref<Type>>& type, uint64_t elem)
 
 
 Ref<Type> Type::FunctionType(const Confidence<Ref<Type>>& returnValue,
-	const Confidence<Ref<CallingConvention>>& callingConvention,
-	const std::vector<FunctionParameter>& params, const Confidence<bool>& varArg,
-	const Confidence<int64_t>& stackAdjust)
+    const Confidence<Ref<CallingConvention>>& callingConvention,
+    const std::vector<FunctionParameter>& params, const Confidence<bool>& varArg,
+    const Confidence<int64_t>& stackAdjust)
 {
 	BNTypeWithConfidence returnValueConf;
 	returnValueConf.type = returnValue->GetObject();
@@ -838,8 +816,8 @@ Ref<Type> Type::FunctionType(const Confidence<Ref<Type>>& returnValue,
 	stackAdjustConf.value = stackAdjust.GetValue();
 	stackAdjustConf.confidence = stackAdjust.GetConfidence();
 
-	Type* type = new Type(BNCreateFunctionType(&returnValueConf, &callingConventionConf,
-		paramArray, params.size(), &varArgConf, &stackAdjustConf));
+	Type* type = new Type(BNCreateFunctionType(&returnValueConf, &callingConventionConf, paramArray,
+	    params.size(), &varArgConf, &stackAdjustConf));
 	delete[] paramArray;
 	return type;
 }
@@ -902,7 +880,8 @@ string Type::GetAutoDebugTypeIdSource()
 
 bool Type::IsReferenceOfType(BNNamedTypeReferenceClass refType)
 {
-	return (GetClass() == NamedTypeReferenceClass) && (GetNamedTypeReference()->GetTypeClass() == refType);
+	return (GetClass() == NamedTypeReferenceClass) &&
+	       (GetNamedTypeReference()->GetTypeClass() == refType);
 }
 
 
@@ -965,7 +944,8 @@ Ref<Type> Type::WithReplacedEnumeration(Enumeration* from, Enumeration* to)
 
 Ref<Type> Type::WithReplacedNamedTypeReference(NamedTypeReference* from, NamedTypeReference* to)
 {
-	BNType* result = BNTypeWithReplacedNamedTypeReference(m_object, from->GetObject(), to->GetObject());
+	BNType* result =
+	    BNTypeWithReplacedNamedTypeReference(m_object, from->GetObject(), to->GetObject());
 	if (result == m_object)
 	{
 		BNFreeType(result);
@@ -975,8 +955,8 @@ Ref<Type> Type::WithReplacedNamedTypeReference(NamedTypeReference* from, NamedTy
 }
 
 
-bool Type::AddTypeMemberTokens(BinaryView* data, vector<InstructionTextToken>& tokens, int64_t offset,
-			vector<string>& nameList, size_t size, bool indirect)
+bool Type::AddTypeMemberTokens(BinaryView* data, vector<InstructionTextToken>& tokens,
+    int64_t offset, vector<string>& nameList, size_t size, bool indirect)
 {
 	size_t tokenCount;
 	BNInstructionTextToken* list;
@@ -984,10 +964,12 @@ bool Type::AddTypeMemberTokens(BinaryView* data, vector<InstructionTextToken>& t
 	size_t nameCount;
 	char** names = nullptr;
 
-	if (!BNAddTypeMemberTokens(m_object, data->GetObject(), &list, &tokenCount, offset, &names, &nameCount, size, indirect))
+	if (!BNAddTypeMemberTokens(m_object, data->GetObject(), &list, &tokenCount, offset, &names,
+	        &nameCount, size, indirect))
 		return false;
 
-	vector<InstructionTextToken> newTokens = InstructionTextToken::ConvertAndFreeInstructionTextTokenList(list, tokenCount);
+	vector<InstructionTextToken> newTokens =
+	    InstructionTextToken::ConvertAndFreeInstructionTextTokenList(list, tokenCount);
 	tokens.insert(tokens.end(), newTokens.begin(), newTokens.end());
 
 	nameList.clear();
@@ -1194,7 +1176,8 @@ Confidence<Ref<CallingConvention>> TypeBuilder::GetCallingConvention() const
 {
 	BNCallingConventionWithConfidence cc = BNGetTypeBuilderCallingConvention(m_object);
 	if (cc.convention)
-		return Confidence<Ref<CallingConvention>>(new CoreCallingConvention(cc.convention), cc.confidence);
+		return Confidence<Ref<CallingConvention>>(
+		    new CoreCallingConvention(cc.convention), cc.confidence);
 	return nullptr;
 }
 
@@ -1210,7 +1193,8 @@ vector<FunctionParameter> TypeBuilder::GetParameters() const
 	{
 		FunctionParameter param;
 		param.name = types[i].name;
-		param.type = Confidence<Ref<Type>>(new Type(BNNewTypeReference(types[i].type)), types[i].typeConfidence);
+		param.type =
+		    Confidence<Ref<Type>>(new Type(BNNewTypeReference(types[i].type)), types[i].typeConfidence);
 		param.defaultLocation = types[i].defaultLocation;
 		param.location.type = types[i].location.type;
 		param.location.index = types[i].location.index;
@@ -1302,7 +1286,8 @@ string TypeBuilder::GetTypeAndName(const QualifiedName& nameList) const
 
 string TypeBuilder::GetStringBeforeName(Platform* platform) const
 {
-	char* str = BNGetTypeBuilderStringBeforeName(m_object, platform ? platform->GetObject() : nullptr);
+	char* str =
+	    BNGetTypeBuilderStringBeforeName(m_object, platform ? platform->GetObject() : nullptr);
 	string result = str;
 	BNFreeString(str);
 	return result;
@@ -1318,30 +1303,33 @@ string TypeBuilder::GetStringAfterName(Platform* platform) const
 }
 
 
-vector<InstructionTextToken> TypeBuilder::GetTokens(Platform* platform, uint8_t baseConfidence) const
+vector<InstructionTextToken> TypeBuilder::GetTokens(
+    Platform* platform, uint8_t baseConfidence) const
 {
 	size_t count;
-	BNInstructionTextToken* tokens = BNGetTypeBuilderTokens(m_object,
-		platform ? platform->GetObject() : nullptr, baseConfidence, &count);
+	BNInstructionTextToken* tokens = BNGetTypeBuilderTokens(
+	    m_object, platform ? platform->GetObject() : nullptr, baseConfidence, &count);
 
 	return InstructionTextToken::ConvertAndFreeInstructionTextTokenList(tokens, count);
 }
 
 
-vector<InstructionTextToken> TypeBuilder::GetTokensBeforeName(Platform* platform, uint8_t baseConfidence) const
+vector<InstructionTextToken> TypeBuilder::GetTokensBeforeName(
+    Platform* platform, uint8_t baseConfidence) const
 {
 	size_t count;
-	BNInstructionTextToken* tokens = BNGetTypeBuilderTokensBeforeName(m_object,
-		platform ? platform->GetObject() : nullptr, baseConfidence, &count);
+	BNInstructionTextToken* tokens = BNGetTypeBuilderTokensBeforeName(
+	    m_object, platform ? platform->GetObject() : nullptr, baseConfidence, &count);
 	return InstructionTextToken::ConvertAndFreeInstructionTextTokenList(tokens, count);
 }
 
 
-vector<InstructionTextToken> TypeBuilder::GetTokensAfterName(Platform* platform, uint8_t baseConfidence) const
+vector<InstructionTextToken> TypeBuilder::GetTokensAfterName(
+    Platform* platform, uint8_t baseConfidence) const
 {
 	size_t count;
-	BNInstructionTextToken* tokens = BNGetTypeBuilderTokensAfterName(m_object,
-		platform ? platform->GetObject() : nullptr, baseConfidence, &count);
+	BNInstructionTextToken* tokens = BNGetTypeBuilderTokensAfterName(
+	    m_object, platform ? platform->GetObject() : nullptr, baseConfidence, &count);
 
 	return InstructionTextToken::ConvertAndFreeInstructionTextTokenList(tokens, count);
 }
@@ -1359,7 +1347,8 @@ TypeBuilder TypeBuilder::BoolType()
 }
 
 
-TypeBuilder TypeBuilder::IntegerType(size_t width, const Confidence<bool>& sign, const string& altName)
+TypeBuilder TypeBuilder::IntegerType(
+    size_t width, const Confidence<bool>& sign, const string& altName)
 {
 	BNBoolWithConfidence bc;
 	bc.value = sign.GetValue();
@@ -1401,8 +1390,8 @@ TypeBuilder TypeBuilder::NamedType(const QualifiedName& name, Type* type)
 TypeBuilder TypeBuilder::NamedType(const string& id, const QualifiedName& name, Type* type)
 {
 	BNQualifiedName nameObj = name.GetAPIObject();
-	BNTypeBuilder* coreObj = BNCreateNamedTypeReferenceBuilderFromTypeAndId(id.c_str(), &nameObj,
-		type ? type->GetObject() : nullptr);
+	BNTypeBuilder* coreObj = BNCreateNamedTypeReferenceBuilderFromTypeAndId(
+	    id.c_str(), &nameObj, type ? type->GetObject() : nullptr);
 	QualifiedName::FreeAPIObject(&nameObj);
 	return coreObj ? TypeBuilder(coreObj) : VoidType();
 }
@@ -1417,14 +1406,16 @@ TypeBuilder TypeBuilder::NamedType(BinaryView* view, const QualifiedName& name)
 }
 
 
-TypeBuilder TypeBuilder::EnumerationType(Architecture* arch, Enumeration* enm, size_t width, bool isSigned)
+TypeBuilder TypeBuilder::EnumerationType(
+    Architecture* arch, Enumeration* enm, size_t width, bool isSigned)
 {
-	return TypeBuilder(BNCreateEnumerationTypeBuilder(arch->GetObject(), enm->GetObject(), width, isSigned));
+	return TypeBuilder(
+	    BNCreateEnumerationTypeBuilder(arch->GetObject(), enm->GetObject(), width, isSigned));
 }
 
 
 TypeBuilder TypeBuilder::PointerType(Architecture* arch, const Confidence<Ref<Type>>& type,
-	const Confidence<bool>& cnst, const Confidence<bool>& vltl, BNReferenceType refType)
+    const Confidence<bool>& cnst, const Confidence<bool>& vltl, BNReferenceType refType)
 {
 	BNTypeWithConfidence typeConf;
 	typeConf.type = type->GetObject();
@@ -1438,12 +1429,13 @@ TypeBuilder TypeBuilder::PointerType(Architecture* arch, const Confidence<Ref<Ty
 	vltlConf.value = vltl.GetValue();
 	vltlConf.confidence = vltl.GetConfidence();
 
-	return TypeBuilder(BNCreatePointerTypeBuilder(arch->GetObject(), &typeConf, &cnstConf, &vltlConf, refType));
+	return TypeBuilder(
+	    BNCreatePointerTypeBuilder(arch->GetObject(), &typeConf, &cnstConf, &vltlConf, refType));
 }
 
 
 TypeBuilder TypeBuilder::PointerType(size_t width, const Confidence<Ref<Type>>& type,
-	const Confidence<bool>& cnst, const Confidence<bool>& vltl, BNReferenceType refType)
+    const Confidence<bool>& cnst, const Confidence<bool>& vltl, BNReferenceType refType)
 {
 	BNTypeWithConfidence typeConf;
 	typeConf.type = type->GetObject();
@@ -1457,7 +1449,8 @@ TypeBuilder TypeBuilder::PointerType(size_t width, const Confidence<Ref<Type>>& 
 	vltlConf.value = vltl.GetValue();
 	vltlConf.confidence = vltl.GetConfidence();
 
-	return TypeBuilder(BNCreatePointerTypeBuilderOfWidth(width, &typeConf, &cnstConf, &vltlConf, refType));
+	return TypeBuilder(
+	    BNCreatePointerTypeBuilderOfWidth(width, &typeConf, &cnstConf, &vltlConf, refType));
 }
 
 
@@ -1471,9 +1464,9 @@ TypeBuilder TypeBuilder::ArrayType(const Confidence<Ref<Type>>& type, uint64_t e
 
 
 TypeBuilder TypeBuilder::FunctionType(const Confidence<Ref<Type>>& returnValue,
-	const Confidence<Ref<CallingConvention>>& callingConvention,
-	const std::vector<FunctionParameter>& params, const Confidence<bool>& varArg,
-	const Confidence<int64_t>& stackAdjust)
+    const Confidence<Ref<CallingConvention>>& callingConvention,
+    const std::vector<FunctionParameter>& params, const Confidence<bool>& varArg,
+    const Confidence<int64_t>& stackAdjust)
 {
 	BNTypeWithConfidence returnValueConf;
 	returnValueConf.type = returnValue->GetObject();
@@ -1503,8 +1496,8 @@ TypeBuilder TypeBuilder::FunctionType(const Confidence<Ref<Type>>& returnValue,
 	stackAdjustConf.value = stackAdjust.GetValue();
 	stackAdjustConf.confidence = stackAdjust.GetConfidence();
 
-	TypeBuilder type(BNCreateFunctionTypeBuilder(&returnValueConf, &callingConventionConf,
-		paramArray, params.size(), &varArgConf, &stackAdjustConf));
+	TypeBuilder type(BNCreateFunctionTypeBuilder(&returnValueConf, &callingConventionConf, paramArray,
+	    params.size(), &varArgConf, &stackAdjustConf));
 	delete[] paramArray;
 	return type;
 }
@@ -1522,7 +1515,8 @@ TypeBuilder& TypeBuilder::SetFunctionCanReturn(const Confidence<bool>& canReturn
 
 bool TypeBuilder::IsReferenceOfType(BNNamedTypeReferenceClass refType)
 {
-	return (GetClass() == NamedTypeReferenceClass) && (GetNamedTypeReference()->GetTypeClass() == refType);
+	return (GetClass() == NamedTypeReferenceClass) &&
+	       (GetNamedTypeReference()->GetTypeClass() == refType);
 }
 
 
@@ -1559,7 +1553,8 @@ NamedTypeReference::NamedTypeReference(BNNamedTypeReference* nt)
 }
 
 
-NamedTypeReference::NamedTypeReference(BNNamedTypeReferenceClass cls, const string& id, const QualifiedName& names)
+NamedTypeReference::NamedTypeReference(
+    BNNamedTypeReferenceClass cls, const string& id, const QualifiedName& names)
 {
 	BNQualifiedName nameObj = names.GetAPIObject();
 	m_object = BNCreateNamedType(cls, id.c_str(), &nameObj);
@@ -1591,24 +1586,24 @@ QualifiedName NamedTypeReference::GetName() const
 }
 
 
-Ref<NamedTypeReference> NamedTypeReference::GenerateAutoTypeReference(BNNamedTypeReferenceClass cls,
-	const string& source, const QualifiedName& name)
+Ref<NamedTypeReference> NamedTypeReference::GenerateAutoTypeReference(
+    BNNamedTypeReferenceClass cls, const string& source, const QualifiedName& name)
 {
 	string id = Type::GenerateAutoTypeId(source, name);
 	return new NamedTypeReference(cls, id, name);
 }
 
 
-Ref<NamedTypeReference> NamedTypeReference::GenerateAutoDemangledTypeReference(BNNamedTypeReferenceClass cls,
-	const QualifiedName& name)
+Ref<NamedTypeReference> NamedTypeReference::GenerateAutoDemangledTypeReference(
+    BNNamedTypeReferenceClass cls, const QualifiedName& name)
 {
 	string id = Type::GenerateAutoDemangledTypeId(name);
 	return new NamedTypeReference(cls, id, name);
 }
 
 
-Ref<NamedTypeReference> NamedTypeReference::GenerateAutoDebugTypeReference(BNNamedTypeReferenceClass cls,
-	const QualifiedName& name)
+Ref<NamedTypeReference> NamedTypeReference::GenerateAutoDebugTypeReference(
+    BNNamedTypeReferenceClass cls, const QualifiedName& name)
 {
 	string id = Type::GenerateAutoDebugTypeId(name);
 	return new NamedTypeReference(cls, id, name);
@@ -1711,7 +1706,8 @@ BNStructureType Structure::GetStructureType() const
 
 Ref<Structure> Structure::WithReplacedStructure(Structure* from, Structure* to)
 {
-	BNStructure* result = BNStructureWithReplacedStructure(m_object, from->GetObject(), to->GetObject());
+	BNStructure* result =
+	    BNStructureWithReplacedStructure(m_object, from->GetObject(), to->GetObject());
 	if (result == m_object)
 	{
 		BNFreeStructure(result);
@@ -1723,7 +1719,8 @@ Ref<Structure> Structure::WithReplacedStructure(Structure* from, Structure* to)
 
 Ref<Structure> Structure::WithReplacedEnumeration(Enumeration* from, Enumeration* to)
 {
-	BNStructure* result = BNStructureWithReplacedEnumeration(m_object, from->GetObject(), to->GetObject());
+	BNStructure* result =
+	    BNStructureWithReplacedEnumeration(m_object, from->GetObject(), to->GetObject());
 	if (result == m_object)
 	{
 		BNFreeStructure(result);
@@ -1733,9 +1730,11 @@ Ref<Structure> Structure::WithReplacedEnumeration(Enumeration* from, Enumeration
 }
 
 
-Ref<Structure> Structure::WithReplacedNamedTypeReference(NamedTypeReference* from, NamedTypeReference* to)
+Ref<Structure> Structure::WithReplacedNamedTypeReference(
+    NamedTypeReference* from, NamedTypeReference* to)
 {
-	BNStructure* result = BNStructureWithReplacedNamedTypeReference(m_object, from->GetObject(), to->GetObject());
+	BNStructure* result =
+	    BNStructureWithReplacedNamedTypeReference(m_object, from->GetObject(), to->GetObject());
 	if (result == m_object)
 	{
 		BNFreeStructure(result);
@@ -1947,8 +1946,8 @@ StructureBuilder& StructureBuilder::AddMember(const Confidence<Ref<Type>>& type,
 }
 
 
-StructureBuilder& StructureBuilder::AddMemberAtOffset(const Confidence<Ref<Type>>& type,
-	const string& name, uint64_t offset, bool overwriteExisting)
+StructureBuilder& StructureBuilder::AddMemberAtOffset(
+    const Confidence<Ref<Type>>& type, const string& name, uint64_t offset, bool overwriteExisting)
 {
 	BNTypeWithConfidence tc;
 	tc.type = type->GetObject();
@@ -1965,7 +1964,8 @@ StructureBuilder& StructureBuilder::RemoveMember(size_t idx)
 }
 
 
-StructureBuilder& StructureBuilder::ReplaceMember(size_t idx, const Confidence<Ref<Type>>& type, const std::string& name, bool overwriteExisting)
+StructureBuilder& StructureBuilder::ReplaceMember(
+    size_t idx, const Confidence<Ref<Type>>& type, const std::string& name, bool overwriteExisting)
 {
 	BNTypeWithConfidence tc;
 	tc.type = type->GetObject();
@@ -2114,15 +2114,16 @@ EnumerationBuilder& EnumerationBuilder::RemoveMember(size_t idx)
 }
 
 
-EnumerationBuilder& EnumerationBuilder::ReplaceMember(size_t idx, const string& name, uint64_t value)
+EnumerationBuilder& EnumerationBuilder::ReplaceMember(
+    size_t idx, const string& name, uint64_t value)
 {
 	BNReplaceEnumerationBuilderMember(m_object, idx, name.c_str(), value);
 	return *this;
 }
 
 
-bool BinaryNinja::PreprocessSource(const string& source, const string& fileName, string& output, string& errors,
-                                   const vector<string>& includeDirs)
+bool BinaryNinja::PreprocessSource(const string& source, const string& fileName, string& output,
+    string& errors, const vector<string>& includeDirs)
 {
 	char* outStr;
 	char* errorStr;
@@ -2131,8 +2132,8 @@ bool BinaryNinja::PreprocessSource(const string& source, const string& fileName,
 	for (size_t i = 0; i < includeDirs.size(); i++)
 		includeDirList[i] = includeDirs[i].c_str();
 
-	bool result = BNPreprocessSource(source.c_str(), fileName.c_str(), &outStr, &errorStr,
-	                                 includeDirList, includeDirs.size());
+	bool result = BNPreprocessSource(
+	    source.c_str(), fileName.c_str(), &outStr, &errorStr, includeDirList, includeDirs.size());
 
 	output = outStr;
 	errors = errorStr;

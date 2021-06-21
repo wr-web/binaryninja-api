@@ -97,27 +97,28 @@ BNMediumLevelILLabel* MediumLevelILFunction::GetLabelForSourceInstruction(size_t
 }
 
 
-ExprId MediumLevelILFunction::AddExpr(BNMediumLevelILOperation operation, size_t size,
-	ExprId a, ExprId b, ExprId c, ExprId d, ExprId e)
+ExprId MediumLevelILFunction::AddExpr(BNMediumLevelILOperation operation, size_t size, ExprId a,
+    ExprId b, ExprId c, ExprId d, ExprId e)
 {
 	return BNMediumLevelILAddExpr(m_object, operation, size, a, b, c, d, e);
 }
 
 
 ExprId MediumLevelILFunction::AddExprWithLocation(BNMediumLevelILOperation operation, uint64_t addr,
-	uint32_t sourceOperand, size_t size, ExprId a, ExprId b, ExprId c, ExprId d, ExprId e)
+    uint32_t sourceOperand, size_t size, ExprId a, ExprId b, ExprId c, ExprId d, ExprId e)
 {
-	return BNMediumLevelILAddExprWithLocation(m_object, operation, addr, sourceOperand, size, a, b, c, d, e);
+	return BNMediumLevelILAddExprWithLocation(
+	    m_object, operation, addr, sourceOperand, size, a, b, c, d, e);
 }
 
 
-ExprId MediumLevelILFunction::AddExprWithLocation(BNMediumLevelILOperation operation, const ILSourceLocation& loc,
-	size_t size, ExprId a, ExprId b, ExprId c, ExprId d, ExprId e)
+ExprId MediumLevelILFunction::AddExprWithLocation(BNMediumLevelILOperation operation,
+    const ILSourceLocation& loc, size_t size, ExprId a, ExprId b, ExprId c, ExprId d, ExprId e)
 {
 	if (loc.valid)
 	{
-		return BNMediumLevelILAddExprWithLocation(m_object, operation, loc.address, loc.sourceOperand,
-			size, a, b, c, d, e);
+		return BNMediumLevelILAddExprWithLocation(
+		    m_object, operation, loc.address, loc.sourceOperand, size, a, b, c, d, e);
 	}
 	return BNMediumLevelILAddExpr(m_object, operation, size, a, b, c, d, e);
 }
@@ -137,8 +138,8 @@ ExprId MediumLevelILFunction::Goto(BNMediumLevelILLabel& label, const ILSourceLo
 }
 
 
-ExprId MediumLevelILFunction::If(ExprId operand, BNMediumLevelILLabel& t, BNMediumLevelILLabel& f,
-	const ILSourceLocation& loc)
+ExprId MediumLevelILFunction::If(
+    ExprId operand, BNMediumLevelILLabel& t, BNMediumLevelILLabel& f, const ILSourceLocation& loc)
 {
 	if (loc.valid)
 		return BNMediumLevelILIfWithLocation(m_object, operand, &t, &f, loc.address, loc.sourceOperand);
@@ -310,7 +311,7 @@ void MediumLevelILFunction::Finalize()
 
 
 void MediumLevelILFunction::GenerateSSAForm(bool analyzeConditionals, bool handleAliases,
-	const set<Variable>& knownNotAliases, const set<Variable>& knownAliases)
+    const set<Variable>& knownNotAliases, const set<Variable>& knownAliases)
 {
 	BNVariable* knownNotAlias = new BNVariable[knownNotAliases.size()];
 	BNVariable* knownAlias = new BNVariable[knownAliases.size()];
@@ -331,19 +332,20 @@ void MediumLevelILFunction::GenerateSSAForm(bool analyzeConditionals, bool handl
 		knownAlias[i].storage = j.storage;
 	}
 
-	BNGenerateMediumLevelILSSAForm(m_object, analyzeConditionals, handleAliases, knownNotAlias, knownNotAliases.size(),
-		knownAlias, knownAliases.size());
+	BNGenerateMediumLevelILSSAForm(m_object, analyzeConditionals, handleAliases, knownNotAlias,
+	    knownNotAliases.size(), knownAlias, knownAliases.size());
 	delete[] knownNotAlias;
 	delete[] knownAlias;
 }
 
 
-bool MediumLevelILFunction::GetExprText(Architecture* arch, ExprId expr, vector<InstructionTextToken>& tokens, DisassemblySettings* settings)
+bool MediumLevelILFunction::GetExprText(Architecture* arch, ExprId expr,
+    vector<InstructionTextToken>& tokens, DisassemblySettings* settings)
 {
 	size_t count;
 	BNInstructionTextToken* list;
 	if (!BNGetMediumLevelILExprText(m_object, arch->GetObject(), expr, &list, &count,
-		settings ? settings->GetObject() : nullptr))
+	        settings ? settings->GetObject() : nullptr))
 		return false;
 
 	tokens = InstructionTextToken::ConvertAndFreeInstructionTextTokenList(list, count);
@@ -352,12 +354,12 @@ bool MediumLevelILFunction::GetExprText(Architecture* arch, ExprId expr, vector<
 
 
 bool MediumLevelILFunction::GetInstructionText(Function* func, Architecture* arch, size_t instr,
-	vector<InstructionTextToken>& tokens, DisassemblySettings* settings)
+    vector<InstructionTextToken>& tokens, DisassemblySettings* settings)
 {
 	size_t count;
 	BNInstructionTextToken* list;
-	if (!BNGetMediumLevelILInstructionText(m_object, func ? func->GetObject() : nullptr, arch->GetObject(), instr, &list, &count,
-		settings ? settings->GetObject() : nullptr))
+	if (!BNGetMediumLevelILInstructionText(m_object, func ? func->GetObject() : nullptr,
+	        arch->GetObject(), instr, &list, &count, settings ? settings->GetObject() : nullptr))
 		return false;
 
 	tokens = InstructionTextToken::ConvertAndFreeInstructionTextTokenList(list, count);
@@ -366,7 +368,7 @@ bool MediumLevelILFunction::GetInstructionText(Function* func, Architecture* arc
 
 
 void MediumLevelILFunction::VisitInstructions(
-	const function<void(BasicBlock* block, const MediumLevelILInstruction& instr)>& func)
+    const function<void(BasicBlock* block, const MediumLevelILInstruction& instr)>& func)
 {
 	for (auto& i : GetBasicBlocks())
 		for (size_t j = i->GetStart(); j < i->GetEnd(); j++)
@@ -375,12 +377,10 @@ void MediumLevelILFunction::VisitInstructions(
 
 
 void MediumLevelILFunction::VisitAllExprs(
-	const function<bool(BasicBlock* block, const MediumLevelILInstruction& expr)>& func)
+    const function<bool(BasicBlock* block, const MediumLevelILInstruction& expr)>& func)
 {
 	VisitInstructions([&](BasicBlock* block, const MediumLevelILInstruction& instr) {
-		instr.VisitExprs([&](const MediumLevelILInstruction& expr) {
-			return func(block, expr);
-		});
+		instr.VisitExprs([&](const MediumLevelILInstruction& expr) { return func(block, expr); });
 	});
 }
 
@@ -545,35 +545,36 @@ RegisterValue MediumLevelILFunction::GetExprValue(const MediumLevelILInstruction
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleSSAVarValues(const SSAVariable& var, size_t instr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleSSAVarValues(
+    const SSAVariable& var, size_t instr, const set<BNDataFlowQueryOption>& options)
 {
 	BNDataFlowQueryOption* optionArray = new BNDataFlowQueryOption[options.size()];
 	size_t idx = 0;
 	for (auto i : options)
 		optionArray[idx++] = i;
-	BNPossibleValueSet value = BNGetMediumLevelILPossibleSSAVarValues(m_object, &var.var, var.version, instr,
-		optionArray, options.size());
+	BNPossibleValueSet value = BNGetMediumLevelILPossibleSSAVarValues(
+	    m_object, &var.var, var.version, instr, optionArray, options.size());
 	delete[] optionArray;
 	return PossibleValueSet::FromAPIObject(value);
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleExprValues(size_t expr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleExprValues(
+    size_t expr, const set<BNDataFlowQueryOption>& options)
 {
 	BNDataFlowQueryOption* optionArray = new BNDataFlowQueryOption[options.size()];
 	size_t idx = 0;
 	for (auto i : options)
 		optionArray[idx++] = i;
-	BNPossibleValueSet value = BNGetMediumLevelILPossibleExprValues(m_object, expr, optionArray, options.size());
+	BNPossibleValueSet value =
+	    BNGetMediumLevelILPossibleExprValues(m_object, expr, optionArray, options.size());
 	delete[] optionArray;
 	return PossibleValueSet::FromAPIObject(value);
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleExprValues(const MediumLevelILInstruction& expr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleExprValues(
+    const MediumLevelILInstruction& expr, const set<BNDataFlowQueryOption>& options)
 {
 	return GetPossibleExprValues(expr.exprIndex, options);
 }
@@ -591,7 +592,8 @@ size_t MediumLevelILFunction::GetSSAMemoryVersionAtInstruction(size_t instr) con
 }
 
 
-Variable MediumLevelILFunction::GetVariableForRegisterAtInstruction(uint32_t reg, size_t instr) const
+Variable MediumLevelILFunction::GetVariableForRegisterAtInstruction(
+    uint32_t reg, size_t instr) const
 {
 	return BNGetMediumLevelILVariableForRegisterAtInstruction(m_object, reg, instr);
 }
@@ -603,7 +605,8 @@ Variable MediumLevelILFunction::GetVariableForFlagAtInstruction(uint32_t flag, s
 }
 
 
-Variable MediumLevelILFunction::GetVariableForStackLocationAtInstruction(int64_t offset, size_t instr) const
+Variable MediumLevelILFunction::GetVariableForStackLocationAtInstruction(
+    int64_t offset, size_t instr) const
 {
 	return BNGetMediumLevelILVariableForStackLocationAtInstruction(m_object, offset, instr);
 }
@@ -623,29 +626,29 @@ RegisterValue MediumLevelILFunction::GetRegisterValueAfterInstruction(uint32_t r
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleRegisterValuesAtInstruction(uint32_t reg, size_t instr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleRegisterValuesAtInstruction(
+    uint32_t reg, size_t instr, const set<BNDataFlowQueryOption>& options)
 {
 	BNDataFlowQueryOption* optionArray = new BNDataFlowQueryOption[options.size()];
 	size_t idx = 0;
 	for (auto i : options)
 		optionArray[idx++] = i;
-	BNPossibleValueSet value = BNGetMediumLevelILPossibleRegisterValuesAtInstruction(m_object, reg, instr,
-		optionArray, options.size());
+	BNPossibleValueSet value = BNGetMediumLevelILPossibleRegisterValuesAtInstruction(
+	    m_object, reg, instr, optionArray, options.size());
 	delete[] optionArray;
 	return PossibleValueSet::FromAPIObject(value);
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleRegisterValuesAfterInstruction(uint32_t reg, size_t instr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleRegisterValuesAfterInstruction(
+    uint32_t reg, size_t instr, const set<BNDataFlowQueryOption>& options)
 {
 	BNDataFlowQueryOption* optionArray = new BNDataFlowQueryOption[options.size()];
 	size_t idx = 0;
 	for (auto i : options)
 		optionArray[idx++] = i;
-	BNPossibleValueSet value = BNGetMediumLevelILPossibleRegisterValuesAfterInstruction(m_object, reg, instr,
-		optionArray, options.size());
+	BNPossibleValueSet value = BNGetMediumLevelILPossibleRegisterValuesAfterInstruction(
+	    m_object, reg, instr, optionArray, options.size());
 	delete[] optionArray;
 	return PossibleValueSet::FromAPIObject(value);
 }
@@ -665,86 +668,93 @@ RegisterValue MediumLevelILFunction::GetFlagValueAfterInstruction(uint32_t flag,
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleFlagValuesAtInstruction(uint32_t flag, size_t instr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleFlagValuesAtInstruction(
+    uint32_t flag, size_t instr, const set<BNDataFlowQueryOption>& options)
 {
 	BNDataFlowQueryOption* optionArray = new BNDataFlowQueryOption[options.size()];
 	size_t idx = 0;
 	for (auto i : options)
 		optionArray[idx++] = i;
-	BNPossibleValueSet value = BNGetMediumLevelILPossibleFlagValuesAtInstruction(m_object, flag, instr,
-		optionArray, options.size());
+	BNPossibleValueSet value = BNGetMediumLevelILPossibleFlagValuesAtInstruction(
+	    m_object, flag, instr, optionArray, options.size());
 	delete[] optionArray;
 	return PossibleValueSet::FromAPIObject(value);
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleFlagValuesAfterInstruction(uint32_t flag, size_t instr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleFlagValuesAfterInstruction(
+    uint32_t flag, size_t instr, const set<BNDataFlowQueryOption>& options)
 {
 	BNDataFlowQueryOption* optionArray = new BNDataFlowQueryOption[options.size()];
 	size_t idx = 0;
 	for (auto i : options)
 		optionArray[idx++] = i;
-	BNPossibleValueSet value = BNGetMediumLevelILPossibleFlagValuesAfterInstruction(m_object, flag, instr,
-		optionArray, options.size());
+	BNPossibleValueSet value = BNGetMediumLevelILPossibleFlagValuesAfterInstruction(
+	    m_object, flag, instr, optionArray, options.size());
 	delete[] optionArray;
 	return PossibleValueSet::FromAPIObject(value);
 }
 
 
-RegisterValue MediumLevelILFunction::GetStackContentsAtInstruction(int32_t offset, size_t len, size_t instr)
+RegisterValue MediumLevelILFunction::GetStackContentsAtInstruction(
+    int32_t offset, size_t len, size_t instr)
 {
-	BNRegisterValue value = BNGetMediumLevelILStackContentsAtInstruction(m_object, offset, len, instr);
+	BNRegisterValue value =
+	    BNGetMediumLevelILStackContentsAtInstruction(m_object, offset, len, instr);
 	return RegisterValue::FromAPIObject(value);
 }
 
 
-RegisterValue MediumLevelILFunction::GetStackContentsAfterInstruction(int32_t offset, size_t len, size_t instr)
+RegisterValue MediumLevelILFunction::GetStackContentsAfterInstruction(
+    int32_t offset, size_t len, size_t instr)
 {
-	BNRegisterValue value = BNGetMediumLevelILStackContentsAfterInstruction(m_object, offset, len, instr);
+	BNRegisterValue value =
+	    BNGetMediumLevelILStackContentsAfterInstruction(m_object, offset, len, instr);
 	return RegisterValue::FromAPIObject(value);
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleStackContentsAtInstruction(int32_t offset, size_t len, size_t instr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleStackContentsAtInstruction(
+    int32_t offset, size_t len, size_t instr, const set<BNDataFlowQueryOption>& options)
 {
 	BNDataFlowQueryOption* optionArray = new BNDataFlowQueryOption[options.size()];
 	size_t idx = 0;
 	for (auto i : options)
 		optionArray[idx++] = i;
-	BNPossibleValueSet value = BNGetMediumLevelILPossibleStackContentsAtInstruction(m_object, offset, len, instr,
-		optionArray, options.size());
+	BNPossibleValueSet value = BNGetMediumLevelILPossibleStackContentsAtInstruction(
+	    m_object, offset, len, instr, optionArray, options.size());
 	delete[] optionArray;
 	return PossibleValueSet::FromAPIObject(value);
 }
 
 
-PossibleValueSet MediumLevelILFunction::GetPossibleStackContentsAfterInstruction(int32_t offset, size_t len, size_t instr,
-	const set<BNDataFlowQueryOption>& options)
+PossibleValueSet MediumLevelILFunction::GetPossibleStackContentsAfterInstruction(
+    int32_t offset, size_t len, size_t instr, const set<BNDataFlowQueryOption>& options)
 {
 	BNDataFlowQueryOption* optionArray = new BNDataFlowQueryOption[options.size()];
 	size_t idx = 0;
 	for (auto i : options)
 		optionArray[idx++] = i;
-	BNPossibleValueSet value = BNGetMediumLevelILPossibleStackContentsAfterInstruction(m_object, offset, len, instr,
-		optionArray, options.size());
+	BNPossibleValueSet value = BNGetMediumLevelILPossibleStackContentsAfterInstruction(
+	    m_object, offset, len, instr, optionArray, options.size());
 	delete[] optionArray;
 	return PossibleValueSet::FromAPIObject(value);
 }
 
 
-BNILBranchDependence MediumLevelILFunction::GetBranchDependenceAtInstruction(size_t curInstr, size_t branchInstr) const
+BNILBranchDependence MediumLevelILFunction::GetBranchDependenceAtInstruction(
+    size_t curInstr, size_t branchInstr) const
 {
 	return BNGetMediumLevelILBranchDependence(m_object, curInstr, branchInstr);
 }
 
 
-unordered_map<size_t, BNILBranchDependence> MediumLevelILFunction::GetAllBranchDependenceAtInstruction(size_t instr) const
+unordered_map<size_t, BNILBranchDependence>
+    MediumLevelILFunction::GetAllBranchDependenceAtInstruction(size_t instr) const
 {
 	size_t count;
-	BNILBranchInstructionAndDependence* deps = BNGetAllMediumLevelILBranchDependence(m_object, instr, &count);
+	BNILBranchInstructionAndDependence* deps =
+	    BNGetAllMediumLevelILBranchDependence(m_object, instr, &count);
 
 	unordered_map<size_t, BNILBranchDependence> result;
 	result.reserve(count);
@@ -843,6 +853,7 @@ Confidence<Ref<Type>> MediumLevelILFunction::GetExprType(const MediumLevelILInst
 
 Ref<FlowGraph> MediumLevelILFunction::CreateFunctionGraph(DisassemblySettings* settings)
 {
-	BNFlowGraph* graph = BNCreateMediumLevelILFunctionGraph(m_object, settings ? settings->GetObject() : nullptr);
+	BNFlowGraph* graph =
+	    BNCreateMediumLevelILFunctionGraph(m_object, settings ? settings->GetObject() : nullptr);
 	return new CoreFlowGraph(graph);
 }

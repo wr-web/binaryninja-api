@@ -1,20 +1,20 @@
 #pragma once
 
-#include <QtWidgets/QAbstractScrollArea>
-#include <QtCore/QTimer>
 #include "binaryninjaapi.h"
-#include "viewframe.h"
-#include "render.h"
 #include "commentdialog.h"
 #include "menus.h"
+#include "render.h"
 #include "uicontext.h"
+#include "viewframe.h"
+#include <QtCore/QTimer>
+#include <QtWidgets/QAbstractScrollArea>
 
-class BINARYNINJAUIAPI TokenizedTextViewHistoryEntry: public HistoryEntry
+class BINARYNINJAUIAPI TokenizedTextViewHistoryEntry : public HistoryEntry
 {
 	size_t m_topLine, m_cursorLine;
 	HighlightTokenState m_highlight;
 
-public:
+ public:
 	size_t getTopLine() const { return m_topLine; }
 	size_t getCursorLine() const { return m_cursorLine; }
 	const HighlightTokenState& getHighlightTokenState() const { return m_highlight; }
@@ -27,7 +27,10 @@ public:
 	virtual bool deserialize(const Json::Value& value) override;
 };
 
-class BINARYNINJAUIAPI TokenizedTextView: public QAbstractScrollArea, public View, public BinaryNinja::BinaryDataNotification
+class BINARYNINJAUIAPI TokenizedTextView :
+    public QAbstractScrollArea,
+    public View,
+    public BinaryNinja::BinaryDataNotification
 {
 	Q_OBJECT
 
@@ -59,8 +62,8 @@ class BINARYNINJAUIAPI TokenizedTextView: public QAbstractScrollArea, public Vie
 	void scrollLines(int count);
 
 	void bindActions();
-	void getHexDumpLineBytes(const BinaryNinja::LinearDisassemblyLine& line, size_t& skippedBytes, size_t& totalBytes,
-		size_t& totalCols);
+	void getHexDumpLineBytes(const BinaryNinja::LinearDisassemblyLine& line, size_t& skippedBytes,
+	    size_t& totalBytes, size_t& totalCols);
 
 	void setSectionSemantics(const std::string& name, BNSectionSemantics semantics);
 
@@ -103,14 +106,15 @@ class BINARYNINJAUIAPI TokenizedTextView: public QAbstractScrollArea, public Vie
 	void setInstructionHighlight(BNHighlightColor color);
 	void setBlockHighlight(BNHighlightColor color);
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void scrollBarMoved(int value);
 	void scrollBarAction(int action);
 	void updateTimerEvent();
 
-public:
+ public:
 	explicit TokenizedTextView(QWidget* parent, BinaryViewRef data,
-		const std::vector<BinaryNinja::LinearDisassemblyLine>& lines = std::vector<BinaryNinja::LinearDisassemblyLine>());
+	    const std::vector<BinaryNinja::LinearDisassemblyLine>& lines =
+	        std::vector<BinaryNinja::LinearDisassemblyLine>());
 	virtual ~TokenizedTextView();
 
 	virtual BinaryViewRef getData() override { return m_data; }
@@ -127,17 +131,27 @@ public:
 	void populateDefaultHistoryEntry(TokenizedTextViewHistoryEntry* entry);
 	virtual void navigateToHistoryEntry(BinaryNinja::Ref<HistoryEntry> entry) override;
 
-	virtual void OnBinaryDataWritten(BinaryNinja::BinaryView* data, uint64_t offset, size_t len) override;
-	virtual void OnBinaryDataInserted(BinaryNinja::BinaryView* data, uint64_t offset, size_t len) override;
-	virtual void OnBinaryDataRemoved(BinaryNinja::BinaryView* data, uint64_t offset, uint64_t len) override;
-	virtual void OnAnalysisFunctionAdded(BinaryNinja::BinaryView* view, BinaryNinja::Function* func) override;
-	virtual void OnAnalysisFunctionRemoved(BinaryNinja::BinaryView* view, BinaryNinja::Function* func) override;
-	virtual void OnAnalysisFunctionUpdated(BinaryNinja::BinaryView* view, BinaryNinja::Function* func) override;
-	virtual void OnDataVariableAdded(BinaryNinja::BinaryView* view, const BinaryNinja::DataVariable& var) override;
-	virtual void OnDataVariableRemoved(BinaryNinja::BinaryView* view, const BinaryNinja::DataVariable& var) override;
-	virtual void OnDataVariableUpdated(BinaryNinja::BinaryView* view, const BinaryNinja::DataVariable& var) override;
+	virtual void OnBinaryDataWritten(
+	    BinaryNinja::BinaryView* data, uint64_t offset, size_t len) override;
+	virtual void OnBinaryDataInserted(
+	    BinaryNinja::BinaryView* data, uint64_t offset, size_t len) override;
+	virtual void OnBinaryDataRemoved(
+	    BinaryNinja::BinaryView* data, uint64_t offset, uint64_t len) override;
+	virtual void OnAnalysisFunctionAdded(
+	    BinaryNinja::BinaryView* view, BinaryNinja::Function* func) override;
+	virtual void OnAnalysisFunctionRemoved(
+	    BinaryNinja::BinaryView* view, BinaryNinja::Function* func) override;
+	virtual void OnAnalysisFunctionUpdated(
+	    BinaryNinja::BinaryView* view, BinaryNinja::Function* func) override;
+	virtual void OnDataVariableAdded(
+	    BinaryNinja::BinaryView* view, const BinaryNinja::DataVariable& var) override;
+	virtual void OnDataVariableRemoved(
+	    BinaryNinja::BinaryView* view, const BinaryNinja::DataVariable& var) override;
+	virtual void OnDataVariableUpdated(
+	    BinaryNinja::BinaryView* view, const BinaryNinja::DataVariable& var) override;
 	virtual void OnDataMetadataUpdated(BinaryNinja::BinaryView* view, uint64_t offset) override;
-	virtual void OnTagUpdated(BinaryNinja::BinaryView* data, const BinaryNinja::TagReference& tagRef) override;
+	virtual void OnTagUpdated(
+	    BinaryNinja::BinaryView* data, const BinaryNinja::TagReference& tagRef) override;
 
 	virtual void updateFonts() override;
 
@@ -161,7 +175,7 @@ public:
 
 	void setFunction(FunctionRef func);
 
-protected:
+ protected:
 	virtual void resizeEvent(QResizeEvent* event) override;
 	virtual void paintEvent(QPaintEvent* event) override;
 	virtual void wheelEvent(QWheelEvent* event) override;

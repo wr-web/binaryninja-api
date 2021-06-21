@@ -1,10 +1,10 @@
 #pragma once
 
+#include "binaryninjaapi.h"
+#include "uicontext.h"
 #include <QtCore/QString>
 #include <QtWidgets/QWidget>
 #include <vector>
-#include "binaryninjaapi.h"
-#include "uicontext.h"
 
 class ViewFrame;
 
@@ -12,7 +12,7 @@ class BINARYNINJAUIAPI ViewType
 {
 	QString m_name, m_longName;
 
-public:
+ public:
 	ViewType(const QString& name, const QString& longName);
 	virtual ~ViewType();
 
@@ -33,7 +33,7 @@ public:
 
 class BINARYNINJAUIAPI ViewTypeContainer
 {
-public:
+ public:
 	std::vector<ViewType*> m_types;
 
 	static ViewTypeContainer& GetViewTypeContainer();

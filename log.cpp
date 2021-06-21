@@ -19,9 +19,9 @@
 // IN THE SOFTWARE.
 
 #define _CRT_SECURE_NO_WARNINGS
+#include "binaryninjaapi.h"
 #include <stdarg.h>
 #include <stdio.h>
-#include "binaryninjaapi.h"
 
 using namespace BinaryNinja;
 using namespace std;

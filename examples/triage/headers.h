@@ -1,41 +1,41 @@
 #pragma once
 
+#include "uitypes.h"
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QWidget>
 #include <functional>
-#include "uitypes.h"
 
 
-class NavigationLabel: public QLabel
+class NavigationLabel : public QLabel
 {
 	std::function<void()> m_func;
 
-public:
+ public:
 	NavigationLabel(const QString& text, QColor color, const std::function<void()>& func);
 
-protected:
+ protected:
 	virtual void mousePressEvent(QMouseEvent* event) override;
 };
 
 
-class NavigationAddressLabel: public NavigationLabel
+class NavigationAddressLabel : public NavigationLabel
 {
 	uint64_t m_address;
 
 	void clickEvent();
 
-public:
+ public:
 	NavigationAddressLabel(const QString& text);
 };
 
 
-class NavigationCodeLabel: public NavigationLabel
+class NavigationCodeLabel : public NavigationLabel
 {
 	uint64_t m_address;
 
 	void clickEvent();
 
-public:
+ public:
 	NavigationCodeLabel(const QString& text);
 };
 
@@ -61,10 +61,11 @@ class Headers
 	std::vector<HeaderField> m_fields;
 	size_t m_columns, m_rowsPerColumn;
 
-public:
+ public:
 	Headers();
 	void AddField(const QString& title, const QString& value, HeaderFieldType type = TextHeaderField);
-	void AddField(const QString& title, const std::vector<QString>& values, HeaderFieldType type = TextHeaderField);
+	void AddField(const QString& title, const std::vector<QString>& values,
+	    HeaderFieldType type = TextHeaderField);
 	const std::vector<HeaderField>& GetFields() const { return m_fields; }
 	void SetColumns(size_t cols) { m_columns = cols; }
 	void SetRowsPerColumn(size_t rows) { m_rowsPerColumn = rows; }
@@ -73,27 +74,29 @@ public:
 };
 
 
-class GenericHeaders: public Headers
+class GenericHeaders : public Headers
 {
-public:
+ public:
 	GenericHeaders(BinaryViewRef data);
 };
 
 
-class PEHeaders: public Headers
+class PEHeaders : public Headers
 {
-	uint64_t GetValueOfStructMember(BinaryViewRef data, const std::string& structName, uint64_t structStart,
-		const std::string& fieldName);
-	uint64_t GetAddressAfterStruct(BinaryViewRef data, const std::string& structName, uint64_t structStart);
-	QString GetNameOfEnumerationMember(BinaryViewRef data, const std::string& enumName, uint64_t value);
+	uint64_t GetValueOfStructMember(BinaryViewRef data, const std::string& structName,
+	    uint64_t structStart, const std::string& fieldName);
+	uint64_t GetAddressAfterStruct(
+	    BinaryViewRef data, const std::string& structName, uint64_t structStart);
+	QString GetNameOfEnumerationMember(
+	    BinaryViewRef data, const std::string& enumName, uint64_t value);
 
-public:
+ public:
 	PEHeaders(BinaryViewRef data);
 };
 
 
-class HeaderWidget: public QWidget
+class HeaderWidget : public QWidget
 {
-public:
+ public:
 	HeaderWidget(QWidget* parent, const Headers& headers);
 };

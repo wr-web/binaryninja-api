@@ -37,11 +37,13 @@ int DownloadInstance::PerformRequestCallback(void* ctxt, const char* url)
 }
 
 
-int DownloadInstance::PerformCustomRequestCallback(void* ctxt, const char* method, const char* url, uint64_t headerCount, const char* const* headerKeys, const char* const* headerValues, BNDownloadInstanceResponse** response)
+int DownloadInstance::PerformCustomRequestCallback(void* ctxt, const char* method, const char* url,
+    uint64_t headerCount, const char* const* headerKeys, const char* const* headerValues,
+    BNDownloadInstanceResponse** response)
 {
 	DownloadInstance* instance = (DownloadInstance*)ctxt;
 	unordered_map<string, string> headers;
-	for (uint64_t i = 0; i < headerCount; i ++)
+	for (uint64_t i = 0; i < headerCount; i++)
 	{
 		headers[headerKeys[i]] = headerValues[i];
 	}
@@ -57,7 +59,7 @@ int DownloadInstance::PerformCustomRequestCallback(void* ctxt, const char* metho
 	{
 		keys[i] = BNAllocString(pair.first.c_str());
 		values[i] = BNAllocString(pair.second.c_str());
-		i ++;
+		i++;
 	}
 
 	*response = new BNDownloadInstanceResponse;
@@ -72,14 +74,14 @@ int DownloadInstance::PerformCustomRequestCallback(void* ctxt, const char* metho
 
 void DownloadInstance::PerformFreeResponse(void* ctxt, BNDownloadInstanceResponse* response)
 {
-	for (uint64_t i = 0; i < response->headerCount; i ++)
+	for (uint64_t i = 0; i < response->headerCount; i++)
 	{
 		BNFreeString(response->headerKeys[i]);
 		BNFreeString(response->headerValues[i]);
 	}
 
-	delete [] response->headerKeys;
-	delete [] response->headerValues;
+	delete[] response->headerKeys;
+	delete[] response->headerValues;
 
 	delete response;
 }
@@ -118,13 +120,16 @@ string DownloadInstance::GetError() const
 }
 
 
-int DownloadInstance::PerformRequest(const string& url, BNDownloadInstanceOutputCallbacks* callbacks)
+int DownloadInstance::PerformRequest(
+    const string& url, BNDownloadInstanceOutputCallbacks* callbacks)
 {
 	return BNPerformDownloadRequest(m_object, url.c_str(), callbacks);
 }
 
 
-int DownloadInstance::PerformCustomRequest(const string& method, const string& url, const std::unordered_map<std::string, std::string>& headers, Response& response, BNDownloadInstanceInputOutputCallbacks* callbacks)
+int DownloadInstance::PerformCustomRequest(const string& method, const string& url,
+    const std::unordered_map<std::string, std::string>& headers, Response& response,
+    BNDownloadInstanceInputOutputCallbacks* callbacks)
 {
 	const char** headerKeys = new const char*[headers.size()];
 	const char** headerValues = new const char*[headers.size()];
@@ -134,23 +139,24 @@ int DownloadInstance::PerformCustomRequest(const string& method, const string& u
 	{
 		headerKeys[i] = it->first.c_str();
 		headerValues[i] = it->second.c_str();
-		i ++;
+		i++;
 	}
 
 	BNDownloadInstanceResponse* bnResponse;
 
-	int result = BNPerformCustomRequest(m_object, method.c_str(), url.c_str(), headers.size(), headerKeys, headerValues, &bnResponse, callbacks);
+	int result = BNPerformCustomRequest(m_object, method.c_str(), url.c_str(), headers.size(),
+	    headerKeys, headerValues, &bnResponse, callbacks);
 
 	response.statusCode = bnResponse->statusCode;
-	for (uint64_t i = 0; i < bnResponse->headerCount; i ++)
+	for (uint64_t i = 0; i < bnResponse->headerCount; i++)
 	{
 		response.headers[bnResponse->headerKeys[i]] = bnResponse->headerValues[i];
 	}
 
 	BNFreeDownloadInstanceResponse(bnResponse);
 
-	delete [] headerKeys;
-	delete [] headerValues;
+	delete[] headerKeys;
+	delete[] headerValues;
 
 	return result;
 }
@@ -162,9 +168,9 @@ void DownloadInstance::DestroyInstance()
 }
 
 
-CoreDownloadInstance::CoreDownloadInstance(BNDownloadInstance* instance): DownloadInstance(instance)
-{
-}
+CoreDownloadInstance::CoreDownloadInstance(BNDownloadInstance* instance) :
+    DownloadInstance(instance)
+{}
 
 
 int CoreDownloadInstance::PerformRequest(const std::string& url)
@@ -174,7 +180,8 @@ int CoreDownloadInstance::PerformRequest(const std::string& url)
 }
 
 
-int CoreDownloadInstance::PerformCustomRequest(const std::string& method, const std::string& url, const std::unordered_map<std::string, std::string>& headers, Response& response)
+int CoreDownloadInstance::PerformCustomRequest(const std::string& method, const std::string& url,
+    const std::unordered_map<std::string, std::string>& headers, Response& response)
 {
 	(void)method;
 	(void)url;
@@ -184,9 +191,7 @@ int CoreDownloadInstance::PerformCustomRequest(const std::string& method, const 
 }
 
 
-DownloadProvider::DownloadProvider(const string& name): m_nameForRegister(name)
-{
-}
+DownloadProvider::DownloadProvider(const string& name) : m_nameForRegister(name) {}
 
 
 DownloadProvider::DownloadProvider(BNDownloadProvider* provider)
@@ -233,9 +238,9 @@ void DownloadProvider::Register(DownloadProvider* provider)
 }
 
 
-CoreDownloadProvider::CoreDownloadProvider(BNDownloadProvider* provider): DownloadProvider(provider)
-{
-}
+CoreDownloadProvider::CoreDownloadProvider(BNDownloadProvider* provider) :
+    DownloadProvider(provider)
+{}
 
 
 Ref<DownloadInstance> CoreDownloadProvider::CreateNewInstance()

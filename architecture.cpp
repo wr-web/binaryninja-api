@@ -19,11 +19,11 @@
 // IN THE SOFTWARE.
 
 #define _CRT_SECURE_NO_WARNINGS
-#include <stdio.h>
+#include "binaryninjaapi.h"
 #include <cstdint>
 #include <inttypes.h>
+#include <stdio.h>
 #include <vector>
-#include "binaryninjaapi.h"
 
 using namespace BinaryNinja;
 using namespace std;
@@ -38,7 +38,8 @@ InstructionInfo::InstructionInfo()
 }
 
 
-void InstructionInfo::AddBranch(BNBranchType type, uint64_t target, Architecture* arch, bool hasDelaySlot)
+void InstructionInfo::AddBranch(
+    BNBranchType type, uint64_t target, Architecture* arch, bool hasDelaySlot)
 {
 	if (branchCount >= BN_MAX_INSTRUCTION_BRANCHES)
 		return;
@@ -49,7 +50,8 @@ void InstructionInfo::AddBranch(BNBranchType type, uint64_t target, Architecture
 }
 
 
-InstructionTextToken::InstructionTextToken(): type(TextToken), value(0), width(WidthIsByteCount), confidence(BN_FULL_CONFIDENCE)
+InstructionTextToken::InstructionTextToken() :
+    type(TextToken), value(0), width(WidthIsByteCount), confidence(BN_FULL_CONFIDENCE)
 {
 	if (width == WidthIsByteCount)
 	{
@@ -58,9 +60,11 @@ InstructionTextToken::InstructionTextToken(): type(TextToken), value(0), width(W
 }
 
 
-InstructionTextToken::InstructionTextToken(BNInstructionTextTokenType t, const std::string& txt, uint64_t val,
-	size_t s, size_t o, uint8_t c, const vector<string>& n, uint64_t w) : type(t), text(txt), value(val), width(w), size(s), operand(o),
-	context(NoTokenContext), confidence(c), address(0), typeNames(n)
+InstructionTextToken::InstructionTextToken(BNInstructionTextTokenType t, const std::string& txt,
+    uint64_t val, size_t s, size_t o, uint8_t c, const vector<string>& n, uint64_t w) :
+    type(t),
+    text(txt), value(val), width(w), size(s), operand(o), context(NoTokenContext), confidence(c),
+    address(0), typeNames(n)
 {
 	if (width == WidthIsByteCount)
 	{
@@ -69,9 +73,12 @@ InstructionTextToken::InstructionTextToken(BNInstructionTextTokenType t, const s
 }
 
 
-InstructionTextToken::InstructionTextToken(BNInstructionTextTokenType t, BNInstructionTextTokenContext ctxt,
-	const string& txt, uint64_t a, uint64_t val, size_t s, size_t o, uint8_t c, const vector<string>& n, uint64_t w):
-	type(t), text(txt), value(val), width(w), size(s), operand(o), context(ctxt), confidence(c), address(a), typeNames(n)
+InstructionTextToken::InstructionTextToken(BNInstructionTextTokenType t,
+    BNInstructionTextTokenContext ctxt, const string& txt, uint64_t a, uint64_t val, size_t s,
+    size_t o, uint8_t c, const vector<string>& n, uint64_t w) :
+    type(t),
+    text(txt), value(val), width(w), size(s), operand(o), context(ctxt), confidence(c), address(a),
+    typeNames(n)
 {
 	if (width == WidthIsByteCount)
 	{
@@ -80,9 +87,10 @@ InstructionTextToken::InstructionTextToken(BNInstructionTextTokenType t, BNInstr
 }
 
 
-InstructionTextToken::InstructionTextToken(const BNInstructionTextToken& token):
-	type(token.type), text(token.text), value(token.value), width(token.width), size(token.size),
-	operand(token.operand), context(token.context), confidence(token.confidence), address(token.address)
+InstructionTextToken::InstructionTextToken(const BNInstructionTextToken& token) :
+    type(token.type), text(token.text), value(token.value), width(token.width), size(token.size),
+    operand(token.operand), context(token.context), confidence(token.confidence),
+    address(token.address)
 {
 	typeNames.reserve(token.namesCount);
 	for (size_t j = 0; j < token.namesCount; j++)
@@ -96,11 +104,13 @@ InstructionTextToken::InstructionTextToken(const BNInstructionTextToken& token):
 
 InstructionTextToken InstructionTextToken::WithConfidence(uint8_t conf)
 {
-	return InstructionTextToken(type, context, text, address, value, size, operand, conf, typeNames, width);
+	return InstructionTextToken(
+	    type, context, text, address, value, size, operand, conf, typeNames, width);
 }
 
 
-static void ConvertInstructionTextToken(const InstructionTextToken& token, BNInstructionTextToken* result)
+static void ConvertInstructionTextToken(
+    const InstructionTextToken& token, BNInstructionTextToken* result)
 {
 	result->type = token.type;
 	result->text = BNAllocString(token.text.c_str());
@@ -118,7 +128,8 @@ static void ConvertInstructionTextToken(const InstructionTextToken& token, BNIns
 }
 
 
-vector<InstructionTextToken> InstructionTextToken::ConvertAndFreeInstructionTextTokenList(BNInstructionTextToken* tokens, size_t count)
+vector<InstructionTextToken> InstructionTextToken::ConvertAndFreeInstructionTextTokenList(
+    BNInstructionTextToken* tokens, size_t count)
 {
 	auto result = ConvertInstructionTextTokenList(tokens, count);
 	BNFreeInstructionText(tokens, count);
@@ -126,7 +137,8 @@ vector<InstructionTextToken> InstructionTextToken::ConvertAndFreeInstructionText
 }
 
 
-BNInstructionTextToken* InstructionTextToken::CreateInstructionTextTokenList(const vector<InstructionTextToken>& tokens)
+BNInstructionTextToken* InstructionTextToken::CreateInstructionTextTokenList(
+    const vector<InstructionTextToken>& tokens)
 {
 	BNInstructionTextToken* result = new BNInstructionTextToken[tokens.size()];
 	for (size_t i = 0; i < tokens.size(); i++)
@@ -135,7 +147,8 @@ BNInstructionTextToken* InstructionTextToken::CreateInstructionTextTokenList(con
 }
 
 
-vector<InstructionTextToken> InstructionTextToken::ConvertInstructionTextTokenList(const BNInstructionTextToken* tokens, size_t count)
+vector<InstructionTextToken> InstructionTextToken::ConvertInstructionTextTokenList(
+    const BNInstructionTextToken* tokens, size_t count)
 {
 	vector<InstructionTextToken> result;
 	result.reserve(count);
@@ -151,7 +164,7 @@ Architecture::Architecture(BNArchitecture* arch)
 }
 
 
-Architecture::Architecture(const string& name): m_nameForRegister(name)
+Architecture::Architecture(const string& name) : m_nameForRegister(name)
 {
 	m_object = nullptr;
 }
@@ -213,8 +226,8 @@ BNArchitecture* Architecture::GetAssociatedArchitectureByAddressCallback(void* c
 }
 
 
-bool Architecture::GetInstructionInfoCallback(void* ctxt, const uint8_t* data, uint64_t addr, size_t maxLen,
-	BNInstructionInfo* result)
+bool Architecture::GetInstructionInfoCallback(
+    void* ctxt, const uint8_t* data, uint64_t addr, size_t maxLen, BNInstructionInfo* result)
 {
 	Architecture* arch = (Architecture*)ctxt;
 
@@ -226,7 +239,7 @@ bool Architecture::GetInstructionInfoCallback(void* ctxt, const uint8_t* data, u
 
 
 bool Architecture::GetInstructionTextCallback(void* ctxt, const uint8_t* data, uint64_t addr,
-                                              size_t* len, BNInstructionTextToken** result, size_t* count)
+    size_t* len, BNInstructionTextToken** result, size_t* count)
 {
 	Architecture* arch = (Architecture*)ctxt;
 
@@ -258,8 +271,8 @@ void Architecture::FreeInstructionTextCallback(BNInstructionTextToken* tokens, s
 }
 
 
-bool Architecture::GetInstructionLowLevelILCallback(void* ctxt, const uint8_t* data, uint64_t addr,
-                                                    size_t* len, BNLowLevelILFunction* il)
+bool Architecture::GetInstructionLowLevelILCallback(
+    void* ctxt, const uint8_t* data, uint64_t addr, size_t* len, BNLowLevelILFunction* il)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	Ref<LowLevelILFunction> func(new LowLevelILFunction(BNNewLowLevelILFunctionReference(il)));
@@ -392,8 +405,8 @@ BNFlagRole Architecture::GetFlagRoleCallback(void* ctxt, uint32_t flag, uint32_t
 }
 
 
-uint32_t* Architecture::GetFlagsRequiredForFlagConditionCallback(void* ctxt, BNLowLevelILFlagCondition cond,
-	uint32_t semClass, size_t* count)
+uint32_t* Architecture::GetFlagsRequiredForFlagConditionCallback(
+    void* ctxt, BNLowLevelILFlagCondition cond, uint32_t semClass, size_t* count)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	vector<uint32_t> flags = arch->GetFlagsRequiredForFlagCondition(cond, semClass);
@@ -406,7 +419,8 @@ uint32_t* Architecture::GetFlagsRequiredForFlagConditionCallback(void* ctxt, BNL
 }
 
 
-uint32_t* Architecture::GetFlagsRequiredForSemanticFlagGroupCallback(void* ctxt, uint32_t semGroup, size_t* count)
+uint32_t* Architecture::GetFlagsRequiredForSemanticFlagGroupCallback(
+    void* ctxt, uint32_t semGroup, size_t* count)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	vector<uint32_t> flags = arch->GetFlagsRequiredForSemanticFlagGroup(semGroup);
@@ -419,11 +433,12 @@ uint32_t* Architecture::GetFlagsRequiredForSemanticFlagGroupCallback(void* ctxt,
 }
 
 
-BNFlagConditionForSemanticClass* Architecture::GetFlagConditionsForSemanticFlagGroupCallback(void* ctxt,
-	uint32_t semGroup, size_t* count)
+BNFlagConditionForSemanticClass* Architecture::GetFlagConditionsForSemanticFlagGroupCallback(
+    void* ctxt, uint32_t semGroup, size_t* count)
 {
 	Architecture* arch = (Architecture*)ctxt;
-	map<uint32_t, BNLowLevelILFlagCondition> conditions = arch->GetFlagConditionsForSemanticFlagGroup(semGroup);
+	map<uint32_t, BNLowLevelILFlagCondition> conditions =
+	    arch->GetFlagConditionsForSemanticFlagGroup(semGroup);
 	*count = conditions.size();
 
 	BNFlagConditionForSemanticClass* result = new BNFlagConditionForSemanticClass[conditions.size()];
@@ -438,13 +453,15 @@ BNFlagConditionForSemanticClass* Architecture::GetFlagConditionsForSemanticFlagG
 }
 
 
-void Architecture::FreeFlagConditionsForSemanticFlagGroupCallback(void*, BNFlagConditionForSemanticClass* conditions)
+void Architecture::FreeFlagConditionsForSemanticFlagGroupCallback(
+    void*, BNFlagConditionForSemanticClass* conditions)
 {
 	delete[] conditions;
 }
 
 
-uint32_t* Architecture::GetFlagsWrittenByFlagWriteTypeCallback(void* ctxt, uint32_t writeType, size_t* count)
+uint32_t* Architecture::GetFlagsWrittenByFlagWriteTypeCallback(
+    void* ctxt, uint32_t writeType, size_t* count)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	vector<uint32_t> flags = arch->GetFlagsWrittenByFlagWriteType(writeType);
@@ -464,8 +481,9 @@ uint32_t Architecture::GetSemanticClassForFlagWriteTypeCallback(void* ctxt, uint
 }
 
 
-size_t Architecture::GetFlagWriteLowLevelILCallback(void* ctxt, BNLowLevelILOperation op, size_t size, uint32_t flagWriteType,
-	uint32_t flag, BNRegisterOrConstant* operands, size_t operandCount, BNLowLevelILFunction* il)
+size_t Architecture::GetFlagWriteLowLevelILCallback(void* ctxt, BNLowLevelILOperation op,
+    size_t size, uint32_t flagWriteType, uint32_t flag, BNRegisterOrConstant* operands,
+    size_t operandCount, BNLowLevelILFunction* il)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	Ref<LowLevelILFunction> func(new LowLevelILFunction(BNNewLowLevelILFunctionReference(il)));
@@ -473,8 +491,8 @@ size_t Architecture::GetFlagWriteLowLevelILCallback(void* ctxt, BNLowLevelILOper
 }
 
 
-size_t Architecture::GetFlagConditionLowLevelILCallback(void* ctxt, BNLowLevelILFlagCondition cond, uint32_t semClass,
-	BNLowLevelILFunction* il)
+size_t Architecture::GetFlagConditionLowLevelILCallback(
+    void* ctxt, BNLowLevelILFlagCondition cond, uint32_t semClass, BNLowLevelILFunction* il)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	Ref<LowLevelILFunction> func(new LowLevelILFunction(BNNewLowLevelILFunctionReference(il)));
@@ -482,7 +500,8 @@ size_t Architecture::GetFlagConditionLowLevelILCallback(void* ctxt, BNLowLevelIL
 }
 
 
-size_t Architecture::GetSemanticFlagGroupLowLevelILCallback(void* ctxt, uint32_t semGroup, BNLowLevelILFunction* il)
+size_t Architecture::GetSemanticFlagGroupLowLevelILCallback(
+    void* ctxt, uint32_t semGroup, BNLowLevelILFunction* il)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	Ref<LowLevelILFunction> func(new LowLevelILFunction(BNNewLowLevelILFunctionReference(il)));
@@ -564,7 +583,8 @@ uint32_t* Architecture::GetAllRegisterStacksCallback(void* ctxt, size_t* count)
 }
 
 
-void Architecture::GetRegisterStackInfoCallback(void* ctxt, uint32_t regStack, BNRegisterStackInfo* result)
+void Architecture::GetRegisterStackInfoCallback(
+    void* ctxt, uint32_t regStack, BNRegisterStackInfo* result)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	*result = arch->GetRegisterStackInfo(regStack);
@@ -592,7 +612,8 @@ uint32_t* Architecture::GetAllIntrinsicsCallback(void* ctxt, size_t* count)
 }
 
 
-BNNameAndType* Architecture::GetIntrinsicInputsCallback(void* ctxt, uint32_t intrinsic, size_t* count)
+BNNameAndType* Architecture::GetIntrinsicInputsCallback(
+    void* ctxt, uint32_t intrinsic, size_t* count)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	vector<NameAndType> inputs = arch->GetIntrinsicInputs(intrinsic);
@@ -620,7 +641,8 @@ void Architecture::FreeNameAndTypeListCallback(void*, BNNameAndType* nt, size_t 
 }
 
 
-BNTypeWithConfidence* Architecture::GetIntrinsicOutputsCallback(void* ctxt, uint32_t intrinsic, size_t* count)
+BNTypeWithConfidence* Architecture::GetIntrinsicOutputsCallback(
+    void* ctxt, uint32_t intrinsic, size_t* count)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	vector<Confidence<Ref<Type>>> outputs = arch->GetIntrinsicOutputs(intrinsic);
@@ -649,7 +671,8 @@ bool Architecture::CanAssembleCallback(void* ctxt)
 	return arch->CanAssemble();
 }
 
-bool Architecture::AssembleCallback(void* ctxt, const char* code, uint64_t addr, BNDataBuffer* result, char** errors)
+bool Architecture::AssembleCallback(
+    void* ctxt, const char* code, uint64_t addr, BNDataBuffer* result, char** errors)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	DataBuffer buf;
@@ -662,35 +685,40 @@ bool Architecture::AssembleCallback(void* ctxt, const char* code, uint64_t addr,
 }
 
 
-bool Architecture::IsNeverBranchPatchAvailableCallback(void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
+bool Architecture::IsNeverBranchPatchAvailableCallback(
+    void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	return arch->IsNeverBranchPatchAvailable(data, addr, len);
 }
 
 
-bool Architecture::IsAlwaysBranchPatchAvailableCallback(void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
+bool Architecture::IsAlwaysBranchPatchAvailableCallback(
+    void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	return arch->IsAlwaysBranchPatchAvailable(data, addr, len);
 }
 
 
-bool Architecture::IsInvertBranchPatchAvailableCallback(void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
+bool Architecture::IsInvertBranchPatchAvailableCallback(
+    void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	return arch->IsInvertBranchPatchAvailable(data, addr, len);
 }
 
 
-bool Architecture::IsSkipAndReturnZeroPatchAvailableCallback(void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
+bool Architecture::IsSkipAndReturnZeroPatchAvailableCallback(
+    void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	return arch->IsSkipAndReturnZeroPatchAvailable(data, addr, len);
 }
 
 
-bool Architecture::IsSkipAndReturnValuePatchAvailableCallback(void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
+bool Architecture::IsSkipAndReturnValuePatchAvailableCallback(
+    void* ctxt, const uint8_t* data, uint64_t addr, size_t len)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	return arch->IsSkipAndReturnValuePatchAvailable(data, addr, len);
@@ -718,7 +746,8 @@ bool Architecture::InvertBranchCallback(void* ctxt, uint8_t* data, uint64_t addr
 }
 
 
-bool Architecture::SkipAndReturnValueCallback(void* ctxt, uint8_t* data, uint64_t addr, size_t len, uint64_t value)
+bool Architecture::SkipAndReturnValueCallback(
+    void* ctxt, uint8_t* data, uint64_t addr, size_t len, uint64_t value)
 {
 	Architecture* arch = (Architecture*)ctxt;
 	return arch->SkipAndReturnValue(data, addr, len, value);
@@ -868,7 +897,8 @@ Ref<Architecture> Architecture::GetAssociatedArchitectureByAddress(uint64_t&)
 }
 
 
-bool Architecture::GetInstructionLowLevelIL(const uint8_t*, uint64_t, size_t&, LowLevelILFunction& il)
+bool Architecture::GetInstructionLowLevelIL(
+    const uint8_t*, uint64_t, size_t&, LowLevelILFunction& il)
 {
 	il.AddInstruction(il.Undefined());
 	return false;
@@ -971,7 +1001,8 @@ vector<uint32_t> Architecture::GetFlagsRequiredForSemanticFlagGroup(uint32_t)
 }
 
 
-map<uint32_t, BNLowLevelILFlagCondition> Architecture::GetFlagConditionsForSemanticFlagGroup(uint32_t)
+map<uint32_t, BNLowLevelILFlagCondition> Architecture::GetFlagConditionsForSemanticFlagGroup(
+    uint32_t)
 {
 	return map<uint32_t, BNLowLevelILFlagCondition>();
 }
@@ -989,32 +1020,33 @@ uint32_t Architecture::GetSemanticClassForFlagWriteType(uint32_t)
 }
 
 
-size_t Architecture::GetFlagWriteLowLevelIL(BNLowLevelILOperation op, size_t size, uint32_t flagWriteType,
-	uint32_t flag, BNRegisterOrConstant* operands, size_t operandCount,LowLevelILFunction& il)
+size_t Architecture::GetFlagWriteLowLevelIL(BNLowLevelILOperation op, size_t size,
+    uint32_t flagWriteType, uint32_t flag, BNRegisterOrConstant* operands, size_t operandCount,
+    LowLevelILFunction& il)
 {
 	BNFlagRole role = GetFlagRole(flag, GetSemanticClassForFlagWriteType(flagWriteType));
-	return BNGetDefaultArchitectureFlagWriteLowLevelIL(m_object, op, size, role, operands,
-		operandCount, il.GetObject());
+	return BNGetDefaultArchitectureFlagWriteLowLevelIL(
+	    m_object, op, size, role, operands, operandCount, il.GetObject());
 }
 
 
-size_t Architecture::GetDefaultFlagWriteLowLevelIL(BNLowLevelILOperation op, size_t size, BNFlagRole role,
-	BNRegisterOrConstant* operands, size_t operandCount,LowLevelILFunction& il)
+size_t Architecture::GetDefaultFlagWriteLowLevelIL(BNLowLevelILOperation op, size_t size,
+    BNFlagRole role, BNRegisterOrConstant* operands, size_t operandCount, LowLevelILFunction& il)
 {
-	return BNGetDefaultArchitectureFlagWriteLowLevelIL(m_object, op, size, role, operands,
-		operandCount, il.GetObject());
+	return BNGetDefaultArchitectureFlagWriteLowLevelIL(
+	    m_object, op, size, role, operands, operandCount, il.GetObject());
 }
 
 
-ExprId Architecture::GetFlagConditionLowLevelIL(BNLowLevelILFlagCondition cond,
-	uint32_t semClass, LowLevelILFunction& il)
+ExprId Architecture::GetFlagConditionLowLevelIL(
+    BNLowLevelILFlagCondition cond, uint32_t semClass, LowLevelILFunction& il)
 {
 	return BNGetDefaultArchitectureFlagConditionLowLevelIL(m_object, cond, semClass, il.GetObject());
 }
 
 
-ExprId Architecture::GetDefaultFlagConditionLowLevelIL(BNLowLevelILFlagCondition cond,
-	uint32_t semClass, LowLevelILFunction& il)
+ExprId Architecture::GetDefaultFlagConditionLowLevelIL(
+    BNLowLevelILFlagCondition cond, uint32_t semClass, LowLevelILFunction& il)
 {
 	return BNGetDefaultArchitectureFlagConditionLowLevelIL(m_object, cond, semClass, il.GetObject());
 }
@@ -1240,9 +1272,11 @@ bool Architecture::IsBinaryViewTypeConstantDefined(const string& type, const str
 }
 
 
-uint64_t Architecture::GetBinaryViewTypeConstant(const string& type, const string& name, uint64_t defaultValue)
+uint64_t Architecture::GetBinaryViewTypeConstant(
+    const string& type, const string& name, uint64_t defaultValue)
 {
-	return BNGetBinaryViewTypeArchitectureConstant(m_object, type.c_str(), name.c_str(), defaultValue);
+	return BNGetBinaryViewTypeArchitectureConstant(
+	    m_object, type.c_str(), name.c_str(), defaultValue);
 }
 
 
@@ -1354,9 +1388,7 @@ void Architecture::AddArchitectureRedirection(Architecture* from, Architecture* 
 }
 
 
-CoreArchitecture::CoreArchitecture(BNArchitecture* arch): Architecture(arch)
-{
-}
+CoreArchitecture::CoreArchitecture(BNArchitecture* arch) : Architecture(arch) {}
 
 
 BNEndianness CoreArchitecture::GetEndianness() const
@@ -1401,13 +1433,15 @@ Ref<Architecture> CoreArchitecture::GetAssociatedArchitectureByAddress(uint64_t&
 }
 
 
-bool CoreArchitecture::GetInstructionInfo(const uint8_t* data, uint64_t addr, size_t maxLen, InstructionInfo& result)
+bool CoreArchitecture::GetInstructionInfo(
+    const uint8_t* data, uint64_t addr, size_t maxLen, InstructionInfo& result)
 {
 	return BNGetInstructionInfo(m_object, data, addr, maxLen, &result);
 }
 
 
-bool CoreArchitecture::GetInstructionText(const uint8_t* data, uint64_t addr, size_t& len, std::vector<InstructionTextToken>& result)
+bool CoreArchitecture::GetInstructionText(
+    const uint8_t* data, uint64_t addr, size_t& len, std::vector<InstructionTextToken>& result)
 {
 	BNInstructionTextToken* tokens = nullptr;
 	size_t count = 0;
@@ -1419,7 +1453,8 @@ bool CoreArchitecture::GetInstructionText(const uint8_t* data, uint64_t addr, si
 }
 
 
-bool CoreArchitecture::GetInstructionLowLevelIL(const uint8_t* data, uint64_t addr, size_t& len, LowLevelILFunction& il)
+bool CoreArchitecture::GetInstructionLowLevelIL(
+    const uint8_t* data, uint64_t addr, size_t& len, LowLevelILFunction& il)
 {
 	return BNGetInstructionLowLevelIL(m_object, data, addr, &len, il.GetObject());
 }
@@ -1564,10 +1599,12 @@ BNFlagRole CoreArchitecture::GetFlagRole(uint32_t flag, uint32_t semClass)
 }
 
 
-vector<uint32_t> CoreArchitecture::GetFlagsRequiredForFlagCondition(BNLowLevelILFlagCondition cond, uint32_t semClass)
+vector<uint32_t> CoreArchitecture::GetFlagsRequiredForFlagCondition(
+    BNLowLevelILFlagCondition cond, uint32_t semClass)
 {
 	size_t count;
-	uint32_t* flags = BNGetArchitectureFlagsRequiredForFlagCondition(m_object, cond, semClass, &count);
+	uint32_t* flags =
+	    BNGetArchitectureFlagsRequiredForFlagCondition(m_object, cond, semClass, &count);
 
 	vector<uint32_t> result;
 	for (size_t i = 0; i < count; i++)
@@ -1593,11 +1630,12 @@ vector<uint32_t> CoreArchitecture::GetFlagsRequiredForSemanticFlagGroup(uint32_t
 }
 
 
-map<uint32_t, BNLowLevelILFlagCondition> CoreArchitecture::GetFlagConditionsForSemanticFlagGroup(uint32_t semGroup)
+map<uint32_t, BNLowLevelILFlagCondition> CoreArchitecture::GetFlagConditionsForSemanticFlagGroup(
+    uint32_t semGroup)
 {
 	size_t count;
-	BNFlagConditionForSemanticClass* conditions = BNGetArchitectureFlagConditionsForSemanticFlagGroup(m_object,
-		semGroup, &count);
+	BNFlagConditionForSemanticClass* conditions =
+	    BNGetArchitectureFlagConditionsForSemanticFlagGroup(m_object, semGroup, &count);
 
 	map<uint32_t, BNLowLevelILFlagCondition> result;
 	for (size_t i = 0; i < count; i++)
@@ -1629,16 +1667,17 @@ uint32_t CoreArchitecture::GetSemanticClassForFlagWriteType(uint32_t writeType)
 }
 
 
-size_t CoreArchitecture::GetFlagWriteLowLevelIL(BNLowLevelILOperation op, size_t size, uint32_t flagWriteType,
-	uint32_t flag, BNRegisterOrConstant* operands, size_t operandCount, LowLevelILFunction& il)
+size_t CoreArchitecture::GetFlagWriteLowLevelIL(BNLowLevelILOperation op, size_t size,
+    uint32_t flagWriteType, uint32_t flag, BNRegisterOrConstant* operands, size_t operandCount,
+    LowLevelILFunction& il)
 {
-	return BNGetArchitectureFlagWriteLowLevelIL(m_object, op, size, flagWriteType, flag, operands,
-		operandCount, il.GetObject());
+	return BNGetArchitectureFlagWriteLowLevelIL(
+	    m_object, op, size, flagWriteType, flag, operands, operandCount, il.GetObject());
 }
 
 
-ExprId CoreArchitecture::GetFlagConditionLowLevelIL(BNLowLevelILFlagCondition cond,
-	uint32_t semClass, LowLevelILFunction& il)
+ExprId CoreArchitecture::GetFlagConditionLowLevelIL(
+    BNLowLevelILFlagCondition cond, uint32_t semClass, LowLevelILFunction& il)
 {
 	return (ExprId)BNGetArchitectureFlagConditionLowLevelIL(m_object, cond, semClass, il.GetObject());
 }
@@ -1758,8 +1797,9 @@ vector<NameAndType> CoreArchitecture::GetIntrinsicInputs(uint32_t intrinsic)
 	vector<NameAndType> result;
 	for (size_t i = 0; i < count; i++)
 	{
-		result.push_back(NameAndType(inputs[i].name, Confidence<Ref<Type>>(
-			new Type(BNNewTypeReference(inputs[i].type)), inputs[i].typeConfidence)));
+		result.push_back(NameAndType(
+		    inputs[i].name, Confidence<Ref<Type>>(new Type(BNNewTypeReference(inputs[i].type)),
+		                        inputs[i].typeConfidence)));
 	}
 
 	BNFreeNameAndTypeList(inputs, count);
@@ -1774,7 +1814,8 @@ vector<Confidence<Ref<Type>>> CoreArchitecture::GetIntrinsicOutputs(uint32_t int
 
 	vector<Confidence<Ref<Type>>> result;
 	for (size_t i = 0; i < count; i++)
-		result.push_back(Confidence<Ref<Type>>(new Type(BNNewTypeReference(outputs[i].type)), outputs[i].confidence));
+		result.push_back(Confidence<Ref<Type>>(
+		    new Type(BNNewTypeReference(outputs[i].type)), outputs[i].confidence));
 
 	BNFreeOutputTypeList(outputs, count);
 	return result;
@@ -1785,7 +1826,8 @@ bool CoreArchitecture::CanAssemble()
 	return BNCanArchitectureAssemble(m_object);
 }
 
-bool CoreArchitecture::Assemble(const string& code, uint64_t addr, DataBuffer& result, string& errors)
+bool CoreArchitecture::Assemble(
+    const string& code, uint64_t addr, DataBuffer& result, string& errors)
 {
 	char* errorStr = nullptr;
 	bool ok = BNAssemble(m_object, code.c_str(), addr, result.GetBufferObject(), &errorStr);
@@ -1816,13 +1858,15 @@ bool CoreArchitecture::IsInvertBranchPatchAvailable(const uint8_t* data, uint64_
 }
 
 
-bool CoreArchitecture::IsSkipAndReturnZeroPatchAvailable(const uint8_t* data, uint64_t addr, size_t len)
+bool CoreArchitecture::IsSkipAndReturnZeroPatchAvailable(
+    const uint8_t* data, uint64_t addr, size_t len)
 {
 	return BNIsArchitectureSkipAndReturnZeroPatchAvailable(m_object, data, addr, len);
 }
 
 
-bool CoreArchitecture::IsSkipAndReturnValuePatchAvailable(const uint8_t* data, uint64_t addr, size_t len)
+bool CoreArchitecture::IsSkipAndReturnValuePatchAvailable(
+    const uint8_t* data, uint64_t addr, size_t len)
 {
 	return BNIsArchitectureSkipAndReturnValuePatchAvailable(m_object, data, addr, len);
 }
@@ -1852,9 +1896,9 @@ bool CoreArchitecture::SkipAndReturnValue(uint8_t* data, uint64_t addr, size_t l
 }
 
 
-ArchitectureExtension::ArchitectureExtension(const string& name, Architecture* base): Architecture(name), m_base(base)
-{
-}
+ArchitectureExtension::ArchitectureExtension(const string& name, Architecture* base) :
+    Architecture(name), m_base(base)
+{}
 
 
 void ArchitectureExtension::Register(BNCustomArchitecture* callbacks)
@@ -1909,20 +1953,22 @@ Ref<Architecture> ArchitectureExtension::GetAssociatedArchitectureByAddress(uint
 }
 
 
-bool ArchitectureExtension::GetInstructionInfo(const uint8_t* data, uint64_t addr, size_t maxLen, InstructionInfo& result)
+bool ArchitectureExtension::GetInstructionInfo(
+    const uint8_t* data, uint64_t addr, size_t maxLen, InstructionInfo& result)
 {
 	return m_base->GetInstructionInfo(data, addr, maxLen, result);
 }
 
 
-bool ArchitectureExtension::GetInstructionText(const uint8_t* data, uint64_t addr, size_t& len,
-	vector<InstructionTextToken>& result)
+bool ArchitectureExtension::GetInstructionText(
+    const uint8_t* data, uint64_t addr, size_t& len, vector<InstructionTextToken>& result)
 {
 	return m_base->GetInstructionText(data, addr, len, result);
 }
 
 
-bool ArchitectureExtension::GetInstructionLowLevelIL(const uint8_t* data, uint64_t addr, size_t& len, LowLevelILFunction& il)
+bool ArchitectureExtension::GetInstructionLowLevelIL(
+    const uint8_t* data, uint64_t addr, size_t& len, LowLevelILFunction& il)
 {
 	return m_base->GetInstructionLowLevelIL(data, addr, len, il);
 }
@@ -2000,8 +2046,8 @@ BNFlagRole ArchitectureExtension::GetFlagRole(uint32_t flag, uint32_t semClass)
 }
 
 
-vector<uint32_t> ArchitectureExtension::GetFlagsRequiredForFlagCondition(BNLowLevelILFlagCondition cond,
-	uint32_t semClass)
+vector<uint32_t> ArchitectureExtension::GetFlagsRequiredForFlagCondition(
+    BNLowLevelILFlagCondition cond, uint32_t semClass)
 {
 	return m_base->GetFlagsRequiredForFlagCondition(cond, semClass);
 }
@@ -2013,7 +2059,8 @@ vector<uint32_t> ArchitectureExtension::GetFlagsRequiredForSemanticFlagGroup(uin
 }
 
 
-map<uint32_t, BNLowLevelILFlagCondition> ArchitectureExtension::GetFlagConditionsForSemanticFlagGroup(uint32_t semGroup)
+map<uint32_t, BNLowLevelILFlagCondition>
+    ArchitectureExtension::GetFlagConditionsForSemanticFlagGroup(uint32_t semGroup)
 {
 	return m_base->GetFlagConditionsForSemanticFlagGroup(semGroup);
 }
@@ -2031,21 +2078,23 @@ uint32_t ArchitectureExtension::GetSemanticClassForFlagWriteType(uint32_t writeT
 }
 
 
-ExprId ArchitectureExtension::GetFlagWriteLowLevelIL(BNLowLevelILOperation op, size_t size, uint32_t flagWriteType,
-	uint32_t flag, BNRegisterOrConstant* operands, size_t operandCount, LowLevelILFunction& il)
+ExprId ArchitectureExtension::GetFlagWriteLowLevelIL(BNLowLevelILOperation op, size_t size,
+    uint32_t flagWriteType, uint32_t flag, BNRegisterOrConstant* operands, size_t operandCount,
+    LowLevelILFunction& il)
 {
 	return m_base->GetFlagWriteLowLevelIL(op, size, flagWriteType, flag, operands, operandCount, il);
 }
 
 
-ExprId ArchitectureExtension::GetFlagConditionLowLevelIL(BNLowLevelILFlagCondition cond,
-	uint32_t semClass, LowLevelILFunction& il)
+ExprId ArchitectureExtension::GetFlagConditionLowLevelIL(
+    BNLowLevelILFlagCondition cond, uint32_t semClass, LowLevelILFunction& il)
 {
 	return m_base->GetFlagConditionLowLevelIL(cond, semClass, il);
 }
 
 
-ExprId ArchitectureExtension::GetSemanticFlagGroupLowLevelIL(uint32_t semGroup, LowLevelILFunction& il)
+ExprId ArchitectureExtension::GetSemanticFlagGroupLowLevelIL(
+    uint32_t semGroup, LowLevelILFunction& il)
 {
 	return m_base->GetSemanticFlagGroupLowLevelIL(semGroup, il);
 }
@@ -2127,37 +2176,43 @@ bool ArchitectureExtension::CanAssemble()
 	return m_base->CanAssemble();
 }
 
-bool ArchitectureExtension::Assemble(const string& code, uint64_t addr, DataBuffer& result, string& errors)
+bool ArchitectureExtension::Assemble(
+    const string& code, uint64_t addr, DataBuffer& result, string& errors)
 {
 	return m_base->Assemble(code, addr, result, errors);
 }
 
 
-bool ArchitectureExtension::IsNeverBranchPatchAvailable(const uint8_t* data, uint64_t addr, size_t len)
+bool ArchitectureExtension::IsNeverBranchPatchAvailable(
+    const uint8_t* data, uint64_t addr, size_t len)
 {
 	return m_base->IsNeverBranchPatchAvailable(data, addr, len);
 }
 
 
-bool ArchitectureExtension::IsAlwaysBranchPatchAvailable(const uint8_t* data, uint64_t addr, size_t len)
+bool ArchitectureExtension::IsAlwaysBranchPatchAvailable(
+    const uint8_t* data, uint64_t addr, size_t len)
 {
 	return m_base->IsAlwaysBranchPatchAvailable(data, addr, len);
 }
 
 
-bool ArchitectureExtension::IsInvertBranchPatchAvailable(const uint8_t* data, uint64_t addr, size_t len)
+bool ArchitectureExtension::IsInvertBranchPatchAvailable(
+    const uint8_t* data, uint64_t addr, size_t len)
 {
 	return m_base->IsInvertBranchPatchAvailable(data, addr, len);
 }
 
 
-bool ArchitectureExtension::IsSkipAndReturnZeroPatchAvailable(const uint8_t* data, uint64_t addr, size_t len)
+bool ArchitectureExtension::IsSkipAndReturnZeroPatchAvailable(
+    const uint8_t* data, uint64_t addr, size_t len)
 {
 	return m_base->IsSkipAndReturnValuePatchAvailable(data, addr, len);
 }
 
 
-bool ArchitectureExtension::IsSkipAndReturnValuePatchAvailable(const uint8_t* data, uint64_t addr, size_t len)
+bool ArchitectureExtension::IsSkipAndReturnValuePatchAvailable(
+    const uint8_t* data, uint64_t addr, size_t len)
 {
 	return m_base->IsSkipAndReturnValuePatchAvailable(data, addr, len);
 }
@@ -2181,20 +2236,21 @@ bool ArchitectureExtension::InvertBranch(uint8_t* data, uint64_t addr, size_t le
 }
 
 
-bool ArchitectureExtension::SkipAndReturnValue(uint8_t* data, uint64_t addr, size_t len, uint64_t value)
+bool ArchitectureExtension::SkipAndReturnValue(
+    uint8_t* data, uint64_t addr, size_t len, uint64_t value)
 {
 	return m_base->SkipAndReturnValue(data, addr, len, value);
 }
 
 
-ArchitectureHook::ArchitectureHook(Architecture* base): CoreArchitecture(nullptr), m_base(base)
+ArchitectureHook::ArchitectureHook(Architecture* base) : CoreArchitecture(nullptr), m_base(base)
 {
 	// Architecture hooks allow existing architecture implementations to be extended without creating
-	// a new Architecture object for the changes. By deriving from the ArchitectureHook class and passing
-	// the original Architecture object of the architecture to be extended, any reimplemented functions
-	// will be called first before the original architecture's implementation. You MUST call the base
-	// class method to call the original implementation's version of the function, as calling the
-	// same function on the original Architecture object will call your implementation again.
+	// a new Architecture object for the changes. By deriving from the ArchitectureHook class and
+	// passing the original Architecture object of the architecture to be extended, any reimplemented
+	// functions will be called first before the original architecture's implementation. You MUST call
+	// the base class method to call the original implementation's version of the function, as calling
+	// the same function on the original Architecture object will call your implementation again.
 
 	// Example of a hook to modify the lifting process:
 
@@ -2225,10 +2281,11 @@ void ArchitectureHook::Register(BNCustomArchitecture* callbacks)
 }
 
 
-string DisassemblyTextRenderer::GetDisplayStringForInteger(Ref<BinaryView> binaryView, BNIntegerDisplayType type,
-	uint64_t value, size_t inputWidth, bool isSigned)
+string DisassemblyTextRenderer::GetDisplayStringForInteger(Ref<BinaryView> binaryView,
+    BNIntegerDisplayType type, uint64_t value, size_t inputWidth, bool isSigned)
 {
-	char* str = BNGetDisplayStringForInteger(binaryView->GetObject(), type, value, inputWidth, isSigned);
+	char* str =
+	    BNGetDisplayStringForInteger(binaryView->GetObject(), type, value, inputWidth, isSigned);
 	string s(str);
 	BNFreeString(str);
 	return s;
@@ -2237,25 +2294,32 @@ string DisassemblyTextRenderer::GetDisplayStringForInteger(Ref<BinaryView> binar
 
 DisassemblyTextRenderer::DisassemblyTextRenderer(Function* func, DisassemblySettings* settings)
 {
-	m_object = BNCreateDisassemblyTextRenderer(func->GetObject(), settings ? settings->GetObject() : nullptr);
+	m_object = BNCreateDisassemblyTextRenderer(
+	    func->GetObject(), settings ? settings->GetObject() : nullptr);
 }
 
 
-DisassemblyTextRenderer::DisassemblyTextRenderer(LowLevelILFunction* func, DisassemblySettings* settings)
+DisassemblyTextRenderer::DisassemblyTextRenderer(
+    LowLevelILFunction* func, DisassemblySettings* settings)
 {
-	m_object = BNCreateLowLevelILDisassemblyTextRenderer(func->GetObject(), settings ? settings->GetObject() : nullptr);
+	m_object = BNCreateLowLevelILDisassemblyTextRenderer(
+	    func->GetObject(), settings ? settings->GetObject() : nullptr);
 }
 
 
-DisassemblyTextRenderer::DisassemblyTextRenderer(MediumLevelILFunction* func, DisassemblySettings* settings)
+DisassemblyTextRenderer::DisassemblyTextRenderer(
+    MediumLevelILFunction* func, DisassemblySettings* settings)
 {
-	m_object = BNCreateMediumLevelILDisassemblyTextRenderer(func->GetObject(), settings ? settings->GetObject() : nullptr);
+	m_object = BNCreateMediumLevelILDisassemblyTextRenderer(
+	    func->GetObject(), settings ? settings->GetObject() : nullptr);
 }
 
 
-DisassemblyTextRenderer::DisassemblyTextRenderer(HighLevelILFunction* func, DisassemblySettings* settings)
+DisassemblyTextRenderer::DisassemblyTextRenderer(
+    HighLevelILFunction* func, DisassemblySettings* settings)
 {
-	m_object = BNCreateHighLevelILDisassemblyTextRenderer(func->GetObject(), settings ? settings->GetObject() : nullptr);
+	m_object = BNCreateHighLevelILDisassemblyTextRenderer(
+	    func->GetObject(), settings ? settings->GetObject() : nullptr);
 }
 
 
@@ -2349,18 +2413,20 @@ bool DisassemblyTextRenderer::HasDataFlow() const
 }
 
 
-void DisassemblyTextRenderer::GetInstructionAnnotations(vector<InstructionTextToken>& tokens, uint64_t addr)
+void DisassemblyTextRenderer::GetInstructionAnnotations(
+    vector<InstructionTextToken>& tokens, uint64_t addr)
 {
 	size_t count = 0;
-	BNInstructionTextToken* result = BNGetDisassemblyTextRendererInstructionAnnotations(m_object, addr, &count);
+	BNInstructionTextToken* result =
+	    BNGetDisassemblyTextRendererInstructionAnnotations(m_object, addr, &count);
 	vector<InstructionTextToken> newTokens;
 	newTokens = InstructionTextToken::ConvertAndFreeInstructionTextTokenList(result, count);
 	tokens.insert(tokens.end(), newTokens.begin(), newTokens.end());
 }
 
 
-bool DisassemblyTextRenderer::GetInstructionText(uint64_t addr, size_t& len,
-	vector<DisassemblyTextLine>& lines)
+bool DisassemblyTextRenderer::GetInstructionText(
+    uint64_t addr, size_t& len, vector<DisassemblyTextLine>& lines)
 {
 	BNDisassemblyTextLine* result = nullptr;
 	size_t count = 0;
@@ -2373,7 +2439,8 @@ bool DisassemblyTextRenderer::GetInstructionText(uint64_t addr, size_t& len,
 		line.addr = result[i].addr;
 		line.instrIndex = result[i].instrIndex;
 		line.highlight = result[i].highlight;
-		line.tokens = InstructionTextToken::ConvertInstructionTextTokenList(result[i].tokens, result[i].count);
+		line.tokens =
+		    InstructionTextToken::ConvertInstructionTextTokenList(result[i].tokens, result[i].count);
 		line.tags = Tag::ConvertTagList(result[i].tags, result[i].tagCount);
 		lines.push_back(line);
 	}
@@ -2383,8 +2450,8 @@ bool DisassemblyTextRenderer::GetInstructionText(uint64_t addr, size_t& len,
 }
 
 
-vector<DisassemblyTextLine> DisassemblyTextRenderer::PostProcessInstructionTextLines(uint64_t addr,
-	size_t len, const vector<DisassemblyTextLine>& lines, const string& indentSpaces)
+vector<DisassemblyTextLine> DisassemblyTextRenderer::PostProcessInstructionTextLines(
+    uint64_t addr, size_t len, const vector<DisassemblyTextLine>& lines, const string& indentSpaces)
 {
 	BNDisassemblyTextLine* inLines = new BNDisassemblyTextLine[lines.size()];
 	for (size_t i = 0; i < lines.size(); i++)
@@ -2399,8 +2466,8 @@ vector<DisassemblyTextLine> DisassemblyTextRenderer::PostProcessInstructionTextL
 
 	BNDisassemblyTextLine* result = nullptr;
 	size_t count = 0;
-	result = BNPostProcessDisassemblyTextRendererLines(m_object, addr, len, inLines, lines.size(), &count,
-		indentSpaces.c_str());
+	result = BNPostProcessDisassemblyTextRendererLines(
+	    m_object, addr, len, inLines, lines.size(), &count, indentSpaces.c_str());
 	BNFreeDisassemblyTextLines(inLines, lines.size());
 
 	vector<DisassemblyTextLine> outLines;
@@ -2410,7 +2477,8 @@ vector<DisassemblyTextLine> DisassemblyTextRenderer::PostProcessInstructionTextL
 		line.addr = result[i].addr;
 		line.instrIndex = result[i].instrIndex;
 		line.highlight = result[i].highlight;
-		line.tokens = InstructionTextToken::ConvertInstructionTextTokenList(result[i].tokens, result[i].count);
+		line.tokens =
+		    InstructionTextToken::ConvertInstructionTextTokenList(result[i].tokens, result[i].count);
 		line.tags = Tag::ConvertTagList(result[i].tags, result[i].tagCount);
 		outLines.push_back(line);
 	}
@@ -2420,7 +2488,8 @@ vector<DisassemblyTextLine> DisassemblyTextRenderer::PostProcessInstructionTextL
 }
 
 
-bool DisassemblyTextRenderer::GetDisassemblyText(uint64_t addr, size_t& len, vector<DisassemblyTextLine>& lines)
+bool DisassemblyTextRenderer::GetDisassemblyText(
+    uint64_t addr, size_t& len, vector<DisassemblyTextLine>& lines)
 {
 	BNDisassemblyTextLine* result = nullptr;
 	size_t count = 0;
@@ -2433,7 +2502,8 @@ bool DisassemblyTextRenderer::GetDisassemblyText(uint64_t addr, size_t& len, vec
 		line.addr = result[i].addr;
 		line.instrIndex = result[i].instrIndex;
 		line.highlight = result[i].highlight;
-		line.tokens = InstructionTextToken::ConvertInstructionTextTokenList(result[i].tokens, result[i].count);
+		line.tokens =
+		    InstructionTextToken::ConvertInstructionTextTokenList(result[i].tokens, result[i].count);
 		line.tags = Tag::ConvertTagList(result[i].tags, result[i].tagCount);
 		lines.push_back(line);
 	}
@@ -2449,20 +2519,22 @@ void DisassemblyTextRenderer::ResetDeduplicatedComments()
 }
 
 
-bool DisassemblyTextRenderer::AddSymbolToken(vector<InstructionTextToken>& tokens, uint64_t addr, size_t size, size_t operand)
+bool DisassemblyTextRenderer::AddSymbolToken(
+    vector<InstructionTextToken>& tokens, uint64_t addr, size_t size, size_t operand)
 {
 	BNInstructionTextToken* result = nullptr;
 	size_t count = 0;
 	if (!BNGetDisassemblyTextRendererSymbolTokens(m_object, addr, size, operand, &result, &count))
 		return false;
-	vector<InstructionTextToken> newTokens = InstructionTextToken::ConvertAndFreeInstructionTextTokenList(result, count);
+	vector<InstructionTextToken> newTokens =
+	    InstructionTextToken::ConvertAndFreeInstructionTextTokenList(result, count);
 	tokens.insert(tokens.end(), newTokens.begin(), newTokens.end());
 	return true;
 }
 
 
-void DisassemblyTextRenderer::AddStackVariableReferenceTokens(vector<InstructionTextToken>& tokens,
-	const StackVariableReference& ref)
+void DisassemblyTextRenderer::AddStackVariableReferenceTokens(
+    vector<InstructionTextToken>& tokens, const StackVariableReference& ref)
 {
 	BNStackVariableReference stackRef;
 	stackRef.sourceOperand = ref.sourceOperand;
@@ -2474,11 +2546,12 @@ void DisassemblyTextRenderer::AddStackVariableReferenceTokens(vector<Instruction
 	stackRef.size = ref.size;
 
 	size_t count = 0;
-	BNInstructionTextToken* result = BNGetDisassemblyTextRendererStackVariableReferenceTokens(
-		m_object, &stackRef, &count);
+	BNInstructionTextToken* result =
+	    BNGetDisassemblyTextRendererStackVariableReferenceTokens(m_object, &stackRef, &count);
 	BNFreeString(stackRef.name);
 
-	vector<InstructionTextToken> newTokens = InstructionTextToken::ConvertAndFreeInstructionTextTokenList(result, count);
+	vector<InstructionTextToken> newTokens =
+	    InstructionTextToken::ConvertAndFreeInstructionTextTokenList(result, count);
 	tokens.insert(tokens.end(), newTokens.begin(), newTokens.end());
 }
 
@@ -2489,17 +2562,18 @@ bool DisassemblyTextRenderer::IsIntegerToken(BNInstructionTextTokenType type)
 }
 
 
-void DisassemblyTextRenderer::AddIntegerToken(vector<InstructionTextToken>& tokens, const InstructionTextToken& token,
-	Architecture* arch, uint64_t addr)
+void DisassemblyTextRenderer::AddIntegerToken(vector<InstructionTextToken>& tokens,
+    const InstructionTextToken& token, Architecture* arch, uint64_t addr)
 {
 	BNInstructionTextToken inToken;
 	ConvertInstructionTextToken(token, &inToken);
 
 	size_t count = 0;
-	BNInstructionTextToken* result = BNGetDisassemblyTextRendererIntegerTokens(m_object, &inToken,
-		arch ? arch->GetObject() : nullptr, addr, &count);
+	BNInstructionTextToken* result = BNGetDisassemblyTextRendererIntegerTokens(
+	    m_object, &inToken, arch ? arch->GetObject() : nullptr, addr, &count);
 
-	vector<InstructionTextToken> newTokens = InstructionTextToken::ConvertAndFreeInstructionTextTokenList(result, count);
+	vector<InstructionTextToken> newTokens =
+	    InstructionTextToken::ConvertAndFreeInstructionTextTokenList(result, count);
 	tokens.insert(tokens.end(), newTokens.begin(), newTokens.end());
 
 	BNFreeString(inToken.text);
@@ -2509,8 +2583,9 @@ void DisassemblyTextRenderer::AddIntegerToken(vector<InstructionTextToken>& toke
 }
 
 
-void DisassemblyTextRenderer::WrapComment(DisassemblyTextLine& line, vector<DisassemblyTextLine>& lines,
-	const string& comment, bool hasAutoAnnotations, const string& leadingSpaces, const string& indentSpaces)
+void DisassemblyTextRenderer::WrapComment(DisassemblyTextLine& line,
+    vector<DisassemblyTextLine>& lines, const string& comment, bool hasAutoAnnotations,
+    const string& leadingSpaces, const string& indentSpaces)
 {
 	BNDisassemblyTextLine inLine;
 	inLine.addr = line.addr;
@@ -2522,7 +2597,7 @@ void DisassemblyTextRenderer::WrapComment(DisassemblyTextLine& line, vector<Disa
 
 	size_t count = 0;
 	BNDisassemblyTextLine* result = BNDisassemblyTextRendererWrapComment(m_object, &inLine, &count,
-		comment.c_str(), hasAutoAnnotations, leadingSpaces.c_str(), indentSpaces.c_str());
+	    comment.c_str(), hasAutoAnnotations, leadingSpaces.c_str(), indentSpaces.c_str());
 
 	for (size_t i = 0; i < count; i++)
 	{
@@ -2530,7 +2605,8 @@ void DisassemblyTextRenderer::WrapComment(DisassemblyTextLine& line, vector<Disa
 		line.addr = result[i].addr;
 		line.instrIndex = result[i].instrIndex;
 		line.highlight = result[i].highlight;
-		line.tokens = InstructionTextToken::ConvertInstructionTextTokenList(result[i].tokens, result[i].count);
+		line.tokens =
+		    InstructionTextToken::ConvertInstructionTextTokenList(result[i].tokens, result[i].count);
 		line.tags = Tag::ConvertTagList(result[i].tags, result[i].tagCount);
 		lines.push_back(line);
 	}

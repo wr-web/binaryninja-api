@@ -2,17 +2,17 @@
 
 #include <QtGui/QColor>
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-#include <QtWidgets/QAction>
+	#include <QtWidgets/QAction>
 #else
-#include <QtGui/QAction>
+	#include <QtGui/QAction>
 #endif
-#include <QtGui/QImage>
-#include <QtWidgets/QMenu>
-#include <QtGui/QPainter>
-#include <QtCore/QRect>
 #include <QtCore/QPointer>
+#include <QtCore/QRect>
 #include <QtCore/QTimer>
 #include <QtCore/QVector>
+#include <QtGui/QImage>
+#include <QtGui/QPainter>
+#include <QtWidgets/QMenu>
 #include <QtWidgets/QWidget>
 #include <mutex>
 #include <tuple>
@@ -27,7 +27,10 @@ class Menu;
 class View;
 class ViewFrame;
 
-class BINARYNINJAUIAPI FeatureMap: public QWidget, public BinaryNinja::BinaryDataNotification, public DockContextHandler
+class BINARYNINJAUIAPI FeatureMap :
+    public QWidget,
+    public BinaryNinja::BinaryDataNotification,
+    public DockContextHandler
 {
 	Q_OBJECT
 	Q_INTERFACES(DockContextHandler)
@@ -59,13 +62,13 @@ class BINARYNINJAUIAPI FeatureMap: public QWidget, public BinaryNinja::BinaryDat
 
 	bool m_enableOrientationUpdate = false;
 
-	class BackgroundRefresh: public BinaryNinja::RefCountObject
+	class BackgroundRefresh : public BinaryNinja::RefCountObject
 	{
 		std::mutex m_mutex;
 		bool m_valid;
 		QPointer<FeatureMap> m_featureMap;
 
-	public:
+	 public:
 		BackgroundRefresh(FeatureMap* featureMap);
 		void start();
 		void abort();
@@ -76,7 +79,7 @@ class BINARYNINJAUIAPI FeatureMap: public QWidget, public BinaryNinja::BinaryDat
 	void updateCoordinates();
 	bool updateOrientation();
 
-public:
+ public:
 	FeatureMap(ViewFrame* frame, BinaryViewRef data);
 	virtual ~FeatureMap();
 
@@ -89,20 +92,28 @@ public:
 
 	void renderDataVariable(const BinaryNinja::DataVariable& var, bool ignoreString = false);
 
-	virtual void OnAnalysisFunctionAdded(BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
-	virtual void OnAnalysisFunctionRemoved(BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
-	virtual void OnAnalysisFunctionUpdated(BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
-	virtual void OnDataVariableAdded(BinaryNinja::BinaryView* data, const BinaryNinja::DataVariable& var) override;
-	virtual void OnDataVariableRemoved(BinaryNinja::BinaryView* data, const BinaryNinja::DataVariable& var) override;
-	virtual void OnDataVariableUpdated(BinaryNinja::BinaryView* data, const BinaryNinja::DataVariable& var) override;
-	virtual void OnStringFound(BinaryNinja::BinaryView* data, BNStringType type, uint64_t offset, size_t len) override;
-	virtual void OnStringRemoved(BinaryNinja::BinaryView* data, BNStringType type, uint64_t offset, size_t len) override;
+	virtual void OnAnalysisFunctionAdded(
+	    BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
+	virtual void OnAnalysisFunctionRemoved(
+	    BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
+	virtual void OnAnalysisFunctionUpdated(
+	    BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
+	virtual void OnDataVariableAdded(
+	    BinaryNinja::BinaryView* data, const BinaryNinja::DataVariable& var) override;
+	virtual void OnDataVariableRemoved(
+	    BinaryNinja::BinaryView* data, const BinaryNinja::DataVariable& var) override;
+	virtual void OnDataVariableUpdated(
+	    BinaryNinja::BinaryView* data, const BinaryNinja::DataVariable& var) override;
+	virtual void OnStringFound(
+	    BinaryNinja::BinaryView* data, BNStringType type, uint64_t offset, size_t len) override;
+	virtual void OnStringRemoved(
+	    BinaryNinja::BinaryView* data, BNStringType type, uint64_t offset, size_t len) override;
 
 	void drawImageRect(uint64_t addr, size_t len, uint8_t color);
 
 	virtual QSize sizeHint() const override;
 
-protected:
+ protected:
 	virtual void contextMenuEvent(QContextMenuEvent* event) override;
 	virtual void mouseMoveEvent(QMouseEvent* event) override;
 	virtual void mousePressEvent(QMouseEvent* event) override;
@@ -110,10 +121,10 @@ protected:
 	virtual void paintEvent(QPaintEvent* event) override;
 	void scrollTo(int x, int y, bool addHistoryEntry = false);
 
-Q_SIGNALS:
+ Q_SIGNALS:
 	void notifyThemeUpdated();
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void refresh();
 	void updateThemeInternal();
 	void updateTimerEvent();

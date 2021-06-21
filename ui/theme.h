@@ -1,20 +1,21 @@
 #pragma once
 
+#include "binaryninjaapi.h"
+#include "uicontext.h"
 #include <QtGui/QPalette>
 #include <QtWidgets/QProxyStyle>
 #include <vector>
-#include "binaryninjaapi.h"
-#include "uicontext.h"
 
-class BINARYNINJAUIAPI CustomFusionStyle: public QProxyStyle
+class BINARYNINJAUIAPI CustomFusionStyle : public QProxyStyle
 {
-public:
+ public:
 	CustomFusionStyle(QStyle* parent);
-	virtual int pixelMetric(PixelMetric metric, const QStyleOption* option, const QWidget* widget) const override;
+	virtual int pixelMetric(
+	    PixelMetric metric, const QStyleOption* option, const QWidget* widget) const override;
 	virtual QIcon standardIcon(StandardPixmap standardIcon, const QStyleOption* option,
-		const QWidget* widget) const override;
+	    const QWidget* widget) const override;
 	virtual QPixmap standardPixmap(StandardPixmap standardPixmap, const QStyleOption* option,
-		const QWidget* widget) const override;
+	    const QWidget* widget) const override;
 };
 
 

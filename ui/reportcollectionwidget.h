@@ -1,14 +1,14 @@
 #pragma once
 
-#include <QtWidgets/QWidget>
-#include <QtWidgets/QSplitter>
-#include <QtWidgets/QListWidget>
-#include <QtWidgets/QVBoxLayout>
 #include "binaryninjaapi.h"
-#include "viewframe.h"
 #include "uicontext.h"
+#include "viewframe.h"
+#include <QtWidgets/QListWidget>
+#include <QtWidgets/QSplitter>
+#include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QWidget>
 
-class BINARYNINJAUIAPI ReportCollectionWidget: public QWidget, public ViewContainer
+class BINARYNINJAUIAPI ReportCollectionWidget : public QWidget, public ViewContainer
 {
 	Q_OBJECT
 
@@ -22,11 +22,11 @@ class BINARYNINJAUIAPI ReportCollectionWidget: public QWidget, public ViewContai
 	int m_currentReportIndex;
 	std::string m_title;
 
-public:
+ public:
 	ReportCollectionWidget(QWidget* parent, ReportCollectionRef reports, const std::string& title);
 
 	virtual View* getView() override;
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void selectReport(int i);
 };

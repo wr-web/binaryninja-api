@@ -1,12 +1,12 @@
 #pragma once
 
-#include <QtWidgets/QDialog>
-#include <QtWidgets/QComboBox>
-#include <QtWidgets/QLabel>
-#include <set>
 #include "binaryninjaapi.h"
 #include "dialogtextedit.h"
 #include "uicontext.h"
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QDialog>
+#include <QtWidgets/QLabel>
+#include <set>
 
 enum CompileMode
 {
@@ -14,7 +14,7 @@ enum CompileMode
 	CompilePatch
 };
 
-class BINARYNINJAUIAPI CompileDialog: public QDialog
+class BINARYNINJAUIAPI CompileDialog : public QDialog
 {
 	Q_OBJECT
 
@@ -33,17 +33,18 @@ class BINARYNINJAUIAPI CompileDialog: public QDialog
 	void appendOptionString(std::string& out, const std::string& text);
 	void updateOptionsText();
 
-public:
-	CompileDialog(QWidget* parent, BinaryViewRef data, uint64_t addr, CompileMode mode, const QString& code = "");
+ public:
+	CompileDialog(QWidget* parent, BinaryViewRef data, uint64_t addr, CompileMode mode,
+	    const QString& code = "");
 
 	ArchitectureRef getArchitecture();
 	const BinaryNinja::DataBuffer& getBytes() const { return m_bytes; }
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void saveOnFinish(int result);
 	void compile();
 	void options();
 
-protected:
+ protected:
 	virtual void accept() override;
 };

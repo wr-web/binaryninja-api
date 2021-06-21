@@ -1,15 +1,17 @@
 #pragma once
 
+#include "filter.h"
+#include "uicontext.h"
+#include "viewframe.h"
 #include <QtWidgets/QListView>
 #include <QtWidgets/QStyledItemDelegate>
 #include <mutex>
-#include "viewframe.h"
-#include "filter.h"
-#include "uicontext.h"
 
 #define STRINGS_LIST_UPDATE_INTERVAL 250
 
-class BINARYNINJAUIAPI StringsListModel: public QAbstractItemModel, public BinaryNinja::BinaryDataNotification
+class BINARYNINJAUIAPI StringsListModel :
+    public QAbstractItemModel,
+    public BinaryNinja::BinaryDataNotification
 {
 	Q_OBJECT
 
@@ -33,7 +35,7 @@ class BINARYNINJAUIAPI StringsListModel: public QAbstractItemModel, public Binar
 
 	std::vector<StringUpdateEvent> getQueuedStringUpdates();
 
-public:
+ public:
 	StringsListModel(QWidget* parent, BinaryViewRef data);
 	virtual ~StringsListModel();
 
@@ -47,14 +49,16 @@ public:
 	BNStringReference getStringAt(const QModelIndex& i);
 	QModelIndex findString(const BNStringReference& ref);
 
-	virtual void OnStringFound(BinaryNinja::BinaryView* data, BNStringType type, uint64_t offset, size_t len) override;
-	virtual void OnStringRemoved(BinaryNinja::BinaryView* data, BNStringType type, uint64_t offset, size_t len) override;
+	virtual void OnStringFound(
+	    BinaryNinja::BinaryView* data, BNStringType type, uint64_t offset, size_t len) override;
+	virtual void OnStringRemoved(
+	    BinaryNinja::BinaryView* data, BNStringType type, uint64_t offset, size_t len) override;
 	void updateStrings();
 
 	void setFilter(const std::string& filter);
 };
 
-class BINARYNINJAUIAPI StringItemDelegate: public QStyledItemDelegate
+class BINARYNINJAUIAPI StringItemDelegate : public QStyledItemDelegate
 {
 	Q_OBJECT
 
@@ -64,19 +68,20 @@ class BINARYNINJAUIAPI StringItemDelegate: public QStyledItemDelegate
 
 	void initFont();
 
-public:
+ public:
 	StringItemDelegate(QWidget* parent);
 
 	void updateFonts();
 
 	virtual QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& idx) const override;
-	virtual void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& idx) const override;
+	virtual void paint(
+	    QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& idx) const override;
 	QFont getFont() const { return m_font; }
 };
 
 class StringsContainer;
 
-class BINARYNINJAUIAPI StringsView: public QListView, public View, public FilterTarget
+class BINARYNINJAUIAPI StringsView : public QListView, public View, public FilterTarget
 {
 	Q_OBJECT
 
@@ -90,7 +95,7 @@ class BINARYNINJAUIAPI StringsView: public QListView, public View, public Filter
 
 	uint64_t m_selectionBegin, m_selectionEnd;
 
-public:
+ public:
 	StringsView(BinaryViewRef data, ViewFrame* view, StringsContainer* container);
 
 	virtual BinaryViewRef getData() override { return m_data; }
@@ -103,7 +108,8 @@ public:
 
 	virtual StatusBarWidget* getStatusBarWidget() override;
 
-	virtual void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected) override;
+	virtual void selectionChanged(
+	    const QItemSelection& selected, const QItemSelection& deselected) override;
 
 	virtual void setFilter(const std::string& filter) override;
 	virtual void scrollToFirstItem() override;
@@ -111,15 +117,16 @@ public:
 	virtual void selectFirstItem() override;
 	virtual void activateFirstItem() override;
 	virtual QFont getFont() override { return m_itemDelegate->getFont(); }
-protected:
+
+ protected:
 	virtual void keyPressEvent(QKeyEvent* event) override;
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void goToString(const QModelIndex& idx);
 	void updateTimerEvent();
 };
 
-class BINARYNINJAUIAPI StringsContainer: public QWidget, public ViewContainer
+class BINARYNINJAUIAPI StringsContainer : public QWidget, public ViewContainer
 {
 	Q_OBJECT
 
@@ -127,22 +134,22 @@ class BINARYNINJAUIAPI StringsContainer: public QWidget, public ViewContainer
 	StringsView* m_strings;
 	FilteredView* m_filter;
 
-public:
+ public:
 	StringsContainer(BinaryViewRef data, ViewFrame* view);
 	virtual View* getView() override { return m_strings; }
 
 	StringsView* getStringsView() { return m_strings; }
 	FilteredView* getFilter() { return m_filter; }
 
-protected:
+ protected:
 	virtual void focusInEvent(QFocusEvent* event) override;
 };
 
-class StringsViewType: public ViewType
+class StringsViewType : public ViewType
 {
 	static StringsViewType* m_instance;
 
-public:
+ public:
 	StringsViewType();
 	virtual int getPriority(BinaryViewRef data, const QString& filename);
 	virtual QWidget* create(BinaryViewRef data, ViewFrame* viewFrame);

@@ -1,32 +1,28 @@
-#include <QtWidgets/QScrollBar>
-#include <QtCore/QTimer>
 #include "byte.h"
 #include "fontsettings.h"
 #include "theme.h"
+#include <QtCore/QTimer>
+#include <QtWidgets/QScrollBar>
 
 
-static const char* g_byteMapping[] =
-{
-	" ", "☺", "☻", "♥", "♦", "♣", "♠", "•", "◘", "○", "◙", "♂", "♀", "♪", "♫", "☼",
-	"▸", "◂", "↕", "‼", "¶", "§", "▬", "↨", "↑", "↓", "→", "←", "∟", "↔", "▴", "▾",
-	" ", "!", "\"", "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/",
-	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ":", ";", "<", "=", ">", "?",
-	"@", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O",
-	"P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "[", "\\", "]", "^", "_",
-	"`", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o",
-	"p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "{", "|", "}", "~", "⌂",
-	"Ç", "ü", "é", "â", "ä", "à", "å", "ç", "ê", "ë", "è", "ï", "î", "ì", "Ä", "Å",
-	"É", "æ", "Æ", "ô", "ö", "ò", "û", "ù", "ÿ", "Ö", "Ü", "¢", "£", "¥", "₧", "ƒ",
-	"á", "í", "ó", "ú", "ñ", "Ñ", "ª", "º", "¿", "⌐", "¬", "½", "¼", "¡", "«", "»",
-	"░", "▒", "▓", "│", "┤", "╡", "╢", "╖", "╕", "╣", "║", "╗", "╝", "╜", "╛", "┐",
-	"└", "┴", "┬", "├", "─", "┼", "╞", "╟", "╚", "╔", "╩", "╦", "╠", "═", "╬", "╧",
-	"╨", "╤", "╥", "╙", "╘", "╒", "╓", "╫", "╪", "┘", "┌", "█", "▄", "▌", "▐", "▀",
-	"α", "ß", "Γ", "π", "Σ", "σ", "µ", "τ", "Φ", "Θ", "Ω", "δ", "∞", "φ", "ε", "∩",
-	"≡", "±", "≥", "≤", "⌠", "⌡", "÷", "≈", "°", "∙", "·", "√", "ⁿ", "²", "■", " "
-};
+static const char* g_byteMapping[] = {" ", "☺", "☻", "♥", "♦", "♣", "♠", "•", "◘", "○", "◙", "♂",
+    "♀", "♪", "♫", "☼", "▸", "◂", "↕", "‼", "¶", "§", "▬", "↨", "↑", "↓", "→", "←", "∟", "↔", "▴",
+    "▾", " ", "!", "\"", "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/", "0", "1",
+    "2", "3", "4", "5", "6", "7", "8", "9", ":", ";", "<", "=", ">", "?", "@", "A", "B", "C", "D",
+    "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W",
+    "X", "Y", "Z", "[", "\\", "]", "^", "_", "`", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+    "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "{", "|", "}",
+    "~", "⌂", "Ç", "ü", "é", "â", "ä", "à", "å", "ç", "ê", "ë", "è", "ï", "î", "ì", "Ä", "Å", "É",
+    "æ", "Æ", "ô", "ö", "ò", "û", "ù", "ÿ", "Ö", "Ü", "¢", "£", "¥", "₧", "ƒ", "á", "í", "ó", "ú",
+    "ñ", "Ñ", "ª", "º", "¿", "⌐", "¬", "½", "¼", "¡", "«", "»", "░", "▒", "▓", "│", "┤", "╡", "╢",
+    "╖", "╕", "╣", "║", "╗", "╝", "╜", "╛", "┐", "└", "┴", "┬", "├", "─", "┼", "╞", "╟", "╚", "╔",
+    "╩", "╦", "╠", "═", "╬", "╧", "╨", "╤", "╥", "╙", "╘", "╒", "╓", "╫", "╪", "┘", "┌", "█", "▄",
+    "▌", "▐", "▀", "α", "ß", "Γ", "π", "Σ", "σ", "µ", "τ", "Φ", "Θ", "Ω", "δ", "∞", "φ", "ε", "∩",
+    "≡", "±", "≥", "≤", "⌠", "⌡", "÷", "≈", "°", "∙", "·", "√", "ⁿ", "²", "■", " "};
 
 
-ByteView::ByteView(QWidget* parent, BinaryViewRef data): QAbstractScrollArea(parent), m_render(this)
+ByteView::ByteView(QWidget* parent, BinaryViewRef data) :
+    QAbstractScrollArea(parent), m_render(this)
 {
 	setBinaryDataNavigable(true);
 	setupView(this);
@@ -72,7 +68,7 @@ ByteView::ByteView(QWidget* parent, BinaryViewRef data): QAbstractScrollArea(par
 	m_updateTimer = new QTimer(this);
 	m_updateTimer->setInterval(200);
 	m_updateTimer->setSingleShot(false);
-	//connect(m_updateTimer, &QTimer::timeout, this, &ByteView::updateTimerEvent);
+	// connect(m_updateTimer, &QTimer::timeout, this, &ByteView::updateTimerEvent);
 
 	actionHandler()->bindAction("Move Cursor Up", UIAction([=]() { up(false); }));
 	actionHandler()->bindAction("Move Cursor Down", UIAction([=]() { down(false); }));
@@ -90,14 +86,22 @@ ByteView::ByteView(QWidget* parent, BinaryViewRef data): QAbstractScrollArea(par
 	actionHandler()->bindAction("Page Down", UIAction([=]() { pageDown(false); }));
 	actionHandler()->bindAction("Extend Selection Page Up", UIAction([=]() { pageUp(true); }));
 	actionHandler()->bindAction("Extend Selection Page Down", UIAction([=]() { pageDown(true); }));
-	actionHandler()->bindAction("Move Cursor to Start of Line", UIAction([=]() { moveToStartOfLine(false); }));
-	actionHandler()->bindAction("Move Cursor to End of Line", UIAction([=]() { moveToEndOfLine(false); }));
-	actionHandler()->bindAction("Move Cursor to Start of View", UIAction([=]() { moveToStartOfView(false); }));
-	actionHandler()->bindAction("Move Cursor to End of View", UIAction([=]() { moveToEndOfView(false); }));
-	actionHandler()->bindAction("Extend Selection to Start of Line", UIAction([=]() { moveToStartOfLine(true); }));
-	actionHandler()->bindAction("Extend Selection to End of Line", UIAction([=]() { moveToEndOfLine(true); }));
-	actionHandler()->bindAction("Extend Selection to Start of View", UIAction([=]() { moveToStartOfView(true); }));
-	actionHandler()->bindAction("Extend Selection to End of View", UIAction([=]() { moveToEndOfView(true); }));
+	actionHandler()->bindAction(
+	    "Move Cursor to Start of Line", UIAction([=]() { moveToStartOfLine(false); }));
+	actionHandler()->bindAction(
+	    "Move Cursor to End of Line", UIAction([=]() { moveToEndOfLine(false); }));
+	actionHandler()->bindAction(
+	    "Move Cursor to Start of View", UIAction([=]() { moveToStartOfView(false); }));
+	actionHandler()->bindAction(
+	    "Move Cursor to End of View", UIAction([=]() { moveToEndOfView(false); }));
+	actionHandler()->bindAction(
+	    "Extend Selection to Start of Line", UIAction([=]() { moveToStartOfLine(true); }));
+	actionHandler()->bindAction(
+	    "Extend Selection to End of Line", UIAction([=]() { moveToEndOfLine(true); }));
+	actionHandler()->bindAction(
+	    "Extend Selection to Start of View", UIAction([=]() { moveToStartOfView(true); }));
+	actionHandler()->bindAction(
+	    "Extend Selection to End of View", UIAction([=]() { moveToEndOfView(true); }));
 }
 
 
@@ -155,7 +159,7 @@ BNAddressRange ByteView::getSelectionOffsets()
 		start = end;
 		end = t;
 	}
-	return { start, end };
+	return {start, end};
 }
 
 void ByteView::setSelectionOffsets(BNAddressRange range)
@@ -169,11 +173,11 @@ void ByteView::updateRanges()
 {
 	m_ranges = m_data->GetAllocatedRanges();
 	// Remove regions not backed by the file
-	for (auto& i: m_data->GetSegments())
+	for (auto& i : m_data->GetSegments())
 		if (i->GetDataLength() < i->GetLength())
 			removeRange(i->GetStart() + i->GetDataLength(), i->GetEnd());
 	m_allocatedLength = 0;
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 		m_allocatedLength += i.end - i.start;
 }
 
@@ -181,7 +185,7 @@ void ByteView::updateRanges()
 void ByteView::removeRange(uint64_t begin, uint64_t end)
 {
 	std::vector<BNAddressRange> newRanges;
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if ((end <= i.start) || (begin >= i.end))
 		{
@@ -193,16 +197,16 @@ void ByteView::removeRange(uint64_t begin, uint64_t end)
 		}
 		else if ((begin <= i.start) && (end < i.end))
 		{
-			newRanges.push_back(BNAddressRange { end, i.end });
+			newRanges.push_back(BNAddressRange {end, i.end});
 		}
 		else if ((begin > i.start) && (end >= i.end))
 		{
-			newRanges.push_back(BNAddressRange { i.start, begin });
+			newRanges.push_back(BNAddressRange {i.start, begin});
 		}
 		else
 		{
-			newRanges.push_back(BNAddressRange { i.start, begin });
-			newRanges.push_back(BNAddressRange { end, i.end });
+			newRanges.push_back(BNAddressRange {i.start, begin});
+			newRanges.push_back(BNAddressRange {end, i.end});
 		}
 	}
 	m_ranges = newRanges;
@@ -211,7 +215,7 @@ void ByteView::removeRange(uint64_t begin, uint64_t end)
 
 void ByteView::setTopToAddress(uint64_t addr)
 {
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if ((addr >= i.start) && (addr <= i.end))
 		{
@@ -237,7 +241,7 @@ bool ByteView::navigate(uint64_t addr)
 	if (addr > getEnd())
 		return false;
 	m_cursorAddr = getStart();
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if (i.start > addr)
 			break;
@@ -293,7 +297,7 @@ void ByteView::adjustSize(int width, int height)
 uint64_t ByteView::getContiguousOffsetForAddress(uint64_t addr)
 {
 	uint64_t offset = 0;
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if ((addr >= i.start) && (addr <= i.end))
 		{
@@ -309,7 +313,7 @@ uint64_t ByteView::getContiguousOffsetForAddress(uint64_t addr)
 uint64_t ByteView::getAddressForContiguousOffset(uint64_t offset)
 {
 	uint64_t cur = 0;
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if (offset < (cur + (i.end - i.start)))
 			return i.start + (offset - cur);
@@ -352,7 +356,7 @@ ByteViewLine ByteView::createLine(uint64_t addr, size_t length, bool separator)
 {
 	if (separator)
 	{
-		return ByteViewLine { addr, length, "", true };
+		return ByteViewLine {addr, length, "", true};
 	}
 	else
 	{
@@ -360,7 +364,7 @@ ByteViewLine ByteView::createLine(uint64_t addr, size_t length, bool separator)
 		QString line;
 		for (size_t i = 0; i < data.GetLength(); i++)
 			line.append(QString(g_byteMapping[data[i]]));
-		return ByteViewLine { addr, length, line, false };
+		return ByteViewLine {addr, length, line, false};
 	}
 }
 
@@ -369,7 +373,7 @@ bool ByteView::cachePreviousLines()
 {
 	bool prevEndValid = false;
 	uint64_t prevEnd = 0;
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if ((m_topAddr > i.start) && (m_topAddr <= i.end))
 		{
@@ -410,7 +414,7 @@ bool ByteView::cachePreviousLines()
 bool ByteView::cacheNextLines()
 {
 	uint64_t lastAddr = m_data->GetStart();
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if ((m_bottomAddr >= i.start) && (m_bottomAddr < i.end))
 		{
@@ -489,7 +493,8 @@ void ByteView::scrollLines(int count)
 	{
 		m_updatingScrollBar = true;
 		uint64_t addr = m_lines[m_topLine].address;
-		verticalScrollBar()->setValue((int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
+		verticalScrollBar()->setValue(
+		    (int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
 		m_updatingScrollBar = false;
 	}
 }
@@ -506,7 +511,8 @@ void ByteView::showContextAroundTop()
 	{
 		m_updatingScrollBar = true;
 		uint64_t addr = m_lines[m_topLine].address;
-		verticalScrollBar()->setValue((int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
+		verticalScrollBar()->setValue(
+		    (int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
 		m_updatingScrollBar = false;
 	}
 	updateCache();
@@ -519,8 +525,9 @@ void ByteView::repositionCaret()
 	bool found = false;
 	for (size_t i = 0; i < m_lines.size(); i++)
 	{
-		if (((m_cursorAddr >= m_lines[i].address) && (m_cursorAddr < (m_lines[i].address + m_lines[i].length))) ||
-			(((i + 1) == m_lines.size()) && (m_cursorAddr == (m_lines[i].address + m_lines[i].length))))
+		if (((m_cursorAddr >= m_lines[i].address) &&
+		        (m_cursorAddr < (m_lines[i].address + m_lines[i].length))) ||
+		    (((i + 1) == m_lines.size()) && (m_cursorAddr == (m_lines[i].address + m_lines[i].length))))
 		{
 			if (i < m_topLine)
 				m_topLine = i;
@@ -528,7 +535,8 @@ void ByteView::repositionCaret()
 				m_topLine = i - (m_visibleRows - 1);
 			m_updatingScrollBar = true;
 			uint64_t addr = m_lines[m_topLine].address;
-			verticalScrollBar()->setValue((int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
+			verticalScrollBar()->setValue(
+			    (int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
 			m_updatingScrollBar = false;
 			updateCache();
 			viewport()->update();
@@ -556,11 +564,13 @@ void ByteView::updateCaret()
 	// Rerender both the old caret position and the new caret position
 	for (size_t i = m_topLine; (i < m_lines.size()) && (i < (m_topLine + m_visibleRows)); i++)
 	{
-		if (((m_prevCursorAddr >= m_lines[i].address) && (m_prevCursorAddr <= (m_lines[i].address + m_lines[i].length))) ||
-			((m_cursorAddr >= m_lines[i].address) && (m_cursorAddr <= (m_lines[i].address + m_lines[i].length))))
+		if (((m_prevCursorAddr >= m_lines[i].address) &&
+		        (m_prevCursorAddr <= (m_lines[i].address + m_lines[i].length))) ||
+		    ((m_cursorAddr >= m_lines[i].address) &&
+		        (m_cursorAddr <= (m_lines[i].address + m_lines[i].length))))
 		{
 			viewport()->update(0, (int)(i - m_topLine) * m_render.getFontHeight(),
-				viewport()->size().width(), m_render.getFontHeight() + 3);
+			    viewport()->size().width(), m_render.getFontHeight() + 3);
 		}
 	}
 }
@@ -627,22 +637,22 @@ void ByteView::paintEvent(QPaintEvent* event)
 			if (startY == endY)
 			{
 				p.drawRect(2 + ((int)m_addrWidth + 2 + startX) * charWidth, 2 + startY * charHeight,
-					(endX - startX) * charWidth, charHeight + 1);
+				    (endX - startX) * charWidth, charHeight + 1);
 			}
 			else
 			{
 				p.drawRect(2 + ((int)m_addrWidth + 2 + startX) * charWidth, 2 + startY * charHeight,
-					((int)m_cols - startX) * charWidth, charHeight + 1);
+				    ((int)m_cols - startX) * charWidth, charHeight + 1);
 				if (endX > 0)
 				{
 					p.drawRect(2 + ((int)m_addrWidth + 2) * charWidth, 2 + endY * charHeight,
-						endX * charWidth, charHeight + 1);
+					    endX * charWidth, charHeight + 1);
 				}
 			}
 			if ((endY - startY) > 1)
 			{
 				p.drawRect(2 + ((int)m_addrWidth + 2) * charWidth, 2 + (startY + 1) * charHeight,
-					(int)m_cols * charWidth, ((endY - startY) - 1) * charHeight + 1);
+				    (int)m_cols * charWidth, ((endY - startY) - 1) * charHeight + 1);
 			}
 		}
 	}
@@ -658,7 +668,7 @@ void ByteView::paintEvent(QPaintEvent* event)
 		if (m_lines[y + m_topLine].separator)
 		{
 			m_render.drawLinearDisassemblyLineBackground(p, NonContiguousSeparatorLineType,
-				QRect(0, 2 + y * charHeight, event->rect().width(), charHeight), 0);
+			    QRect(0, 2 + y * charHeight, event->rect().width(), charHeight), 0);
 			continue;
 		}
 
@@ -670,7 +680,8 @@ void ByteView::paintEvent(QPaintEvent* event)
 		bool hasCursor = false;
 		int cursorCol = 0;
 		if (((m_cursorAddr >= lineStartAddr) && (m_cursorAddr < (lineStartAddr + length))) ||
-			(((y + (int)m_topLine + 1) >= (int)m_lines.size()) && (m_cursorAddr == (lineStartAddr + length))))
+		    (((y + (int)m_topLine + 1) >= (int)m_lines.size()) &&
+		        (m_cursorAddr == (lineStartAddr + length))))
 		{
 			cursorCol = (int)(m_cursorAddr - lineStartAddr);
 			hasCursor = true;
@@ -683,13 +694,15 @@ void ByteView::paintEvent(QPaintEvent* event)
 		{
 			p.setPen(Qt::NoPen);
 			p.setBrush(palette().color(QPalette::WindowText));
-			p.drawRect(2 + ((int)m_addrWidth + 2 + cursorCol) * charWidth, 2 + y * charHeight, charWidth, charHeight + 1);
+			p.drawRect(2 + ((int)m_addrWidth + 2 + cursorCol) * charWidth, 2 + y * charHeight, charWidth,
+			    charHeight + 1);
 			QColor caretTextColor = palette().color(QPalette::Base);
 			BinaryNinja::DataBuffer byteValue = m_data->ReadBuffer(lineStartAddr + cursorCol, 1);
 			if (byteValue.GetLength() == 1)
 			{
 				QString byteStr = g_byteMapping[byteValue[0]];
-				m_render.drawText(p, 2 + ((int)m_addrWidth + 2 + cursorCol) * charWidth, 2 + y * charHeight, caretTextColor, byteStr);
+				m_render.drawText(p, 2 + ((int)m_addrWidth + 2 + cursorCol) * charWidth, 2 + y * charHeight,
+				    caretTextColor, byteStr);
 			}
 		}
 	}
@@ -698,7 +711,7 @@ void ByteView::paintEvent(QPaintEvent* event)
 
 void ByteView::wheelEvent(QWheelEvent* event)
 {
-	if (event->angleDelta().x()) // ignore horizontal scrolling
+	if (event->angleDelta().x())  // ignore horizontal scrolling
 		return;
 
 	m_wheelDelta -= event->angleDelta().y();
@@ -757,13 +770,15 @@ void ByteView::scrollBarAction(int action)
 	case QAbstractSlider::SliderToMinimum:
 		m_wheelDelta = 0;
 		setTopToAddress(getStart());
-		verticalScrollBar()->setValue((int)(getContiguousOffsetForAddress(m_topAddr) / m_scrollBarMultiplier));
+		verticalScrollBar()->setValue(
+		    (int)(getContiguousOffsetForAddress(m_topAddr) / m_scrollBarMultiplier));
 		refreshLines();
 		break;
 	case QAbstractSlider::SliderToMaximum:
 		m_wheelDelta = 0;
 		setTopToAddress(getEnd());
-		verticalScrollBar()->setValue((int)(getContiguousOffsetForAddress(m_topAddr) / m_scrollBarMultiplier));
+		verticalScrollBar()->setValue(
+		    (int)(getContiguousOffsetForAddress(m_topAddr) / m_scrollBarMultiplier));
 		refreshLines();
 		break;
 	default:
@@ -795,7 +810,7 @@ void ByteView::focusOutEvent(QFocusEvent*)
 
 void ByteView::selectNone()
 {
-	for (auto& i: m_lines)
+	for (auto& i : m_lines)
 	{
 		if ((m_cursorAddr >= i.address) && (m_cursorAddr < (i.address + i.length)) && i.separator)
 		{
@@ -823,7 +838,7 @@ void ByteView::selectAll()
 void ByteView::adjustAddressAfterBackwardMovement()
 {
 	uint64_t lastAddr = getStart();
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if ((m_cursorAddr >= i.start) && (m_cursorAddr < i.end))
 			break;
@@ -839,7 +854,7 @@ void ByteView::adjustAddressAfterBackwardMovement()
 
 void ByteView::adjustAddressAfterForwardMovement()
 {
-	for (auto& i: m_ranges)
+	for (auto& i : m_ranges)
 	{
 		if ((m_cursorAddr >= i.start) && (m_cursorAddr < i.end))
 			break;
@@ -898,8 +913,9 @@ void ByteView::pageUp(bool selecting)
 {
 	for (size_t i = 0; i < m_lines.size(); i++)
 	{
-		if (((m_cursorAddr >= m_lines[i].address) && (m_cursorAddr < (m_lines[i].address + m_lines[i].length))) ||
-			(((i + 1) == m_lines.size()) && (m_cursorAddr == (m_lines[i].address + m_lines[i].length))))
+		if (((m_cursorAddr >= m_lines[i].address) &&
+		        (m_cursorAddr < (m_lines[i].address + m_lines[i].length))) ||
+		    (((i + 1) == m_lines.size()) && (m_cursorAddr == (m_lines[i].address + m_lines[i].length))))
 		{
 			if (i < m_visibleRows)
 			{
@@ -911,7 +927,8 @@ void ByteView::pageUp(bool selecting)
 				m_cursorAddr = m_lines[i - m_visibleRows].address + lineOfs;
 				if (m_cursorAddr < m_lines[i - m_visibleRows].address)
 					m_cursorAddr = m_lines[i - m_visibleRows].address;
-				else if (m_cursorAddr >= (m_lines[i - m_visibleRows].address + m_lines[i - m_visibleRows].length))
+				else if (m_cursorAddr >=
+				         (m_lines[i - m_visibleRows].address + m_lines[i - m_visibleRows].length))
 					m_cursorAddr = m_lines[i - m_visibleRows].address + m_lines[i - m_visibleRows].length - 1;
 				break;
 			}
@@ -926,7 +943,8 @@ void ByteView::pageUp(bool selecting)
 	{
 		m_updatingScrollBar = true;
 		uint64_t addr = m_lines[m_topLine].address;
-		verticalScrollBar()->setValue((int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
+		verticalScrollBar()->setValue(
+		    (int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
 		m_updatingScrollBar = false;
 	}
 	if (!selecting)
@@ -940,8 +958,9 @@ void ByteView::pageDown(bool selecting)
 {
 	for (size_t i = 0; i < m_lines.size(); i++)
 	{
-		if (((m_cursorAddr >= m_lines[i].address) && (m_cursorAddr < (m_lines[i].address + m_lines[i].length))) ||
-			(((i + 1) == m_lines.size()) && (m_cursorAddr == (m_lines[i].address + m_lines[i].length))))
+		if (((m_cursorAddr >= m_lines[i].address) &&
+		        (m_cursorAddr < (m_lines[i].address + m_lines[i].length))) ||
+		    (((i + 1) == m_lines.size()) && (m_cursorAddr == (m_lines[i].address + m_lines[i].length))))
 		{
 			if (i >= (m_lines.size() - m_visibleRows))
 			{
@@ -953,7 +972,8 @@ void ByteView::pageDown(bool selecting)
 				m_cursorAddr = m_lines[i + m_visibleRows].address + lineOfs;
 				if (m_cursorAddr < m_lines[i + m_visibleRows].address)
 					m_cursorAddr = m_lines[i + m_visibleRows].address;
-				else if (m_cursorAddr >= (m_lines[i + m_visibleRows].address + m_lines[i + m_visibleRows].length))
+				else if (m_cursorAddr >=
+				         (m_lines[i + m_visibleRows].address + m_lines[i + m_visibleRows].length))
 					m_cursorAddr = m_lines[i + m_visibleRows].address + m_lines[i + m_visibleRows].length - 1;
 				break;
 			}
@@ -968,7 +988,8 @@ void ByteView::pageDown(bool selecting)
 	{
 		m_updatingScrollBar = true;
 		uint64_t addr = m_lines[m_topLine].address;
-		verticalScrollBar()->setValue((int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
+		verticalScrollBar()->setValue(
+		    (int)(getContiguousOffsetForAddress(addr) / m_scrollBarMultiplier));
 		m_updatingScrollBar = false;
 	}
 	if (!selecting)
@@ -980,7 +1001,7 @@ void ByteView::pageDown(bool selecting)
 
 void ByteView::moveToStartOfLine(bool selecting)
 {
-	for (auto& i: m_lines)
+	for (auto& i : m_lines)
 	{
 		if ((m_cursorAddr >= i.address) && (m_cursorAddr < (i.address + i.length)))
 		{
@@ -998,7 +1019,7 @@ void ByteView::moveToStartOfLine(bool selecting)
 
 void ByteView::moveToEndOfLine(bool selecting)
 {
-	for (auto& i: m_lines)
+	for (auto& i : m_lines)
 	{
 		if ((m_cursorAddr >= i.address) && (m_cursorAddr < (i.address + i.length)))
 		{
@@ -1093,9 +1114,7 @@ void ByteView::mouseMoveEvent(QMouseEvent* event)
 }
 
 
-ByteViewType::ByteViewType(): ViewType("Bytes", "Byte Overview")
-{
-}
+ByteViewType::ByteViewType() : ViewType("Bytes", "Byte Overview") {}
 
 
 int ByteViewType::getPriority(BinaryViewRef, const QString&)

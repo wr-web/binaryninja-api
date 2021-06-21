@@ -1,19 +1,19 @@
 #pragma once
 
-#include <QtWidgets/QWidget>
-#include <QtWidgets/QTextBrowser>
 #include <QtWidgets/QScrollArea>
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-#include <QtWebEngineWidgets/QWebEngineView>
-#include <QtWebEngineWidgets/QWebEngineScript>
-#include <QtWebEngineWidgets/QWebEngineScriptCollection>
-#include <QtWebEngineWidgets/QWebEnginePage>
-#include <QtWebEngineWidgets/QWebEngineSettings>
-#else
 #include <QtWidgets/QTextBrowser>
+#include <QtWidgets/QWidget>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+	#include <QtWebEngineWidgets/QWebEnginePage>
+	#include <QtWebEngineWidgets/QWebEngineScript>
+	#include <QtWebEngineWidgets/QWebEngineScriptCollection>
+	#include <QtWebEngineWidgets/QWebEngineSettings>
+	#include <QtWebEngineWidgets/QWebEngineView>
+#else
+	#include <QtWidgets/QTextBrowser>
 #endif
-#include "binaryninjaapi.h"
 #include "action.h"
+#include "binaryninjaapi.h"
 #include "theme.h"
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -21,18 +21,19 @@ class WebPage2 : public QWebEnginePage
 {
 	Q_OBJECT
 
-public:
-	WebPage2(QObject *parent = nullptr) : QWebEnginePage(parent) {}
+ public:
+	WebPage2(QObject* parent = nullptr) : QWebEnginePage(parent) {}
 
-protected:
-	virtual bool acceptNavigationRequest(const QUrl &url, QWebEnginePage::NavigationType type, bool isMainFrame);
+ protected:
+	virtual bool acceptNavigationRequest(
+	    const QUrl& url, QWebEnginePage::NavigationType type, bool isMainFrame);
 
-Q_SIGNALS:
+ Q_SIGNALS:
 	void linkClicked(const QUrl&);
 };
 #endif
 
-class BINARYNINJAUIAPI ReportWidget: public QScrollArea, public UIActionHandler
+class BINARYNINJAUIAPI ReportWidget : public QScrollArea, public UIActionHandler
 {
 	Q_OBJECT
 
@@ -47,12 +48,12 @@ class BINARYNINJAUIAPI ReportWidget: public QScrollArea, public UIActionHandler
 	BNReportType m_type;
 	std::string m_plaintext;
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void onLinkClicked(QUrl url);
 
-public:
-	ReportWidget(QWidget* parent, BinaryViewRef view, const std::string& contents,
-		BNReportType type, const std::string& title, const std::string& plaintext = "");
+ public:
+	ReportWidget(QWidget* parent, BinaryViewRef view, const std::string& contents, BNReportType type,
+	    const std::string& title, const std::string& plaintext = "");
 	std::string getContents() const { return m_original; }
 	std::string getTitle() const { return m_title; }
 	BNReportType getType() const { return m_type; }

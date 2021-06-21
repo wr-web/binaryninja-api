@@ -1,11 +1,11 @@
 #pragma once
 
-#include <QtWidgets/QDialog>
-#include <QtWidgets/QComboBox>
 #include "binaryninjaapi.h"
 #include "uicontext.h"
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QDialog>
 
-class BINARYNINJAUIAPI PlatformDialog: public QDialog
+class BINARYNINJAUIAPI PlatformDialog : public QDialog
 {
 	Q_OBJECT
 
@@ -16,13 +16,13 @@ class BINARYNINJAUIAPI PlatformDialog: public QDialog
 	std::map<QString, PlatformRef> m_platformsByName;
 	PlatformRef m_selectedPlatform;
 
-public:
+ public:
 	PlatformDialog(QWidget* parent, ArchitectureRef defaultArch = nullptr);
 
 	PlatformRef getPlatform();
 	void saveDefaults();
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void architectureChanged(const QString& name);
 	void osChanged(const QString& name);
 

@@ -201,7 +201,8 @@ uint32_t* CallingConvention::GetImplicitlyDefinedRegistersCallback(void* ctxt, s
 }
 
 
-void CallingConvention::GetIncomingRegisterValueCallback(void* ctxt, uint32_t reg, BNFunction* func, BNRegisterValue* result)
+void CallingConvention::GetIncomingRegisterValueCallback(
+    void* ctxt, uint32_t reg, BNFunction* func, BNRegisterValue* result)
 {
 	CallingConvention* cc = (CallingConvention*)ctxt;
 	Ref<Function> funcObj;
@@ -211,7 +212,8 @@ void CallingConvention::GetIncomingRegisterValueCallback(void* ctxt, uint32_t re
 }
 
 
-void CallingConvention::GetIncomingFlagValueCallback(void* ctxt, uint32_t reg, BNFunction* func, BNRegisterValue* result)
+void CallingConvention::GetIncomingFlagValueCallback(
+    void* ctxt, uint32_t reg, BNFunction* func, BNRegisterValue* result)
 {
 	CallingConvention* cc = (CallingConvention*)ctxt;
 	Ref<Function> funcObj;
@@ -221,8 +223,8 @@ void CallingConvention::GetIncomingFlagValueCallback(void* ctxt, uint32_t reg, B
 }
 
 
-void CallingConvention::GetIncomingVariableForParameterVariableCallback(void* ctxt, const BNVariable* var,
-	BNFunction* func, BNVariable* result)
+void CallingConvention::GetIncomingVariableForParameterVariableCallback(
+    void* ctxt, const BNVariable* var, BNFunction* func, BNVariable* result)
 {
 	CallingConvention* cc = (CallingConvention*)ctxt;
 	Ref<Function> funcObj;
@@ -232,8 +234,8 @@ void CallingConvention::GetIncomingVariableForParameterVariableCallback(void* ct
 }
 
 
-void CallingConvention::GetParameterVariableForIncomingVariableCallback(void* ctxt, const BNVariable* var,
-	BNFunction* func, BNVariable* result)
+void CallingConvention::GetParameterVariableForIncomingVariableCallback(
+    void* ctxt, const BNVariable* var, BNFunction* func, BNVariable* result)
 {
 	CallingConvention* cc = (CallingConvention*)ctxt;
 	Ref<Function> funcObj;
@@ -339,7 +341,8 @@ vector<uint32_t> CallingConvention::GetImplicitlyDefinedRegisters()
 RegisterValue CallingConvention::GetIncomingRegisterValue(uint32_t reg, Function*)
 {
 	uint32_t regStack = GetArchitecture()->GetRegisterStackForRegister(reg);
-	if ((regStack != BN_INVALID_REGISTER) && (reg == GetArchitecture()->GetRegisterStackInfo(regStack).stackTopReg))
+	if ((regStack != BN_INVALID_REGISTER) &&
+	    (reg == GetArchitecture()->GetRegisterStackInfo(regStack).stackTopReg))
 	{
 		RegisterValue value;
 		value.state = ConstantValue;
@@ -368,9 +371,7 @@ Variable CallingConvention::GetParameterVariableForIncomingVariable(const Variab
 }
 
 
-CoreCallingConvention::CoreCallingConvention(BNCallingConvention* cc): CallingConvention(cc)
-{
-}
+CoreCallingConvention::CoreCallingConvention(BNCallingConvention* cc) : CallingConvention(cc) {}
 
 
 vector<uint32_t> CoreCallingConvention::GetCallerSavedRegisters()
@@ -484,23 +485,29 @@ vector<uint32_t> CoreCallingConvention::GetImplicitlyDefinedRegisters()
 
 RegisterValue CoreCallingConvention::GetIncomingRegisterValue(uint32_t reg, Function* func)
 {
-	return RegisterValue::FromAPIObject(BNGetIncomingRegisterValue(m_object, reg, func ? func->GetObject() : nullptr));
+	return RegisterValue::FromAPIObject(
+	    BNGetIncomingRegisterValue(m_object, reg, func ? func->GetObject() : nullptr));
 }
 
 
 RegisterValue CoreCallingConvention::GetIncomingFlagValue(uint32_t flag, Function* func)
 {
-	return RegisterValue::FromAPIObject(BNGetIncomingFlagValue(m_object, flag, func ? func->GetObject() : nullptr));
+	return RegisterValue::FromAPIObject(
+	    BNGetIncomingFlagValue(m_object, flag, func ? func->GetObject() : nullptr));
 }
 
 
-Variable CoreCallingConvention::GetIncomingVariableForParameterVariable(const Variable& var, Function* func)
+Variable CoreCallingConvention::GetIncomingVariableForParameterVariable(
+    const Variable& var, Function* func)
 {
-	return BNGetIncomingVariableForParameterVariable(m_object, &var, func ? func->GetObject() : nullptr);
+	return BNGetIncomingVariableForParameterVariable(
+	    m_object, &var, func ? func->GetObject() : nullptr);
 }
 
 
-Variable CoreCallingConvention::GetParameterVariableForIncomingVariable(const Variable& var, Function* func)
+Variable CoreCallingConvention::GetParameterVariableForIncomingVariable(
+    const Variable& var, Function* func)
 {
-	return BNGetParameterVariableForIncomingVariable(m_object, &var, func ? func->GetObject() : nullptr);
+	return BNGetParameterVariableForIncomingVariable(
+	    m_object, &var, func ? func->GetObject() : nullptr);
 }

@@ -14,7 +14,7 @@ class FlowGraphWidget;
 class Menu;
 class ViewFrame;
 
-class BINARYNINJAUIAPI ReflectionView: public QWidget, public DockContextHandler
+class BINARYNINJAUIAPI ReflectionView : public QWidget, public DockContextHandler
 {
 	Q_OBJECT
 	Q_INTERFACES(DockContextHandler)
@@ -30,7 +30,7 @@ class BINARYNINJAUIAPI ReflectionView: public QWidget, public DockContextHandler
 	BNFunctionGraphType m_lastTgtILViewType = NormalFunctionGraph;
 	bool m_ilSyncOverride = false;
 
-public:
+ public:
 	ReflectionView(ViewFrame* frame, BinaryViewRef data);
 	~ReflectionView();
 
@@ -44,6 +44,6 @@ public:
 	virtual void notifyVisibilityChanged(bool visible) override;
 	virtual bool shouldBeVisible(ViewFrame* frame) override;
 
-protected:
+ protected:
 	virtual void contextMenuEvent(QContextMenuEvent* event) override;
 };

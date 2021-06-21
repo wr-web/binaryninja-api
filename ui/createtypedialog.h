@@ -1,12 +1,12 @@
 #pragma once
 
-#include <QtWidgets/QDialog>
-#include <QtWidgets/QLineEdit>
 #include "binaryninjaapi.h"
 #include "dialogtextedit.h"
 #include "uicontext.h"
+#include <QtWidgets/QDialog>
+#include <QtWidgets/QLineEdit>
 
-class BINARYNINJAUIAPI CreateTypeDialog: public QDialog
+class BINARYNINJAUIAPI CreateTypeDialog : public QDialog
 {
 	Q_OBJECT
 
@@ -16,15 +16,15 @@ class BINARYNINJAUIAPI CreateTypeDialog: public QDialog
 	std::map<BinaryNinja::QualifiedName, TypeRef> m_results;
 	std::set<BinaryNinja::QualifiedName> m_typesAllowRedefinition;
 
-public:
+ public:
 	CreateTypeDialog(QWidget* parent, BinaryViewRef data, const QString& title,
-		const QString& definition, const std::set<BinaryNinja::QualifiedName>& typesAllowRedefinition = {});
-	std::map<BinaryNinja::QualifiedName, TypeRef>  getResults() { return m_results; }
+	    const QString& definition,
+	    const std::set<BinaryNinja::QualifiedName>& typesAllowRedefinition = {});
+	std::map<BinaryNinja::QualifiedName, TypeRef> getResults() { return m_results; }
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void createType();
 
-protected:
+ protected:
 	virtual void showEvent(QShowEvent* e) override;
-
 };

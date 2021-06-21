@@ -1,6 +1,6 @@
+#include "binaryninjaapi.h"
 #include <stdlib.h>
 #include <string.h>
-#include "binaryninjaapi.h"
 
 using namespace std;
 using namespace BinaryNinja;
@@ -55,7 +55,8 @@ FormInputField FormInputField::Integer(const string& prompt)
 }
 
 
-FormInputField FormInputField::Address(const std::string& prompt, BinaryView* view, uint64_t currentAddress)
+FormInputField FormInputField::Address(
+    const std::string& prompt, BinaryView* view, uint64_t currentAddress)
 {
 	FormInputField result;
 	result.type = AddressFormField;
@@ -89,7 +90,8 @@ FormInputField FormInputField::OpenFileName(const string& prompt, const string& 
 }
 
 
-FormInputField FormInputField::SaveFileName(const string& prompt, const string& ext, const string& defaultName)
+FormInputField FormInputField::SaveFileName(
+    const string& prompt, const string& ext, const string& defaultName)
 {
 	FormInputField result;
 	result.type = SaveFileNameFormField;
@@ -112,8 +114,8 @@ FormInputField FormInputField::DirectoryName(const string& prompt, const string&
 }
 
 
-void InteractionHandler::ShowMarkdownReport(Ref<BinaryView> view, const string& title, const string& contents,
-	const string& plainText)
+void InteractionHandler::ShowMarkdownReport(
+    Ref<BinaryView> view, const string& title, const string& contents, const string& plainText)
 {
 	(void)contents;
 	if (plainText.size() != 0)
@@ -121,22 +123,18 @@ void InteractionHandler::ShowMarkdownReport(Ref<BinaryView> view, const string& 
 }
 
 
-void InteractionHandler::ShowHTMLReport(Ref<BinaryView> view, const string& title, const string&,
-	const string& plainText)
+void InteractionHandler::ShowHTMLReport(
+    Ref<BinaryView> view, const string& title, const string&, const string& plainText)
 {
 	if (plainText.size() != 0)
 		ShowPlainTextReport(view, title, plainText);
 }
 
 
-void InteractionHandler::ShowGraphReport(Ref<BinaryView>, const std::string&, Ref<FlowGraph>)
-{
-}
+void InteractionHandler::ShowGraphReport(Ref<BinaryView>, const std::string&, Ref<FlowGraph>) {}
 
 
-void InteractionHandler::ShowReportCollection(const string&, Ref<ReportCollection>)
-{
-}
+void InteractionHandler::ShowReportCollection(const string&, Ref<ReportCollection>) {}
 
 
 bool InteractionHandler::GetIntegerInput(int64_t& result, const string& prompt, const string& title)
@@ -164,8 +162,8 @@ bool InteractionHandler::GetIntegerInput(int64_t& result, const string& prompt, 
 }
 
 
-bool InteractionHandler::GetAddressInput(uint64_t& result, const string& prompt, const string& title,
-	Ref<BinaryView>, uint64_t)
+bool InteractionHandler::GetAddressInput(
+    uint64_t& result, const string& prompt, const string& title, Ref<BinaryView>, uint64_t)
 {
 	int64_t value;
 	if (!GetIntegerInput(value, prompt, title))
@@ -181,7 +179,8 @@ bool InteractionHandler::GetOpenFileNameInput(string& result, const string& prom
 }
 
 
-bool InteractionHandler::GetSaveFileNameInput(string& result, const string& prompt, const string&, const string&)
+bool InteractionHandler::GetSaveFileNameInput(
+    string& result, const string& prompt, const string&, const string&)
 {
 	return GetTextLineInput(result, prompt, "Save File");
 }
@@ -193,45 +192,52 @@ bool InteractionHandler::GetDirectoryNameInput(string& result, const string& pro
 }
 
 
-static void ShowPlainTextReportCallback(void* ctxt, BNBinaryView* view, const char* title, const char* contents)
+static void ShowPlainTextReportCallback(
+    void* ctxt, BNBinaryView* view, const char* title, const char* contents)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
-	handler->ShowPlainTextReport(view ? new BinaryView(BNNewViewReference(view)) : nullptr, title, contents);
+	handler->ShowPlainTextReport(
+	    view ? new BinaryView(BNNewViewReference(view)) : nullptr, title, contents);
 }
 
 
-static void ShowMarkdownReportCallback(void* ctxt, BNBinaryView* view, const char* title, const char* contents,
-	const char* plaintext)
+static void ShowMarkdownReportCallback(
+    void* ctxt, BNBinaryView* view, const char* title, const char* contents, const char* plaintext)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
-	handler->ShowMarkdownReport(view ? new BinaryView(BNNewViewReference(view)) : nullptr, title, contents, plaintext);
+	handler->ShowMarkdownReport(
+	    view ? new BinaryView(BNNewViewReference(view)) : nullptr, title, contents, plaintext);
 }
 
 
-static void ShowHTMLReportCallback(void* ctxt, BNBinaryView* view, const char* title, const char* contents,
-	const char* plaintext)
+static void ShowHTMLReportCallback(
+    void* ctxt, BNBinaryView* view, const char* title, const char* contents, const char* plaintext)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
-	handler->ShowHTMLReport(view ? new BinaryView(BNNewViewReference(view)) : nullptr, title, contents, plaintext);
+	handler->ShowHTMLReport(
+	    view ? new BinaryView(BNNewViewReference(view)) : nullptr, title, contents, plaintext);
 }
 
 
-static void ShowGraphReportCallback(void* ctxt, BNBinaryView* view, const char* title, BNFlowGraph* graph)
+static void ShowGraphReportCallback(
+    void* ctxt, BNBinaryView* view, const char* title, BNFlowGraph* graph)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 	handler->ShowGraphReport(view ? new BinaryView(BNNewViewReference(view)) : nullptr, title,
-		new CoreFlowGraph(BNNewFlowGraphReference(graph)));
+	    new CoreFlowGraph(BNNewFlowGraphReference(graph)));
 }
 
 
 static void ShowReportCollectionCallback(void* ctxt, const char* title, BNReportCollection* reports)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
-	handler->ShowReportCollection(title, new ReportCollection(BNNewReportCollectionReference(reports)));
+	handler->ShowReportCollection(
+	    title, new ReportCollection(BNNewReportCollectionReference(reports)));
 }
 
 
-static bool GetTextLineInputCallback(void* ctxt, char** result, const char* prompt, const char* title)
+static bool GetTextLineInputCallback(
+    void* ctxt, char** result, const char* prompt, const char* title)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 	string value;
@@ -242,24 +248,25 @@ static bool GetTextLineInputCallback(void* ctxt, char** result, const char* prom
 }
 
 
-static bool GetIntegerInputCallback(void* ctxt, int64_t* result, const char* prompt, const char* title)
+static bool GetIntegerInputCallback(
+    void* ctxt, int64_t* result, const char* prompt, const char* title)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 	return handler->GetIntegerInput(*result, prompt, title);
 }
 
 
-static bool GetAddressInputCallback(void* ctxt, uint64_t* result, const char* prompt, const char* title,
-	BNBinaryView* view, uint64_t currentAddr)
+static bool GetAddressInputCallback(void* ctxt, uint64_t* result, const char* prompt,
+    const char* title, BNBinaryView* view, uint64_t currentAddr)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
-	return handler->GetAddressInput(*result, prompt, title, view ? new BinaryView(BNNewViewReference(view)) : nullptr,
-		currentAddr);
+	return handler->GetAddressInput(*result, prompt, title,
+	    view ? new BinaryView(BNNewViewReference(view)) : nullptr, currentAddr);
 }
 
 
-static bool GetChoiceInputCallback(void* ctxt, size_t* result, const char* prompt, const char* title,
-	const char** choices, size_t count)
+static bool GetChoiceInputCallback(void* ctxt, size_t* result, const char* prompt,
+    const char* title, const char** choices, size_t count)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 	vector<string> choiceStrs;
@@ -269,7 +276,8 @@ static bool GetChoiceInputCallback(void* ctxt, size_t* result, const char* promp
 }
 
 
-static bool GetOpenFileNameInputCallback(void* ctxt, char** result, const char* prompt, const char* ext)
+static bool GetOpenFileNameInputCallback(
+    void* ctxt, char** result, const char* prompt, const char* ext)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 	string value;
@@ -280,8 +288,8 @@ static bool GetOpenFileNameInputCallback(void* ctxt, char** result, const char* 
 }
 
 
-static bool GetSaveFileNameInputCallback(void* ctxt, char** result, const char* prompt, const char* ext,
-	const char* defaultName)
+static bool GetSaveFileNameInputCallback(
+    void* ctxt, char** result, const char* prompt, const char* ext, const char* defaultName)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 	string value;
@@ -292,7 +300,8 @@ static bool GetSaveFileNameInputCallback(void* ctxt, char** result, const char* 
 }
 
 
-static bool GetDirectoryNameInputCallback(void* ctxt, char** result, const char* prompt, const char* defaultName)
+static bool GetDirectoryNameInputCallback(
+    void* ctxt, char** result, const char* prompt, const char* defaultName)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 	string value;
@@ -303,7 +312,8 @@ static bool GetDirectoryNameInputCallback(void* ctxt, char** result, const char*
 }
 
 
-static bool GetFormInputCallback(void* ctxt, BNFormInputField* fieldBuf, size_t count, const char* title)
+static bool GetFormInputCallback(
+    void* ctxt, BNFormInputField* fieldBuf, size_t count, const char* title)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 
@@ -327,8 +337,9 @@ static bool GetFormInputCallback(void* ctxt, BNFormInputField* fieldBuf, size_t 
 			fields.push_back(FormInputField::Integer(fieldBuf[i].prompt));
 			break;
 		case AddressFormField:
-			fields.push_back(FormInputField::Address(fieldBuf[i].prompt, fieldBuf[i].view ?
-				new BinaryView(BNNewViewReference(fieldBuf[i].view)) : nullptr, fieldBuf[i].currentAddress));
+			fields.push_back(FormInputField::Address(fieldBuf[i].prompt,
+			    fieldBuf[i].view ? new BinaryView(BNNewViewReference(fieldBuf[i].view)) : nullptr,
+			    fieldBuf[i].currentAddress));
 			break;
 		case ChoiceFormField:
 			for (size_t j = 0; j < fieldBuf[i].count; j++)
@@ -339,7 +350,8 @@ static bool GetFormInputCallback(void* ctxt, BNFormInputField* fieldBuf, size_t 
 			fields.push_back(FormInputField::OpenFileName(fieldBuf[i].prompt, fieldBuf[i].ext));
 			break;
 		case SaveFileNameFormField:
-			fields.push_back(FormInputField::SaveFileName(fieldBuf[i].prompt, fieldBuf[i].ext, fieldBuf[i].defaultName));
+			fields.push_back(FormInputField::SaveFileName(
+			    fieldBuf[i].prompt, fieldBuf[i].ext, fieldBuf[i].defaultName));
 			break;
 		case DirectoryNameFormField:
 			fields.push_back(FormInputField::DirectoryName(fieldBuf[i].prompt, fieldBuf[i].defaultName));
@@ -407,8 +419,8 @@ static bool GetFormInputCallback(void* ctxt, BNFormInputField* fieldBuf, size_t 
 }
 
 
-static BNMessageBoxButtonResult ShowMessageBoxCallback(void* ctxt, const char* title, const char* text,
-	BNMessageBoxButtonSet buttons, BNMessageBoxIcon icon)
+static BNMessageBoxButtonResult ShowMessageBoxCallback(void* ctxt, const char* title,
+    const char* text, BNMessageBoxButtonSet buttons, BNMessageBoxIcon icon)
 {
 	InteractionHandler* handler = (InteractionHandler*)ctxt;
 	return handler->ShowMessageBox(title, text, buttons, icon);
@@ -452,13 +464,15 @@ void BinaryNinja::ShowPlainTextReport(const string& title, const string& content
 }
 
 
-void BinaryNinja::ShowMarkdownReport(const string& title, const string& contents, const string& plainText)
+void BinaryNinja::ShowMarkdownReport(
+    const string& title, const string& contents, const string& plainText)
 {
 	BNShowMarkdownReport(nullptr, title.c_str(), contents.c_str(), plainText.c_str());
 }
 
 
-void BinaryNinja::ShowHTMLReport(const string& title, const string& contents, const string& plainText)
+void BinaryNinja::ShowHTMLReport(
+    const string& title, const string& contents, const string& plainText)
 {
 	BNShowHTMLReport(nullptr, title.c_str(), contents.c_str(), plainText.c_str());
 }
@@ -503,8 +517,8 @@ bool BinaryNinja::GetAddressInput(uint64_t& result, const string& prompt, const 
 }
 
 
-bool BinaryNinja::GetChoiceInput(size_t& idx, const string& prompt, const string& title,
-	const vector<string>& choices)
+bool BinaryNinja::GetChoiceInput(
+    size_t& idx, const string& prompt, const string& title, const vector<string>& choices)
 {
 	const char** choiceStrs = new const char*[choices.size()];
 	for (size_t i = 0; i < choices.size(); i++)
@@ -526,8 +540,8 @@ bool BinaryNinja::GetOpenFileNameInput(string& result, const string& prompt, con
 }
 
 
-bool BinaryNinja::GetSaveFileNameInput(string& result, const string& prompt, const string& ext,
-	const string& defaultName)
+bool BinaryNinja::GetSaveFileNameInput(
+    string& result, const string& prompt, const string& ext, const string& defaultName)
 {
 	char* value = nullptr;
 	if (!BNGetSaveFileNameInput(&value, prompt.c_str(), ext.c_str(), defaultName.c_str()))
@@ -538,7 +552,8 @@ bool BinaryNinja::GetSaveFileNameInput(string& result, const string& prompt, con
 }
 
 
-bool BinaryNinja::GetDirectoryNameInput(string& result, const string& prompt, const string& defaultName)
+bool BinaryNinja::GetDirectoryNameInput(
+    string& result, const string& prompt, const string& defaultName)
 {
 	char* value = nullptr;
 	if (!BNGetDirectoryNameInput(&value, prompt.c_str(), defaultName.c_str()))
@@ -653,8 +668,8 @@ bool BinaryNinja::GetFormInput(vector<FormInputField>& fields, const string& tit
 }
 
 
-BNMessageBoxButtonResult BinaryNinja::ShowMessageBox(const string& title, const string& text,
-	BNMessageBoxButtonSet buttons, BNMessageBoxIcon icon)
+BNMessageBoxButtonResult BinaryNinja::ShowMessageBox(
+    const string& title, const string& text, BNMessageBoxButtonSet buttons, BNMessageBoxIcon icon)
 {
 	return BNShowMessageBox(title.c_str(), text.c_str(), buttons, icon);
 }
@@ -729,29 +744,33 @@ Ref<FlowGraph> ReportCollection::GetFlowGraph(size_t i) const
 }
 
 
-void ReportCollection::AddPlainTextReport(Ref<BinaryView> view, const string& title, const string& contents)
+void ReportCollection::AddPlainTextReport(
+    Ref<BinaryView> view, const string& title, const string& contents)
 {
-	BNAddPlainTextReportToCollection(m_object, view ? view->GetObject() : nullptr, title.c_str(), contents.c_str());
+	BNAddPlainTextReportToCollection(
+	    m_object, view ? view->GetObject() : nullptr, title.c_str(), contents.c_str());
 }
 
 
-void ReportCollection::AddMarkdownReport(Ref<BinaryView> view, const string& title, const string& contents,
-	const string& plainText)
+void ReportCollection::AddMarkdownReport(
+    Ref<BinaryView> view, const string& title, const string& contents, const string& plainText)
 {
-	BNAddMarkdownReportToCollection(m_object, view ? view->GetObject() : nullptr, title.c_str(), contents.c_str(),
-		plainText.c_str());
+	BNAddMarkdownReportToCollection(m_object, view ? view->GetObject() : nullptr, title.c_str(),
+	    contents.c_str(), plainText.c_str());
 }
 
 
-void ReportCollection::AddHTMLReport(Ref<BinaryView> view, const string& title, const string& contents,
-	const string& plainText)
+void ReportCollection::AddHTMLReport(
+    Ref<BinaryView> view, const string& title, const string& contents, const string& plainText)
 {
-	BNAddHTMLReportToCollection(m_object, view ? view->GetObject() : nullptr, title.c_str(), contents.c_str(),
-		plainText.c_str());
+	BNAddHTMLReportToCollection(m_object, view ? view->GetObject() : nullptr, title.c_str(),
+	    contents.c_str(), plainText.c_str());
 }
 
 
-void ReportCollection::AddGraphReport(Ref<BinaryView> view, const string& title, Ref<FlowGraph> graph)
+void ReportCollection::AddGraphReport(
+    Ref<BinaryView> view, const string& title, Ref<FlowGraph> graph)
 {
-	BNAddGraphReportToCollection(m_object, view ? view->GetObject() : nullptr, title.c_str(), graph->GetObject());
+	BNAddGraphReportToCollection(
+	    m_object, view ? view->GetObject() : nullptr, title.c_str(), graph->GetObject());
 }

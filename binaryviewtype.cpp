@@ -71,8 +71,8 @@ BinaryViewType::BinaryViewType(BNBinaryViewType* type)
 }
 
 
-BinaryViewType::BinaryViewType(const string& name, const string& longName):
-	m_nameForRegister(name), m_longNameForRegister(longName)
+BinaryViewType::BinaryViewType(const string& name, const string& longName) :
+    m_nameForRegister(name), m_longNameForRegister(longName)
 {
 	m_object = nullptr;
 }
@@ -88,8 +88,8 @@ void BinaryViewType::Register(BinaryViewType* type)
 	callbacks.getLoadSettingsForData = GetSettingsCallback;
 
 	type->AddRefForRegistration();
-	type->m_object = BNRegisterBinaryViewType(type->m_nameForRegister.c_str(),
-	                                          type->m_longNameForRegister.c_str(), &callbacks);
+	type->m_object = BNRegisterBinaryViewType(
+	    type->m_nameForRegister.c_str(), type->m_longNameForRegister.c_str(), &callbacks);
 }
 
 
@@ -134,7 +134,8 @@ vector<Ref<BinaryViewType>> BinaryViewType::GetViewTypesForData(BinaryView* data
 }
 
 
-void BinaryViewType::RegisterArchitecture(const string& name, uint32_t id, BNEndianness endian, Architecture* arch)
+void BinaryViewType::RegisterArchitecture(
+    const string& name, uint32_t id, BNEndianness endian, Architecture* arch)
 {
 	Ref<BinaryViewType> type = BinaryViewType::GetByName(name);
 	if (!type)
@@ -158,7 +159,8 @@ Ref<Architecture> BinaryViewType::GetArchitecture(uint32_t id, BNEndianness endi
 }
 
 
-void BinaryViewType::RegisterPlatform(const string& name, uint32_t id, Architecture* arch, Platform* platform)
+void BinaryViewType::RegisterPlatform(
+    const string& name, uint32_t id, Architecture* arch, Platform* platform)
 {
 	Ref<BinaryViewType> type = BinaryViewType::GetByName(name);
 	if (!type)
@@ -167,7 +169,8 @@ void BinaryViewType::RegisterPlatform(const string& name, uint32_t id, Architect
 }
 
 
-void BinaryViewType::RegisterDefaultPlatform(const string& name, Architecture* arch, Platform* platform)
+void BinaryViewType::RegisterDefaultPlatform(
+    const string& name, Architecture* arch, Platform* platform)
 {
 	Ref<BinaryViewType> type = BinaryViewType::GetByName(name);
 	if (!type)
@@ -220,7 +223,8 @@ bool BinaryViewType::IsDeprecated()
 }
 
 
-void BinaryViewType::RegisterBinaryViewFinalizationEvent(const function<void(BinaryView* view)>& callback)
+void BinaryViewType::RegisterBinaryViewFinalizationEvent(
+    const function<void(BinaryView* view)>& callback)
 {
 	BinaryViewEvent* event = new BinaryViewEvent;
 	event->action = callback;
@@ -228,11 +232,13 @@ void BinaryViewType::RegisterBinaryViewFinalizationEvent(const function<void(Bin
 }
 
 
-void BinaryViewType::RegisterBinaryViewInitialAnalysisCompletionEvent(const function<void(BinaryView* view)>& callback)
+void BinaryViewType::RegisterBinaryViewInitialAnalysisCompletionEvent(
+    const function<void(BinaryView* view)>& callback)
 {
 	BinaryViewEvent* event = new BinaryViewEvent;
 	event->action = callback;
-	BNRegisterBinaryViewEvent(BinaryViewInitialAnalysisCompletionEvent, BinaryViewEventCallback, event);
+	BNRegisterBinaryViewEvent(
+	    BinaryViewInitialAnalysisCompletionEvent, BinaryViewEventCallback, event);
 }
 
 
@@ -244,9 +250,7 @@ void BinaryViewType::BinaryViewEventCallback(void* ctxt, BNBinaryView* view)
 }
 
 
-CoreBinaryViewType::CoreBinaryViewType(BNBinaryViewType* type): BinaryViewType(type)
-{
-}
+CoreBinaryViewType::CoreBinaryViewType(BNBinaryViewType* type) : BinaryViewType(type) {}
 
 
 BinaryView* CoreBinaryViewType::Create(BinaryView* data)

@@ -18,40 +18,33 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include <stdio.h>
-#include <inttypes.h>
 #include "binaryninjaapi.h"
+#include <inttypes.h>
+#include <stdio.h>
 
 using namespace BinaryNinja;
 using namespace std;
 
 
-class GeneratorArchitecture: public Architecture
+class GeneratorArchitecture : public Architecture
 {
-public:
-	GeneratorArchitecture(): Architecture("generator")
-	{
-	}
+ public:
+	GeneratorArchitecture() : Architecture("generator") {}
 
 	virtual bool GetInstructionInfo(const uint8_t*, uint64_t, size_t, InstructionInfo&) override
 	{
 		return false;
 	}
 
-	virtual bool GetInstructionText(const uint8_t*, uint64_t, size_t&, vector<InstructionTextToken>&) override
+	virtual bool GetInstructionText(
+	    const uint8_t*, uint64_t, size_t&, vector<InstructionTextToken>&) override
 	{
 		return false;
 	}
 
-	virtual BNEndianness GetEndianness() const override
-	{
-		return LittleEndian;
-	}
+	virtual BNEndianness GetEndianness() const override { return LittleEndian; }
 
-	virtual size_t GetAddressSize() const override
-	{
-		return 8;
-	}
+	virtual size_t GetAddressSize() const override { return 8; }
 };
 
 
@@ -117,7 +110,7 @@ void OutputType(FILE* out, Type* type, bool isReturnType = false, bool isCallbac
 			break;
 		}
 		else if ((type->GetChildType()->GetClass() == IntegerTypeClass) &&
-				 (type->GetChildType()->GetWidth() == 1) && (type->GetChildType()->IsSigned()))
+		         (type->GetChildType()->GetWidth() == 1) && (type->GetChildType()->IsSigned()))
 		{
 			if (isReturnType)
 				fprintf(out, "ctypes.POINTER(ctypes.c_byte)");
@@ -172,7 +165,8 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	bool ok = arch->GetStandalonePlatform()->ParseTypesFromSourceFile(argv[1], types, vars, funcs, errors);
+	bool ok =
+	    arch->GetStandalonePlatform()->ParseTypesFromSourceFile(argv[1], types, vars, funcs, errors);
 	fprintf(stderr, "Errors: %s\n", errors.c_str());
 	if (!ok)
 		return 1;
@@ -190,12 +184,15 @@ int main(int argc, char* argv[])
 	fprintf(out, "_base_path = None\n");
 	fprintf(out, "core_platform = platform.system()\n");
 	fprintf(out, "if core_platform == \"Darwin\":\n");
-	fprintf(out, "\t_base_path = os.path.join(os.path.dirname(__file__), \"..\", \"..\", \"..\", \"MacOS\")\n");
+	fprintf(out,
+	    "\t_base_path = os.path.join(os.path.dirname(__file__), \"..\", \"..\", \"..\", "
+	    "\"MacOS\")\n");
 	fprintf(out, "\tcore = ctypes.CDLL(os.path.join(_base_path, \"libbinaryninjacore.dylib\"))\n\n");
 	fprintf(out, "elif core_platform == \"Linux\":\n");
 	fprintf(out, "\t_base_path = os.path.join(os.path.dirname(__file__), \"..\", \"..\")\n");
 	fprintf(out, "\tcore = ctypes.CDLL(os.path.join(_base_path, \"libbinaryninjacore.so.1\"))\n\n");
-	fprintf(out, "elif (core_platform == \"Windows\") or (core_platform.find(\"CYGWIN_NT\") == 0):\n");
+	fprintf(
+	    out, "elif (core_platform == \"Windows\") or (core_platform.find(\"CYGWIN_NT\") == 0):\n");
 	fprintf(out, "\t_base_path = os.path.join(os.path.dirname(__file__), \"..\", \"..\")\n");
 	fprintf(out, "\tcore = ctypes.CDLL(os.path.join(_base_path, \"binaryninjacore.dll\"))\n");
 	fprintf(out, "else:\n");
@@ -220,13 +217,14 @@ int main(int argc, char* argv[])
 			for (auto& arg : i.second->GetStructure()->GetMembers())
 			{
 				if ((arg.type->GetClass() == PointerTypeClass) &&
-					(arg.type->GetChildType()->GetWidth() == 1) &&
-					(arg.type->GetChildType()->IsSigned()))
-					{
-						fprintf(out, "\t@property\n\tdef %s(self):\n\t\treturn pyNativeStr(self._%s)\n", arg.name.c_str(), arg.name.c_str());
-						fprintf(out, "\t@%s.setter\n\tdef %s(self, value):\n\t\tself._%s = cstr(value)\n", arg.name.c_str(), arg.name.c_str(), arg.name.c_str());
-						stringField = true;
-					}
+				    (arg.type->GetChildType()->GetWidth() == 1) && (arg.type->GetChildType()->IsSigned()))
+				{
+					fprintf(out, "\t@property\n\tdef %s(self):\n\t\treturn pyNativeStr(self._%s)\n",
+					    arg.name.c_str(), arg.name.c_str());
+					fprintf(out, "\t@%s.setter\n\tdef %s(self, value):\n\t\tself._%s = cstr(value)\n",
+					    arg.name.c_str(), arg.name.c_str(), arg.name.c_str());
+					stringField = true;
+				}
 			}
 
 			if (!stringField)
@@ -245,8 +243,9 @@ int main(int argc, char* argv[])
 				fprintf(enums, "\t%s = %" PRId64 "\n", j.name.c_str(), j.value);
 			}
 		}
-		else if ((i.second->GetClass() == BoolTypeClass) || (i.second->GetClass() == IntegerTypeClass) ||
-				 (i.second->GetClass() == FloatTypeClass) || (i.second->GetClass() == ArrayTypeClass))
+		else if ((i.second->GetClass() == BoolTypeClass) ||
+		         (i.second->GetClass() == IntegerTypeClass) ||
+		         (i.second->GetClass() == FloatTypeClass) || (i.second->GetClass() == ArrayTypeClass))
 		{
 			fprintf(out, "%s = ", name.c_str());
 			OutputType(out, i.second);
@@ -272,14 +271,16 @@ int main(int argc, char* argv[])
 				continue;
 			Ref<Type> type = types[i];
 			name = i[0];
-			if ((type->GetClass() == StructureTypeClass) && (type->GetStructure()->GetMembers().size() != 0))
+			if ((type->GetClass() == StructureTypeClass) &&
+			    (type->GetStructure()->GetMembers().size() != 0))
 			{
 				bool requiresDependency = false;
 				for (auto& j : type->GetStructure()->GetMembers())
 				{
 					if ((j.type->GetClass() == NamedTypeReferenceClass) &&
-						(types[j.type->GetNamedTypeReference()->GetName()]->GetClass() == StructureTypeClass) &&
-						(finishedStructs.count(j.type->GetNamedTypeReference()->GetName()) == 0))
+					    (types[j.type->GetNamedTypeReference()->GetName()]->GetClass() ==
+					        StructureTypeClass) &&
+					    (finishedStructs.count(j.type->GetNamedTypeReference()->GetName()) == 0))
 					{
 						// This structure needs another structure that isn't fully defined yet, need to wait
 						// for the dependencies to be defined
@@ -297,11 +298,10 @@ int main(int argc, char* argv[])
 				{
 					// To help the python->C wrappers
 					if ((j.type->GetClass() == PointerTypeClass) &&
-						(j.type->GetChildType()->GetWidth() == 1) &&
-						(j.type->GetChildType()->IsSigned()))
-						{
-							fprintf(out, "\t\t(\"_%s\", ", j.name.c_str());
-						}
+					    (j.type->GetChildType()->GetWidth() == 1) && (j.type->GetChildType()->IsSigned()))
+					{
+						fprintf(out, "\t\t(\"_%s\", ", j.name.c_str());
+					}
 					else
 						fprintf(out, "\t\t(\"%s\", ", j.name.c_str());
 					OutputType(out, j.type);
@@ -333,8 +333,8 @@ int main(int argc, char* argv[])
 		// Check for a string result, these will be automatically wrapped to free the string
 		// memory and return a Python string
 		bool stringResult = (i.second->GetChildType()->GetClass() == PointerTypeClass) &&
-			(i.second->GetChildType()->GetChildType()->GetWidth() == 1) &&
-			(i.second->GetChildType()->GetChildType()->IsSigned());
+		                    (i.second->GetChildType()->GetChildType()->GetWidth() == 1) &&
+		                    (i.second->GetChildType()->GetChildType()->IsSigned());
 		// Pointer returns will be automatically wrapped to return None on null pointer
 		bool pointerResult = (i.second->GetChildType()->GetClass() == PointerTypeClass);
 
@@ -343,13 +343,12 @@ int main(int argc, char* argv[])
 		for (auto& arg : i.second->GetParameters())
 		{
 			if ((arg.type->GetClass() == PointerTypeClass) &&
-				(arg.type->GetChildType()->GetWidth() == 1) &&
-				(arg.type->GetChildType()->IsSigned()) &&
-				(!arg.type->GetChildType()->IsBool()))
-				{
-					stringArgument = true;
-					break;
-				}
+			    (arg.type->GetChildType()->GetWidth() == 1) && (arg.type->GetChildType()->IsSigned()) &&
+			    (!arg.type->GetChildType()->IsBool()))
+			{
+				stringArgument = true;
+				break;
+			}
 		}
 		if (name == "BNFreeString" || name == "BNRustFreeString")
 			stringArgument = false;
@@ -398,7 +397,8 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			// As of writing this, only BNLog's have variable instruction lengths, but in an attempt not to break in the future:
+			// As of writing this, only BNLog's have variable instruction lengths, but in an attempt not
+			// to break in the future:
 			if (funcName.compare(0, 6, "_BNLog") == 0)
 			{
 				if (funcName != "_BNLog")
@@ -428,16 +428,15 @@ int main(int argc, char* argv[])
 				for (auto& arg : i.second->GetParameters())
 				{
 					if ((arg.type->GetClass() == PointerTypeClass) &&
-						(arg.type->GetChildType()->GetWidth() == 1) &&
-						(arg.type->GetChildType()->IsSigned()))
-						{
-							stringArgFuncCall += "cstr(args[" + to_string(argN) + "]), ";
-						}
+					    (arg.type->GetChildType()->GetWidth() == 1) && (arg.type->GetChildType()->IsSigned()))
+					{
+						stringArgFuncCall += "cstr(args[" + to_string(argN) + "]), ";
+					}
 					else
 						stringArgFuncCall += "args[" + to_string(argN) + "], ";
 					argN++;
 				}
-				stringArgFuncCall = stringArgFuncCall.substr(0, stringArgFuncCall.size()-2);
+				stringArgFuncCall = stringArgFuncCall.substr(0, stringArgFuncCall.size() - 2);
 				stringArgFuncCall += ")\n";
 				fprintf(out, "%s", stringArgFuncCall.c_str());
 			}
@@ -462,16 +461,15 @@ int main(int argc, char* argv[])
 				for (auto& arg : i.second->GetParameters())
 				{
 					if ((arg.type->GetClass() == PointerTypeClass) &&
-						(arg.type->GetChildType()->GetWidth() == 1) &&
-						(arg.type->GetChildType()->IsSigned()))
-						{
-							stringArgFuncCall += "cstr(args[" + to_string(argN) + "]), ";
-						}
+					    (arg.type->GetChildType()->GetWidth() == 1) && (arg.type->GetChildType()->IsSigned()))
+					{
+						stringArgFuncCall += "cstr(args[" + to_string(argN) + "]), ";
+					}
 					else
 						stringArgFuncCall += "args[" + to_string(argN) + "], ";
 					argN++;
 				}
-				stringArgFuncCall = stringArgFuncCall.substr(0, stringArgFuncCall.size()-2);
+				stringArgFuncCall = stringArgFuncCall.substr(0, stringArgFuncCall.size() - 2);
 				stringArgFuncCall += ")\n";
 				fprintf(out, "%s", stringArgFuncCall.c_str());
 			}
@@ -491,16 +489,15 @@ int main(int argc, char* argv[])
 				for (auto& arg : i.second->GetParameters())
 				{
 					if ((arg.type->GetClass() == PointerTypeClass) &&
-						(arg.type->GetChildType()->GetWidth() == 1) &&
-						(arg.type->GetChildType()->IsSigned()))
-						{
-							stringArgFuncCall += "cstr(args[" + to_string(argN) + "]), ";
-						}
+					    (arg.type->GetChildType()->GetWidth() == 1) && (arg.type->GetChildType()->IsSigned()))
+					{
+						stringArgFuncCall += "cstr(args[" + to_string(argN) + "]), ";
+					}
 					else
 						stringArgFuncCall += "args[" + to_string(argN) + "], ";
 					argN++;
 				}
-				stringArgFuncCall = stringArgFuncCall.substr(0, stringArgFuncCall.size()-2);
+				stringArgFuncCall = stringArgFuncCall.substr(0, stringArgFuncCall.size() - 2);
 				stringArgFuncCall += ")\n";
 				fprintf(out, "%s", stringArgFuncCall.c_str());
 			}
@@ -510,7 +507,9 @@ int main(int argc, char* argv[])
 
 	fprintf(out, "\n# Helper functions\n");
 	fprintf(out, "def handle_of_type(value, handle_type):\n");
-	fprintf(out, "\tif isinstance(value, ctypes.POINTER(handle_type)) or isinstance(value, ctypes.c_void_p):\n");
+	fprintf(out,
+	    "\tif isinstance(value, ctypes.POINTER(handle_type)) or isinstance(value, "
+	    "ctypes.c_void_p):\n");
 	fprintf(out, "\t\treturn ctypes.cast(value, ctypes.POINTER(handle_type))\n");
 	fprintf(out, "\traise ValueError('expected pointer to %%s' %% str(handle_type))\n");
 

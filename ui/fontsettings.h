@@ -1,8 +1,8 @@
 #pragma once
 
+#include "uicontext.h"
 #include <QtGui/QFont>
 #include <QtWidgets/QWidget>
-#include "uicontext.h"
 
 enum AntialiasingStyle
 {

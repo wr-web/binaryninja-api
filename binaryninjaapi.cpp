@@ -171,8 +171,8 @@ string BinaryNinja::GetPathRelativeToUserDirectory(const string& rel)
 }
 
 
-bool BinaryNinja::ExecuteWorkerProcess(const string& path, const vector<string>& args, const DataBuffer& input,
-                                       string& output, string& errors, bool stdoutIsText, bool stderrIsText)
+bool BinaryNinja::ExecuteWorkerProcess(const string& path, const vector<string>& args,
+    const DataBuffer& input, string& output, string& errors, bool stdoutIsText, bool stderrIsText)
 {
 	const char** argArray = new const char*[args.size() + 1];
 	for (size_t i = 0; i < args.size(); i++)
@@ -181,8 +181,8 @@ bool BinaryNinja::ExecuteWorkerProcess(const string& path, const vector<string>&
 
 	char* outputStr;
 	char* errorStr;
-	bool result = BNExecuteWorkerProcess(path.c_str(), argArray, input.GetBufferObject(), &outputStr, &errorStr,
-                                         stdoutIsText, stderrIsText);
+	bool result = BNExecuteWorkerProcess(path.c_str(), argArray, input.GetBufferObject(), &outputStr,
+	    &errorStr, stdoutIsText, stderrIsText);
 
 	output = outputStr;
 	errors = errorStr;
@@ -300,9 +300,7 @@ void BinaryNinja::WorkerEnqueue(RefCountObject* owner, const function<void()>& a
 	context.owner = owner;
 	context.func = action;
 
-	WorkerEnqueue([=]() {
-			context.func();
-		});
+	WorkerEnqueue([=]() { context.func(); });
 }
 
 
@@ -324,9 +322,7 @@ void BinaryNinja::WorkerPriorityEnqueue(RefCountObject* owner, const function<vo
 	context.owner = owner;
 	context.func = action;
 
-	WorkerPriorityEnqueue([=]() {
-			context.func();
-		});
+	WorkerPriorityEnqueue([=]() { context.func(); });
 }
 
 
@@ -348,9 +344,7 @@ void BinaryNinja::WorkerInteractiveEnqueue(RefCountObject* owner, const function
 	context.owner = owner;
 	context.func = action;
 
-	WorkerInteractiveEnqueue([=]() {
-			context.func();
-		});
+	WorkerInteractiveEnqueue([=]() { context.func(); });
 }
 
 

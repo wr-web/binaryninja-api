@@ -1,24 +1,25 @@
 #pragma once
 
-#include <QtWidgets/QWidget>
-#include <QtWidgets/QAbstractScrollArea>
 #include "binaryninjaapi.h"
-#include "render.h"
-#include "viewframe.h"
-#include "menus.h"
-#include "uicontext.h"
 #include "commentdialog.h"
 #include "instructionedit.h"
+#include "menus.h"
+#include "render.h"
+#include "uicontext.h"
+#include "viewframe.h"
+#include <QtWidgets/QAbstractScrollArea>
+#include <QtWidgets/QWidget>
 
-class BINARYNINJAUIAPI GraphLayoutCompleteEvent: public QEvent
+class BINARYNINJAUIAPI GraphLayoutCompleteEvent : public QEvent
 {
 	FlowGraphRef m_graph;
-public:
+
+ public:
 	GraphLayoutCompleteEvent(QEvent::Type type, const FlowGraphRef& graph);
 	FlowGraphRef GetGraph() { return m_graph; }
 };
 
-class BINARYNINJAUIAPI FlowGraphHistoryEntry: public HistoryEntry
+class BINARYNINJAUIAPI FlowGraphHistoryEntry : public HistoryEntry
 {
 	PlatformRef m_platform;
 	ArchitectureRef m_arch;
@@ -28,7 +29,7 @@ class BINARYNINJAUIAPI FlowGraphHistoryEntry: public HistoryEntry
 	uint64_t m_addr;
 	HighlightTokenState m_highlight;
 
-public:
+ public:
 	PlatformRef getPlatform() const { return m_platform; }
 	ArchitectureRef getArchitecture() const { return m_arch; }
 	uint64_t getFunction() const { return m_func; }
@@ -51,8 +52,11 @@ public:
 	virtual bool deserialize(const Json::Value& value) override;
 };
 
-class BINARYNINJAUIAPI FlowGraphWidget: public QAbstractScrollArea, public View, public PreviewScrollHandler,
-	public BinaryNinja::BinaryDataNotification
+class BINARYNINJAUIAPI FlowGraphWidget :
+    public QAbstractScrollArea,
+    public View,
+    public PreviewScrollHandler,
+    public BinaryNinja::BinaryDataNotification
 {
 	Q_OBJECT
 
@@ -102,7 +106,8 @@ class BINARYNINJAUIAPI FlowGraphWidget: public QAbstractScrollArea, public View,
 
 	FlowGraphNodeRef m_selectedNode, m_selectedEdgeSource;
 	bool m_selectedEdgeIncoming = false;
-	std::map<FlowGraphNodeRef, FlowGraphNodeRef> m_selectedEdgeIncomingPriority, m_selectedEdgeOutgoingPriority;
+	std::map<FlowGraphNodeRef, FlowGraphNodeRef> m_selectedEdgeIncomingPriority,
+	    m_selectedEdgeOutgoingPriority;
 	BinaryNinja::FlowGraphEdge m_selectedEdge;
 	CursorPosition m_cursorPos, m_selectionStartPos;
 	HighlightTokenState m_highlight;
@@ -139,13 +144,15 @@ class BINARYNINJAUIAPI FlowGraphWidget: public QAbstractScrollArea, public View,
 	static std::string getValueStr(int64_t value);
 	static std::string getValueStr(uint64_t value);
 
-	FlowGraphNodeRef findUpdatedNode(FlowGraphRef oldGraph, FlowGraphNodeRef oldNode, CursorPosition& pos);
-	bool updatePositionForNode(FlowGraphNodeRef oldNode, FlowGraphNodeRef newNode, CursorPosition& pos);
+	FlowGraphNodeRef findUpdatedNode(
+	    FlowGraphRef oldGraph, FlowGraphNodeRef oldNode, CursorPosition& pos);
+	bool updatePositionForNode(
+	    FlowGraphNodeRef oldNode, FlowGraphNodeRef newNode, CursorPosition& pos);
 	void recenterUpdatedGraph(FlowGraphRef oldGraph, int oldXOfs, int oldYOfs);
 
 	BNDeadStoreElimination getCurrentVariableDeadStoreElimination();
 
-protected:
+ protected:
 	virtual void paintEvent(QPaintEvent* event) override;
 	virtual void resizeEvent(QResizeEvent* event) override;
 
@@ -167,8 +174,9 @@ protected:
 	void navigateToAddress(uint64_t addr);
 	void navigateToGotoLabel(uint64_t label);
 
-	void setGraphInternal(FlowGraphRef graph, BinaryNinja::Ref<FlowGraphHistoryEntry> entry, bool useAddr, uint64_t addr,
-		bool notify, bool recenterWithPreviousGraph, size_t index = BN_INVALID_EXPR);
+	void setGraphInternal(FlowGraphRef graph, BinaryNinja::Ref<FlowGraphHistoryEntry> entry,
+	    bool useAddr, uint64_t addr, bool notify, bool recenterWithPreviousGraph,
+	    size_t index = BN_INVALID_EXPR);
 
 	void up(bool selecting, size_t count = 1);
 	void down(bool selecting, size_t count = 1);
@@ -188,14 +196,17 @@ protected:
 
 	uint64_t getTokenAddress();
 
-public:
+ public:
 	FlowGraphWidget(QWidget* parent, BinaryViewRef view, FlowGraphRef graph = FlowGraphRef());
 	~FlowGraphWidget();
 
-	virtual void OnAnalysisFunctionUpdated(BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
-	virtual void OnAnalysisFunctionUpdateRequested(BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
+	virtual void OnAnalysisFunctionUpdated(
+	    BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
+	virtual void OnAnalysisFunctionUpdateRequested(
+	    BinaryNinja::BinaryView* data, BinaryNinja::Function* func) override;
 	virtual void OnDataMetadataUpdated(BinaryNinja::BinaryView* data, uint64_t offset) override;
-	virtual void OnTagUpdated(BinaryNinja::BinaryView* data, const BinaryNinja::TagReference& tagRef) override;
+	virtual void OnTagUpdated(
+	    BinaryNinja::BinaryView* data, const BinaryNinja::TagReference& tagRef) override;
 
 	void setInitialGraph(FlowGraphRef graph);
 	void setInitialGraph(FlowGraphRef graph, uint64_t addr);
@@ -218,7 +229,8 @@ public:
 	virtual bool navigateToFunction(FunctionRef func, uint64_t pos) override;
 	virtual bool navigateToViewLocation(const ViewLocation& viewLocation) override;
 	bool navigateWithHistoryEntry(uint64_t addr, BinaryNinja::Ref<FlowGraphHistoryEntry> entry);
-	bool navigateWithHistoryEntry(FunctionRef func, uint64_t addr, BinaryNinja::Ref<FlowGraphHistoryEntry> entry);
+	bool navigateWithHistoryEntry(
+	    FunctionRef func, uint64_t addr, BinaryNinja::Ref<FlowGraphHistoryEntry> entry);
 	void setNavigationTarget(View* target) { m_navigationTarget = target; }
 
 	virtual void clearRelatedHighlights();
@@ -264,7 +276,7 @@ public:
 
 	void paintNode(QPainter& p, FlowGraphNodeRef& node, int minY, int maxY);
 	void paintHighlight(QPainter& p, const std::vector<BinaryNinja::DisassemblyTextLine>& lines,
-		int nodeX, int nodeWidth, int x, int y, size_t line, int tagIndent);
+	    int nodeX, int nodeWidth, int x, int y, size_t line, int tagIndent);
 	void paintEdge(QPainter& p, const FlowGraphNodeRef& node, const BinaryNinja::FlowGraphEdge& edge);
 
 	void showAddress(uint64_t addr, bool select = false);
@@ -288,22 +300,24 @@ public:
 	virtual void onHighlightChanged(const HighlightTokenState& highlight);
 
 	static std::string getPossibleValueSetStateName(BNRegisterValueType state);
-	static std::string getStringForRegisterValue(ArchitectureRef arch, BinaryNinja::RegisterValue value);
-	static std::string getStringForPossibleValueSet(ArchitectureRef arch, const BinaryNinja::PossibleValueSet& values);
+	static std::string getStringForRegisterValue(
+	    ArchitectureRef arch, BinaryNinja::RegisterValue value);
+	static std::string getStringForPossibleValueSet(
+	    ArchitectureRef arch, const BinaryNinja::PossibleValueSet& values);
 
-// protected:
+	// protected:
 	// These APIs are really supposed to be protected but since the bindings need to call them
 	// and they have out parameters (and thus need to be re-implemented) they must be public
 	bool getNodeForMouseEvent(QMouseEvent* event, FlowGraphNodeRef& node);
 	bool getLineForMouseEvent(QMouseEvent* event, CursorPosition& pos);
 	bool getEdgeForMouseEvent(QMouseEvent* event, FlowGraphNodeRef& source,
-		BinaryNinja::FlowGraphEdge& edge, bool& incoming);
+	    BinaryNinja::FlowGraphEdge& edge, bool& incoming);
 
-Q_SIGNALS:
+ Q_SIGNALS:
 	void layoutComplete();
 	void updateMiniGraph();
 
-private Q_SLOTS:
+ private Q_SLOTS:
 	void loadingTimerEvent();
 	void updateTimerEvent();
 	void hoverTimerEvent();

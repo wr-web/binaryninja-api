@@ -1,7 +1,7 @@
-#include <algorithm>
 #include "exports.h"
-#include "view.h"
 #include "fontsettings.h"
+#include "view.h"
+#include <algorithm>
 
 
 GenericExportsModel::GenericExportsModel(BinaryViewRef data)
@@ -12,12 +12,12 @@ GenericExportsModel::GenericExportsModel(BinaryViewRef data)
 	m_totalCols = 2;
 	m_sortCol = 0;
 	m_sortOrder = Qt::AscendingOrder;
-	for (auto& sym: data->GetSymbolsOfType(FunctionSymbol))
+	for (auto& sym : data->GetSymbolsOfType(FunctionSymbol))
 	{
 		if ((sym->GetBinding() == GlobalBinding) || (sym->GetBinding() == WeakBinding))
 			m_allEntries.push_back(sym);
 	}
-	for (auto& sym: data->GetSymbolsOfType(DataSymbol))
+	for (auto& sym : data->GetSymbolsOfType(DataSymbol))
 	{
 		if ((sym->GetBinding() == GlobalBinding) || (sym->GetBinding() == WeakBinding))
 			m_allEntries.push_back(sym);
@@ -148,7 +148,7 @@ void GenericExportsModel::setFilter(const std::string& filterText)
 {
 	beginResetModel();
 	m_entries.clear();
-	for (auto& entry: m_allEntries)
+	for (auto& entry : m_allEntries)
 	{
 		if (FilteredView::match(entry->GetFullName(), filterText))
 			m_entries.push_back(entry);
@@ -158,7 +158,8 @@ void GenericExportsModel::setFilter(const std::string& filterText)
 }
 
 
-ExportsTreeView::ExportsTreeView(ExportsWidget* parent, TriageView* view, BinaryViewRef data): QTreeView(parent)
+ExportsTreeView::ExportsTreeView(ExportsWidget* parent, TriageView* view, BinaryViewRef data) :
+    QTreeView(parent)
 {
 	m_data = data;
 	m_parent = parent;
@@ -179,7 +180,8 @@ ExportsTreeView::ExportsTreeView(ExportsWidget* parent, TriageView* view, Binary
 
 	setFont(getMonospaceFont(this));
 
-	connect(selectionModel(), &QItemSelectionModel::currentChanged, this, &ExportsTreeView::exportSelected);
+	connect(selectionModel(), &QItemSelectionModel::currentChanged, this,
+	    &ExportsTreeView::exportSelected);
 	connect(this, &QTreeView::doubleClicked, this, &ExportsTreeView::exportDoubleClicked);
 }
 
@@ -262,7 +264,8 @@ void ExportsTreeView::keyPressEvent(QKeyEvent* event)
 }
 
 
-ExportsWidget::ExportsWidget(QWidget* parent, TriageView* view, BinaryViewRef data): QWidget(parent)
+ExportsWidget::ExportsWidget(QWidget* parent, TriageView* view, BinaryViewRef data) :
+    QWidget(parent)
 {
 	QVBoxLayout* layout = new QVBoxLayout();
 	layout->setContentsMargins(0, 0, 0, 0);

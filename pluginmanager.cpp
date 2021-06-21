@@ -3,12 +3,14 @@
 using namespace BinaryNinja;
 using namespace std;
 
-#define RETURN_STRING(s) do { \
-	char* contents = (char*)(s); \
-	string result(contents); \
-	BNFreeString(contents); \
-	return result; \
-}while(0)
+#define RETURN_STRING(s) \
+	do \
+	{ \
+		char* contents = (char*)(s); \
+		string result(contents); \
+		BNFreeString(contents); \
+		return result; \
+	} while (0)
 
 RepoPlugin::RepoPlugin(BNRepoPlugin* plugin)
 {
@@ -281,7 +283,8 @@ vector<Ref<RepoPlugin>> Repository::GetPlugins() const
 
 Ref<RepoPlugin> Repository::GetPluginByPath(const string& pluginPath)
 {
-	return new RepoPlugin(BNNewPluginReference(BNRepositoryGetPluginByPath(m_object, pluginPath.c_str())));
+	return new RepoPlugin(
+	    BNNewPluginReference(BNRepositoryGetPluginByPath(m_object, pluginPath.c_str())));
 }
 
 string Repository::GetFullPath() const
@@ -321,17 +324,19 @@ vector<Ref<Repository>> RepositoryManager::GetRepositories()
 }
 
 bool RepositoryManager::AddRepository(const std::string& url,
-	const std::string& repoPath) // Relative path within the repositories directory
+    const std::string& repoPath)  // Relative path within the repositories directory
 {
 	return BNRepositoryManagerAddRepository(m_object, url.c_str(), repoPath.c_str());
 }
 
 Ref<Repository> RepositoryManager::GetRepositoryByPath(const std::string& repoPath)
 {
-	return new Repository(BNNewRepositoryReference(BNRepositoryGetRepositoryByPath(m_object, repoPath.c_str())));
+	return new Repository(
+	    BNNewRepositoryReference(BNRepositoryGetRepositoryByPath(m_object, repoPath.c_str())));
 }
 
 Ref<Repository> RepositoryManager::GetDefaultRepository()
 {
-	return new Repository(BNNewRepositoryReference(BNRepositoryManagerGetDefaultRepository(m_object)));
+	return new Repository(
+	    BNNewRepositoryReference(BNRepositoryManagerGetDefaultRepository(m_object)));
 }

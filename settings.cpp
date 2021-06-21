@@ -73,10 +73,12 @@ vector<string> Settings::Keys()
 }
 
 
-template<> vector<string> Settings::QueryProperty<vector<string>>(const string& key, const string& property)
+template <>
+vector<string> Settings::QueryProperty<vector<string>>(const string& key, const string& property)
 {
 	size_t size = 0;
-	char** outBuffer = (char**)BNSettingsQueryPropertyStringList(m_object, key.c_str(), property.c_str(), &size);
+	char** outBuffer =
+	    (char**)BNSettingsQueryPropertyStringList(m_object, key.c_str(), property.c_str(), &size);
 
 	vector<string> result;
 	result.reserve(size);
@@ -124,19 +126,22 @@ bool Settings::UpdateProperty(const std::string& key, const std::string& propert
 }
 
 
-bool Settings::UpdateProperty(const std::string& key, const std::string& property, const char* value)
+bool Settings::UpdateProperty(
+    const std::string& key, const std::string& property, const char* value)
 {
 	return BNSettingsUpdateStringProperty(m_object, key.c_str(), property.c_str(), value);
 }
 
 
-bool Settings::UpdateProperty(const std::string& key, const std::string& property, const std::string& value)
+bool Settings::UpdateProperty(
+    const std::string& key, const std::string& property, const std::string& value)
 {
 	return BNSettingsUpdateStringProperty(m_object, key.c_str(), property.c_str(), value.c_str());
 }
 
 
-bool Settings::UpdateProperty(const std::string& key, const std::string& property, const std::vector<std::string>& value)
+bool Settings::UpdateProperty(
+    const std::string& key, const std::string& property, const std::vector<std::string>& value)
 {
 	char** buffer = new char*[value.size()];
 	if (!buffer)
@@ -145,7 +150,8 @@ bool Settings::UpdateProperty(const std::string& key, const std::string& propert
 	for (size_t i = 0; i < value.size(); i++)
 		buffer[i] = BNAllocString(value[i].c_str());
 
-	bool result = BNSettingsUpdateStringListProperty(m_object, key.c_str(), property.c_str(), (const char**)buffer, value.size());
+	bool result = BNSettingsUpdateStringListProperty(
+	    m_object, key.c_str(), property.c_str(), (const char**)buffer, value.size());
 	BNFreeStringList(buffer, value.size());
 	return result;
 }
@@ -166,9 +172,11 @@ string Settings::SerializeSchema()
 }
 
 
-bool Settings::DeserializeSettings(const string& contents, Ref<BinaryView> view, BNSettingsScope scope)
+bool Settings::DeserializeSettings(
+    const string& contents, Ref<BinaryView> view, BNSettingsScope scope)
 {
-	return BNDeserializeSettings(m_object, contents.c_str(), view ? view->GetObject() : nullptr, scope);
+	return BNDeserializeSettings(
+	    m_object, contents.c_str(), view ? view->GetObject() : nullptr, scope);
 }
 
 
@@ -193,43 +201,52 @@ bool Settings::ResetAll(Ref<BinaryView> view, BNSettingsScope scope, bool schema
 }
 
 
-template<> bool Settings::Get<bool>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
+template <>
+bool Settings::Get<bool>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
 {
 	return BNSettingsGetBool(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope);
 }
 
 
-template<> double Settings::Get<double>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
+template <>
+double Settings::Get<double>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
 {
 	return BNSettingsGetDouble(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope);
 }
 
 
-template<> int64_t Settings::Get<int64_t>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
+template <>
+int64_t Settings::Get<int64_t>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
 {
 	return BNSettingsGetInt64(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope);
 }
 
 
-template<> uint64_t Settings::Get<uint64_t>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
+template <>
+uint64_t Settings::Get<uint64_t>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
 {
 	return BNSettingsGetUInt64(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope);
 }
 
 
-template<> string Settings::Get<string>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
+template <>
+string Settings::Get<string>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
 {
-	char* tmpStr = BNSettingsGetString(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope);
+	char* tmpStr =
+	    BNSettingsGetString(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope);
 	string result(tmpStr);
 	BNFreeString(tmpStr);
 	return result;
 }
 
 
-template<> vector<string> Settings::Get<vector<string>>(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
+template <>
+vector<string> Settings::Get<vector<string>>(
+    const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
 {
 	size_t size = 0;
-	char** outBuffer = (char**)BNSettingsGetStringList(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope, &size);
+	char** outBuffer = (char**)BNSettingsGetStringList(
+	    m_object, key.c_str(), view ? view->GetObject() : nullptr, scope, &size);
 
 	vector<string> result;
 	result.reserve(size);
@@ -243,7 +260,8 @@ template<> vector<string> Settings::Get<vector<string>>(const string& key, Ref<B
 
 string Settings::GetJson(const string& key, Ref<BinaryView> view, BNSettingsScope* scope)
 {
-	char* tmpStr = BNSettingsGetJson(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope);
+	char* tmpStr =
+	    BNSettingsGetJson(m_object, key.c_str(), view ? view->GetObject() : nullptr, scope);
 	string result(tmpStr);
 	BNFreeString(tmpStr);
 	return result;
@@ -258,41 +276,50 @@ bool Settings::Set(const string& key, bool value, Ref<BinaryView> view, BNSettin
 
 bool Settings::Set(const string& key, double value, Ref<BinaryView> view, BNSettingsScope scope)
 {
-	return BNSettingsSetDouble(m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
+	return BNSettingsSetDouble(
+	    m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
 }
 
 
 bool Settings::Set(const string& key, int value, Ref<BinaryView> view, BNSettingsScope scope)
 {
-	return BNSettingsSetInt64(m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
+	return BNSettingsSetInt64(
+	    m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
 }
 
 
 bool Settings::Set(const string& key, int64_t value, Ref<BinaryView> view, BNSettingsScope scope)
 {
-	return BNSettingsSetInt64(m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
+	return BNSettingsSetInt64(
+	    m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
 }
 
 
 bool Settings::Set(const string& key, uint64_t value, Ref<BinaryView> view, BNSettingsScope scope)
 {
-	return BNSettingsSetUInt64(m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
+	return BNSettingsSetUInt64(
+	    m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
 }
 
 
-bool Settings::Set(const string& key, const char* value, Ref<BinaryView> view, BNSettingsScope scope)
+bool Settings::Set(
+    const string& key, const char* value, Ref<BinaryView> view, BNSettingsScope scope)
 {
-	return BNSettingsSetString(m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
+	return BNSettingsSetString(
+	    m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value);
 }
 
 
-bool Settings::Set(const string& key, const string& value, Ref<BinaryView> view, BNSettingsScope scope)
+bool Settings::Set(
+    const string& key, const string& value, Ref<BinaryView> view, BNSettingsScope scope)
 {
-	return BNSettingsSetString(m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value.c_str());
+	return BNSettingsSetString(
+	    m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value.c_str());
 }
 
 
-bool Settings::Set(const string& key, const vector<string>& value, Ref<BinaryView> view, BNSettingsScope scope)
+bool Settings::Set(
+    const string& key, const vector<string>& value, Ref<BinaryView> view, BNSettingsScope scope)
 {
 	char** buffer = new char*[value.size()];
 	if (!buffer)
@@ -301,13 +328,16 @@ bool Settings::Set(const string& key, const vector<string>& value, Ref<BinaryVie
 	for (size_t i = 0; i < value.size(); i++)
 		buffer[i] = BNAllocString(value[i].c_str());
 
-	bool result = BNSettingsSetStringList(m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), (const char**)buffer, value.size());
+	bool result = BNSettingsSetStringList(m_object, view ? view->GetObject() : nullptr, scope,
+	    key.c_str(), (const char**)buffer, value.size());
 	BNFreeStringList(buffer, value.size());
 	return result;
 }
 
 
-bool Settings::SetJson(const string& key, const string& value, Ref<BinaryView> view, BNSettingsScope scope)
+bool Settings::SetJson(
+    const string& key, const string& value, Ref<BinaryView> view, BNSettingsScope scope)
 {
-	return BNSettingsSetJson(m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value.c_str());
+	return BNSettingsSetJson(
+	    m_object, view ? view->GetObject() : nullptr, scope, key.c_str(), value.c_str());
 }

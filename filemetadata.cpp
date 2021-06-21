@@ -17,8 +17,8 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
-#include <cstring>
 #include "binaryninjaapi.h"
+#include <cstring>
 
 using namespace BinaryNinja;
 using namespace Json;
@@ -165,16 +165,19 @@ bool FileMetadata::IsBackedByDatabase(const string& binaryViewType) const
 
 bool FileMetadata::CreateDatabase(const string& name, BinaryView* data, Ref<SaveSettings> settings)
 {
-	return BNCreateDatabase(data->GetObject(), name.c_str(), settings ? settings->GetObject() : nullptr);
+	return BNCreateDatabase(
+	    data->GetObject(), name.c_str(), settings ? settings->GetObject() : nullptr);
 }
 
 
 bool FileMetadata::CreateDatabase(const string& name, BinaryView* data,
-	const function<void(size_t progress, size_t total)>& progressCallback, Ref<SaveSettings> settings)
+    const function<void(size_t progress, size_t total)>& progressCallback,
+    Ref<SaveSettings> settings)
 {
 	DatabaseProgressCallbackContext cb;
 	cb.func = progressCallback;
-	return BNCreateDatabaseWithProgress(data->GetObject(), name.c_str(), &cb, DatabaseProgressCallback, settings ? settings->GetObject() : nullptr);
+	return BNCreateDatabaseWithProgress(data->GetObject(), name.c_str(), &cb,
+	    DatabaseProgressCallback, settings ? settings->GetObject() : nullptr);
 }
 
 
@@ -187,12 +190,13 @@ Ref<BinaryView> FileMetadata::OpenExistingDatabase(const string& path)
 }
 
 
-Ref<BinaryView> FileMetadata::OpenExistingDatabase(const string& path,
-	const function<void(size_t progress, size_t total)>& progressCallback)
+Ref<BinaryView> FileMetadata::OpenExistingDatabase(
+    const string& path, const function<void(size_t progress, size_t total)>& progressCallback)
 {
 	DatabaseProgressCallbackContext cb;
 	cb.func = progressCallback;
-	BNBinaryView* data = BNOpenExistingDatabaseWithProgress(m_object, path.c_str(), &cb, DatabaseProgressCallback);
+	BNBinaryView* data =
+	    BNOpenExistingDatabaseWithProgress(m_object, path.c_str(), &cb, DatabaseProgressCallback);
 	if (!data)
 		return nullptr;
 	return new BinaryView(data);
@@ -215,11 +219,13 @@ bool FileMetadata::SaveAutoSnapshot(BinaryView* data, Ref<SaveSettings> settings
 
 
 bool FileMetadata::SaveAutoSnapshot(BinaryView* data,
-	const function<void(size_t progress, size_t total)>& progressCallback, Ref<SaveSettings> settings)
+    const function<void(size_t progress, size_t total)>& progressCallback,
+    Ref<SaveSettings> settings)
 {
 	DatabaseProgressCallbackContext cb;
 	cb.func = progressCallback;
-	return BNSaveAutoSnapshotWithProgress(data->GetObject(), &cb, DatabaseProgressCallback, settings ? settings->GetObject() : nullptr);
+	return BNSaveAutoSnapshotWithProgress(
+	    data->GetObject(), &cb, DatabaseProgressCallback, settings ? settings->GetObject() : nullptr);
 }
 
 
@@ -229,7 +235,8 @@ bool FileMetadata::Rebase(BinaryView* data, uint64_t address)
 }
 
 
-bool FileMetadata::Rebase(BinaryView* data, uint64_t address, const function<void(size_t progress, size_t total)>& progressCallback)
+bool FileMetadata::Rebase(BinaryView* data, uint64_t address,
+    const function<void(size_t progress, size_t total)>& progressCallback)
 {
 	DatabaseProgressCallbackContext cb;
 	cb.func = progressCallback;
@@ -237,7 +244,8 @@ bool FileMetadata::Rebase(BinaryView* data, uint64_t address, const function<voi
 }
 
 
-MergeResult FileMetadata::MergeUserAnalysis(const std::string& name, const std::function<void(size_t, size_t)>& progress, std::vector<string> excludedHashes)
+MergeResult FileMetadata::MergeUserAnalysis(const std::string& name,
+    const std::function<void(size_t, size_t)>& progress, std::vector<string> excludedHashes)
 {
 	size_t numHashes = excludedHashes.size();
 	char** tempList = new char*[numHashes];
@@ -249,8 +257,9 @@ MergeResult FileMetadata::MergeUserAnalysis(const std::string& name, const std::
 	DatabaseProgressCallbackContext cb;
 	cb.func = progress;
 
-	BNMergeResult bnResult = BNMergeUserAnalysis(m_object, name.c_str(), &cb, DatabaseProgressCallback, tempList, numHashes);
-	//BNFreeStringList(hashList, numHashes);
+	BNMergeResult bnResult = BNMergeUserAnalysis(
+	    m_object, name.c_str(), &cb, DatabaseProgressCallback, tempList, numHashes);
+	// BNFreeStringList(hashList, numHashes);
 	MergeResult result(bnResult);
 	return result;
 }
@@ -315,7 +324,7 @@ vector<UndoEntry> FileMetadata::GetUndoEntries()
 		result.push_back(temp);
 	}
 
-	//BNFreeUndoEntries(entries, count);
+	// BNFreeUndoEntries(entries, count);
 	return result;
 }
 

@@ -106,7 +106,8 @@ const vector<DisassemblyTextLine>& FlowGraphNode::GetLines()
 		line.addr = lines[i].addr;
 		line.instrIndex = lines[i].instrIndex;
 		line.highlight = lines[i].highlight;
-		line.tokens = InstructionTextToken::ConvertInstructionTextTokenList(lines[i].tokens, lines[i].count);
+		line.tokens =
+		    InstructionTextToken::ConvertInstructionTextTokenList(lines[i].tokens, lines[i].count);
 		line.tags = Tag::ConvertTagList(lines[i].tags, lines[i].tagCount);
 		result.push_back(line);
 	}
@@ -152,8 +153,10 @@ const vector<FlowGraphEdge>& FlowGraphNode::GetOutgoingEdges()
 	{
 		FlowGraphEdge edge;
 		edge.type = edges[i].type;
-		edge.target = edges[i].target ? new FlowGraphNode(BNNewFlowGraphNodeReference(edges[i].target)) : nullptr;
-		edge.points.insert(edge.points.begin(), &edges[i].points[0], &edges[i].points[edges[i].pointCount]);
+		edge.target =
+		    edges[i].target ? new FlowGraphNode(BNNewFlowGraphNodeReference(edges[i].target)) : nullptr;
+		edge.points.insert(
+		    edge.points.begin(), &edges[i].points[0], &edges[i].points[edges[i].pointCount]);
 		edge.backEdge = edges[i].backEdge;
 		edge.style.color = edges[i].style.color;
 		edge.style.width = edges[i].style.width;
@@ -182,8 +185,10 @@ const vector<FlowGraphEdge>& FlowGraphNode::GetIncomingEdges()
 	{
 		FlowGraphEdge edge;
 		edge.type = edges[i].type;
-		edge.target = edges[i].target ? new FlowGraphNode(BNNewFlowGraphNodeReference(edges[i].target)) : nullptr;
-		edge.points.insert(edge.points.begin(), &edges[i].points[0], &edges[i].points[edges[i].pointCount]);
+		edge.target =
+		    edges[i].target ? new FlowGraphNode(BNNewFlowGraphNodeReference(edges[i].target)) : nullptr;
+		edge.points.insert(
+		    edge.points.begin(), &edges[i].points[0], &edges[i].points[edges[i].pointCount]);
 		edge.backEdge = edges[i].backEdge;
 		result.push_back(edge);
 	}
