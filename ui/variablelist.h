@@ -20,6 +20,8 @@ class VariableListItem {
     VariableListItemType m_type;
     std::string m_name;
 
+    uint64_t m_refPoint;
+
     BinaryNinja::Variable m_var;
     BinaryNinja::PossibleValueSet m_pvs;
     BinaryNinja::DataVariable m_dataVar;
@@ -31,10 +33,12 @@ public:
 
     //! Create a new VariableListItem of the DataVariable type.
     VariableListItem(FunctionRef func, BinaryNinja::DataVariable dataVar,
-        std::string name);
+        uint64_t refPoint, std::string name);
 
     //! Get the label representation of this item.
     QString label() const;
+
+    uint64_t refPoint() const;
 };
 
 //! The backing model for the variable list widget, holds VariableListItem.
