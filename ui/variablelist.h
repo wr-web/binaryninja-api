@@ -38,6 +38,10 @@ public:
     //! Get the label representation of this item.
     QString label() const;
 
+    //! Get the represented variable; use with variable items only.
+    BinaryNinja::Variable variable() const;
+
+    //! Get the first use of this variable; use with data variables items only.
     uint64_t refPoint() const;
 };
 
@@ -52,6 +56,9 @@ class BINARYNINJAUIAPI VariableListModel : public QAbstractListModel {
 
 public:
     VariableListModel(QWidget* parent, ViewFrame* view, BinaryViewRef data);
+
+    //! Get the current function.
+    FunctionRef function() const;
 
     //! Set the focused function and update the content of the list.
     void setFunction(FunctionRef func, BNFunctionGraphType il);
