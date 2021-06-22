@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtWidgets/QListView>
+#include <QtWidgets/QStyledItemDelegate>
 #include <QtWidgets/QWidget>
 
 #include "dockhandler.h"
@@ -38,8 +39,12 @@ public:
     //! Get the type of this list item.
     VariableListItemType type() const;
 
-    //! Get the label representation of this item.
-    QString label() const;
+    std::string name() const;
+    std::string constantValue() const;
+    BinaryNinja::PossibleValueSet possibleValueSet() const;
+    std::vector<BinaryNinja::InstructionTextToken> tokensBeforeName() const;
+    std::vector<BinaryNinja::InstructionTextToken> tokensAfterName() const;
+    std::vector<BinaryNinja::InstructionTextToken> displayTokens() const;
 
     //! Get the represented variable; use with variable items only.
     BinaryNinja::Variable variable() const;
@@ -87,6 +92,17 @@ public:
     Qt::ItemFlags flags(const QModelIndex& index) const override;
     virtual QVariant headerData(int column, Qt::Orientation orientation,
         int role) const override;
+};
+
+class VariableListItemDelegate : public QStyledItemDelegate {
+    Q_OBJECT
+public:
+    VariableListItemDelegate();
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& opt,
+        const QModelIndex& index) const;
+
+    QSize sizeHint(const QStyleOptionViewItem& opt, const QModelIndex& index) const;
 };
 
 //! The main variable list dock widget.
