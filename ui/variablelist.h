@@ -69,7 +69,8 @@ public:
     FunctionRef function() const;
 
     //! Set the focused function and update the content of the list.
-    void setFunction(FunctionRef func, BNFunctionGraphType il);
+    void setFunction(FunctionRef func, BNFunctionGraphType il,
+        HighlightTokenState hts);
 
     //! Set the selection model, should correspond ot the parent widget's.
     void setSelectionModel(QItemSelectionModel* model);
