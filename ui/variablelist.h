@@ -120,4 +120,9 @@ public:
     VariableListView(ViewFrame* view, BinaryViewRef data);
 
     void updateContent();
+
+    VariableListItem* selectedItem() const;
+
+    void renameVariable();
+    void retypeVariable();
 };
