@@ -143,7 +143,7 @@ extern "C"
 	enum PluginLoadStatus {
 		NotAttemptedStatus,
 		LoadSucceededStatus,
-		LoadFaildStatus
+		LoadFailedStatus
 	};
 
 	typedef bool (*BNCorePluginInitFunction)(void);
@@ -723,7 +723,7 @@ extern "C"
 		ScalarDeletingDestructorNameType,
 		VectorConstructorIteratorNameType,
 		VectorDestructorIteratorNameType,
-		VectorVBaseConstructorIteratoreNameType,
+		VectorVBaseConstructorIteratorNameType,
 		VirtualDisplacementMapNameType,
 		EHVectorConstructorIteratorNameType,
 		EHVectorDestructorIteratorNameType,
@@ -740,7 +740,7 @@ extern "C"
 		RttiTypeDescriptor,
 		RttiBaseClassDescriptor,
 		RttiBaseClassArray,
-		RttiClassHeirarchyDescriptor,
+		RttiClassHierarchyDescriptor,
 		RttiCompleteObjectLocator,
 		OperatorUnaryMinusNameType,
 		OperatorUnaryPlusNameType,
