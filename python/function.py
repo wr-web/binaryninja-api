@@ -2401,11 +2401,7 @@ class Function(object):
 		def_site.arch = self.arch.handle
 		def_site.address = def_addr
 
-		var_data = core.BNVariable()
-		var_data.type = var.source_type
-		var_data.index = var.index
-		var_data.storage = var.storage
-		core.BNSetUserVariableValue(self.handle, var_data, def_site, value._to_api_object())
+		core.BNSetUserVariableValue(self.handle, var.to_BNVariable(), def_site, value._to_api_object())
 
 	def clear_user_var_value(self, var:'variable.Variable', def_addr:int) -> None:
 		"""
