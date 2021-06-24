@@ -30,7 +30,7 @@ from .enums import BranchType, HighlightStandardColor
 # from . import binaryview
 # from . import architecture
 
-class BasicBlockEdge(object):
+class BasicBlockEdge:
 	def __init__(self, branch_type:BranchType, source:'BasicBlock', target:'BasicBlock', back_edge:bool, fall_through:bool):
 		self._type = branch_type
 		self._source = source
@@ -101,7 +101,7 @@ class BasicBlockEdge(object):
 		self._fall_through = value
 
 
-class BasicBlock(object):
+class BasicBlock:
 	def __init__(self, handle:core.BNBasicBlockHandle, view:Optional['binaryninja.binaryview.BinaryView']=None):
 		self._view = view
 		_handle = core.BNBasicBlockHandle

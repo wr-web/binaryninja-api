@@ -28,7 +28,7 @@ from . import _binaryninjacore as core
 from .enums import PluginType
 
 
-class RepoPlugin(object):
+class RepoPlugin:
 	"""
 	``RepoPlugin`` is mostly read-only, however you can install/uninstall enable/disable plugins. RepoPlugins are
 	created by parsing the plugins.json in a plugin repository.
@@ -250,7 +250,7 @@ class RepoPlugin(object):
 		"""Returns a datetime object representing the plugins last update"""
 		return datetime.fromtimestamp(core.BNPluginGetLastUpdate(self.handle))
 
-class Repository(object):
+class Repository:
 	"""
 	``Repository`` is a read-only class. Use RepositoryManager to Enable/Disable/Install/Uninstall plugins.
 	"""
@@ -298,7 +298,7 @@ class Repository(object):
 		return pluginlist
 
 
-class RepositoryManager(object):
+class RepositoryManager:
 	"""
 	``RepositoryManager`` Keeps track of all the repositories and keeps the enabled_plugins.json file coherent with
 	the plugins that are installed/uninstalled enabled/disabled

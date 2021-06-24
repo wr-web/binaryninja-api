@@ -31,7 +31,7 @@ from . import function
 from . import architecture
 
 
-class CallingConvention(object):
+class CallingConvention:
 	name = None
 	caller_saved_regs = []
 	callee_saved_regs = []

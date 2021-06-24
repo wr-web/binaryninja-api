@@ -42,7 +42,7 @@ InstructionIndex = NewType('InstructionIndex', int)
 HLILInstructionsType = Generator['HighLevelILInstruction', None, None]
 HLILBasicBlocksType = Generator['HighLevelILBasicBlock', None, None]
 
-class HighLevelILOperationAndSize(object):
+class HighLevelILOperationAndSize:
 	def __init__(self, operation, size):
 		self._operation = operation
 		self._size = size
@@ -84,7 +84,7 @@ class HighLevelILOperationAndSize(object):
 		self._size = value
 
 
-class GotoLabel(object):
+class GotoLabel:
 	def __init__(self, function, id):
 		self._function = function
 		self._id = id
@@ -116,7 +116,7 @@ class GotoLabel(object):
 		return self._function.get_label_uses(self._id)
 
 
-class HighLevelILInstruction(object):
+class HighLevelILInstruction:
 	"""
 	``class HighLevelILInstruction`` High Level Intermediate Language Instructions form an abstract syntax tree of
 	the code. Control flow structures are present as high level constructs in the HLIL tree.
@@ -627,7 +627,7 @@ class HighLevelILInstruction(object):
 		return core.BNGetHighLevelILSSAVarVersionAtILInstruction(self._function.handle, var_data, self._instr_index)
 
 
-class HighLevelILExpr(object):
+class HighLevelILExpr:
 	"""
 	``class HighLevelILExpr`` hold the index of IL Expressions.
 
@@ -643,7 +643,7 @@ class HighLevelILExpr(object):
 
 
 
-class HighLevelILFunction(object):
+class HighLevelILFunction:
 	"""
 	``class HighLevelILFunction`` contains the a HighLevelILInstruction object that makes up the abstract syntax tree of
 	a function.

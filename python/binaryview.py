@@ -68,7 +68,7 @@ PathType = Union[str, os.PathLike]
 InstructionsType = Generator[Tuple[List['_function.InstructionTextToken'], int], None, None]
 NotificationType = Mapping['BinaryDataNotification', 'BinaryDataNotificationCallbacks']
 
-class ReferenceSource(object):
+class ReferenceSource:
 	def __init__(self, func:Optional['_function.Function'], arch:Optional['architecture.Architecture'],
 		addr:int):
 		self._function = func
@@ -127,7 +127,7 @@ class ReferenceSource(object):
 		return self._address
 
 
-class BinaryDataNotification(object):
+class BinaryDataNotification:
 	def __init__(self):
 		pass
 
@@ -204,7 +204,7 @@ class BinaryDataNotification(object):
 		pass
 
 
-class StringReference(object):
+class StringReference:
 	_decodings = {
 		StringType.AsciiString: "ascii",
 		StringType.Utf8String: "utf-8",
@@ -259,7 +259,7 @@ class StringReference(object):
 		return self._view
 
 
-class AnalysisCompletionEvent(object):
+class AnalysisCompletionEvent:
 	"""
 	The ``AnalysisCompletionEvent`` object provides an asynchronous mechanism for receiving
 	callbacks when analysis is complete. The callback runs once. A completion event must be added
@@ -323,7 +323,7 @@ class AnalysisCompletionEvent(object):
 		self._view = value
 
 
-class BinaryViewEvent(object):
+class BinaryViewEvent:
 	"""
 	The ``BinaryViewEvent`` object provides a mechanism for receiving callbacks	when a BinaryView
 	is Finalized or the initial analysis is finished. The BinaryView finalized callbacks run before the
@@ -365,7 +365,7 @@ class BinaryViewEvent(object):
 			log.log_error(traceback.format_exc())
 
 
-class ActiveAnalysisInfo(object):
+class ActiveAnalysisInfo:
 	def __init__(self, func:'_function.Function', analysis_time:int, update_count:int, submit_count:int):
 		self._func = func
 		self._analysis_time = analysis_time
@@ -392,7 +392,7 @@ class ActiveAnalysisInfo(object):
 		return self._submit_count
 
 
-class AnalysisInfo(object):
+class AnalysisInfo:
 	def __init__(self, state:AnalysisState, analysis_time:int, active_info:List[ActiveAnalysisInfo]):
 		self._state = AnalysisState(state)
 		self._analysis_time = analysis_time
@@ -414,7 +414,7 @@ class AnalysisInfo(object):
 		return self._active_info
 
 
-class AnalysisProgress(object):
+class AnalysisProgress:
 	def __init__(self, state:AnalysisState, count:int, total:int):
 		self._state = state
 		self._count = count
@@ -449,7 +449,7 @@ class AnalysisProgress(object):
 		return self._total
 
 
-class BinaryDataNotificationCallbacks(object):
+class BinaryDataNotificationCallbacks:
 	def __init__(self, view:'BinaryView', notify:'BinaryDataNotification'):
 		self._view = view
 		self._notify = notify
@@ -981,7 +981,7 @@ class BinaryViewType(metaclass=_BinaryViewTypeMetaclass):
 		BinaryViewEvent.register(BinaryViewEventType.BinaryViewInitialAnalysisCompletionEvent, callback)
 
 
-class Segment(object):
+class Segment:
 	def __init__(self, handle:core.BNSegmentHandle):
 		self.handle = handle
 
@@ -1078,7 +1078,7 @@ class Segment(object):
 			core.BNFreeRelocationRanges(ranges, count)
 
 
-class Section(object):
+class Section:
 	def __init__(self, handle:core.BNSectionHandle):
 		self.handle = handle
 
@@ -1149,7 +1149,7 @@ class Section(object):
 		return self.start + len(self)
 
 
-class TagType(object):
+class TagType:
 	def __init__(self, handle:core.BNTagTypeHandle):
 		self.handle = handle
 
@@ -1209,7 +1209,7 @@ class TagType(object):
 		core.BNTagTypeSetType(self.handle, value)
 
 
-class Tag(object):
+class Tag:
 	def __init__(self, handle:core.BNTagHandle):
 		self.handle = handle
 
@@ -1251,7 +1251,7 @@ class _BinaryViewAssociatedDataStore(associateddatastore._AssociatedDataStore):
 	_defaults = {}
 
 
-class BinaryView(object):
+class BinaryView:
 	"""
 	``class BinaryView`` implements a view on binary data, and presents a queryable interface of a binary file. One key
 	job of BinaryView is file format parsing which allows Binary Ninja to read, write, insert, remove portions
@@ -5174,7 +5174,7 @@ class BinaryView(object):
 			...
 			cf fa ed fe 07 00 00 01  ........
 		"""
-		class LinearDisassemblyIterator(object):
+		class LinearDisassemblyIterator:
 			def __init__(self, view, settings):
 				self._view = view
 				self._settings = settings
@@ -6405,7 +6405,7 @@ class BinaryView(object):
 		return self.parse_expression(expression, here)
 
 
-class BinaryReader(object):
+class BinaryReader:
 	"""
 	``class BinaryReader`` is a convenience class for reading binary data.
 
@@ -6726,7 +6726,7 @@ class BinaryReader(object):
 		core.BNSeekBinaryReaderRelative(self._handle, offset)
 
 
-class BinaryWriter(object):
+class BinaryWriter:
 	"""
 	``class BinaryWriter`` is a convenience class for writing binary data.
 
@@ -6974,7 +6974,7 @@ class BinaryWriter(object):
 		core.BNSeekBinaryWriterRelative(self._handle, offset)
 
 
-class StructuredDataValue(object):
+class StructuredDataValue:
 	def __init__(self, type, address, value, endian):
 		self._type = type
 		self._address = address
@@ -7039,7 +7039,7 @@ class StructuredDataValue(object):
 		return str(self)
 
 
-class StructuredDataView(object):
+class StructuredDataView:
 	"""
 		``class StructuredDataView`` is a convenience class for reading structured binary data.
 
@@ -7161,7 +7161,7 @@ class CoreDataVariable:
 	auto_discovered:bool
 
 
-class DataVariable(object):
+class DataVariable:
 	def __init__(self, var:CoreDataVariable, view:'BinaryView'):
 		self._var = var
 		self._view = view
