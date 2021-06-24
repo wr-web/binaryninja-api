@@ -39,17 +39,25 @@ public:
     //! Get the type of this list item.
     VariableListItemType type() const;
 
+    //! Get the represented variable's display name.
     std::string name() const;
+
+    //! Get the data variable's value; use with data variable items only.
     std::string constantValue() const;
+
+    //! Get the variable possible value set; use with local variable items only.
     BinaryNinja::PossibleValueSet possibleValueSet() const;
+
     std::vector<BinaryNinja::InstructionTextToken> tokensBeforeName() const;
     std::vector<BinaryNinja::InstructionTextToken> tokensAfterName() const;
+
+    //! Shorthand to get concatenated type, name, and value tokens.
     std::vector<BinaryNinja::InstructionTextToken> displayTokens() const;
 
     //! Get the represented variable; use with variable items only.
     BinaryNinja::Variable variable() const;
 
-    //! Get the represented data variable; use with variable items only.
+    //! Get the represented data variable; use with data variable items only.
     BinaryNinja::DataVariable dataVariable() const;
 
     //! Get the first use of this variable; use with data variables items only.
