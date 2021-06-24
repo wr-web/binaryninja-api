@@ -464,7 +464,7 @@ class Platform(metaclass=_PlatformMetaClass):
 			len(include_dirs), auto_type_source)
 		assert errors.value is not None, "core.BNParseTypesFromSourceFile returned errors set to None"
 		error_str = errors.value.decode("utf-8")
-		core.BNFreeString(ctypes.cast(errors, ctypes.POINTER(ctypes.c_byte)))
+		core.free_string(errors)
 		if not result:
 			raise SyntaxError(error_str)
 		type_dict = {}
