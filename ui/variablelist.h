@@ -70,6 +70,9 @@ class BINARYNINJAUIAPI VariableListModel : public QAbstractListModel {
 public:
     VariableListModel(QWidget* parent, ViewFrame* view, BinaryViewRef data);
 
+    //! Clear the list's content.
+    void clear();
+
     //! Get the current function.
     FunctionRef function() const;
 
