@@ -101,11 +101,11 @@ class BasicBlockEdge(object):
 		self._fall_through = value
 
 
-
 class BasicBlock(object):
-	def __init__(self, handle:core.BNBasicBlock, view:Optional['binaryninja.binaryview.BinaryView']=None):
+	def __init__(self, handle:core.BNBasicBlockHandle, view:Optional['binaryninja.binaryview.BinaryView']=None):
 		self._view = view
-		self.handle = core.handle_of_type(handle, core.BNBasicBlock)
+		_handle = core.BNBasicBlockHandle
+		self.handle:core.BNBasicBlockHandle = ctypes.cast(handle, _handle)
 		self._arch = None
 		self._func = None
 		self._instStarts:Optional[List[int]] = None
@@ -196,7 +196,7 @@ class BasicBlock(object):
 				self._instStarts.append(start)
 				start += length
 
-	def _create_instance(self, handle:core.BNBasicBlock, view:'binaryninja.binaryview.BinaryView') -> 'BasicBlock':
+	def _create_instance(self, handle:core.BNBasicBlockHandle, view:'binaryninja.binaryview.BinaryView') -> 'BasicBlock':
 		"""Internal method used to instantiate child instances"""
 		return BasicBlock(handle, view)
 

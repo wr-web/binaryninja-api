@@ -704,8 +704,9 @@ class _BinaryViewTypeMetaclass(type):
 
 
 class BinaryViewType(metaclass=_BinaryViewTypeMetaclass):
-	def __init__(self, handle:core.BNBinaryViewType):
-		self.handle = core.handle_of_type(handle, core.BNBinaryViewType)
+	def __init__(self, handle:core.BNBinaryViewTypeHandle):
+		_handle = core.BNBinaryViewTypeHandle
+		self.handle = ctypes.cast(handle, _handle)
 
 	def __repr__(self):
 		return f"<view type: '{self.name}'>"
@@ -981,7 +982,7 @@ class BinaryViewType(metaclass=_BinaryViewTypeMetaclass):
 
 
 class Segment(object):
-	def __init__(self, handle:core.BNSegment):
+	def __init__(self, handle:core.BNSegmentHandle):
 		self.handle = handle
 
 	def __del__(self):
@@ -1078,8 +1079,8 @@ class Segment(object):
 
 
 class Section(object):
-	def __init__(self, handle:core.BNSection):
-		self.handle = core.handle_of_type(handle, core.BNSection)
+	def __init__(self, handle:core.BNSectionHandle):
+		self.handle = handle
 
 	def __del__(self):
 		core.BNFreeSection(self.handle)
@@ -1149,8 +1150,8 @@ class Section(object):
 
 
 class TagType(object):
-	def __init__(self, handle:core.BNTagType):
-		self.handle = core.handle_of_type(handle, core.BNTagType)
+	def __init__(self, handle:core.BNTagTypeHandle):
+		self.handle = handle
 
 	def __del__(self):
 		core.BNFreeTagType(self.handle)
@@ -1209,8 +1210,8 @@ class TagType(object):
 
 
 class Tag(object):
-	def __init__(self, handle:core.BNTag):
-		self.handle = core.handle_of_type(handle, core.BNTag)
+	def __init__(self, handle:core.BNTagHandle):
+		self.handle = handle
 
 	def __del__(self):
 		core.BNFreeTag(self.handle)
@@ -1304,10 +1305,9 @@ class BinaryView(object):
 	registered_view_type = None
 	_associated_data = {}
 	_registered_instances = []
-	def __init__(self, file_metadata:'filemetadata.FileMetadata'=None, parent_view:'BinaryView'=None, handle:'ctypes.pointer[core.BNBinaryView]'=None):
+	def __init__(self, file_metadata:'filemetadata.FileMetadata'=None, parent_view:'BinaryView'=None, handle:core.BNBinaryViewHandle=None):
 		if handle is not None:
-			self.handle = core.handle_of_type(handle, core.BNBinaryView)
-			assert self.handle is not None, "core.handle_of_type returned None"
+			_handle = handle
 			if file_metadata is None:
 				self._file = filemetadata.FileMetadata(handle=core.BNGetFileForView(handle))
 			else:
@@ -1316,8 +1316,7 @@ class BinaryView(object):
 			binaryninja._init_plugins()
 			if file_metadata is None:
 				file_metadata = filemetadata.FileMetadata()
-			self.handle = core.BNCreateBinaryDataView(file_metadata.handle)
-			assert self.handle is not None, "core.BNCreateBinaryDataView returned None"
+			_handle = core.BNCreateBinaryDataView(file_metadata.handle)
 			self._file = filemetadata.FileMetadata(handle=core.BNNewFileReference(file_metadata.handle))
 		else:
 			binaryninja._init_plugins()
@@ -1352,9 +1351,10 @@ class BinaryView(object):
 			_parent_view = None
 			if parent_view is not None:
 				_parent_view = parent_view.handle
-			self.handle = core.BNCreateCustomBinaryView(self.__class__.name, file_metadata.handle, _parent_view, self._cb)
-			assert self.handle is not None, "core.BNCreateCustomBinaryView returned None"
-		assert self.handle is not None
+			_handle = core.BNCreateCustomBinaryView(self.__class__.name, file_metadata.handle, _parent_view, self._cb)
+
+		assert _handle is not None
+		self.handle = _handle
 		self._notifications = {}
 		self._parse_only = False
 
@@ -1387,8 +1387,6 @@ class BinaryView(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
-		assert self.handle is not None
-		assert other.handle is not None
 		return ctypes.addressof(self.handle.contents) == ctypes.addressof(other.handle.contents)
 
 	def __ne__(self, other):
@@ -1397,7 +1395,6 @@ class BinaryView(object):
 		return not (self == other)
 
 	def __hash__(self):
-		assert self.handle is not None
 		return hash(ctypes.addressof(self.handle.contents))
 
 	def __iter__(self) -> Generator['_function.Function', None, None]:
@@ -2016,7 +2013,7 @@ class BinaryView(object):
 		"""Dictionary object where plugins can store arbitrary data associated with the view"""
 		# TODO:
 		# assert isinstance(self.handle, int), "session_data called with no BinaryView.handle"
-		handle = ctypes.cast(self.handle, ctypes.c_void_p)
+		handle = ctypes.cast(self.handle, ctypes.c_void_p)  # type: ignore
 		if handle.value not in BinaryView._associated_data:
 			obj = _BinaryViewAssociatedDataStore()
 			BinaryView._associated_data[handle.value] = obj
@@ -2050,7 +2047,6 @@ class BinaryView(object):
 	@property
 	def relocation_ranges(self):
 		"""List of relocation range tuples (read-only)"""
-
 		count = ctypes.c_ulonglong()
 		ranges = core.BNGetRelocationRanges(self.handle, count)
 		assert ranges is not None, "core.BNGetRelocationRanges returned None"
@@ -3179,21 +3175,25 @@ class BinaryView(object):
 			result = [func for func in result if func.platform == plat]
 		return result
 
-	def get_functions_by_name(self, name, plat=None, ordered_filter=[SymbolType.FunctionSymbol, SymbolType.ImportedFunctionSymbol, SymbolType.LibraryFunctionSymbol]):
+	def get_functions_by_name(self, name, plat=None, ordered_filter=None):
 		"""``get_functions_by_name`` returns a list of Function objects
 		function with a Symbol of ``name``.
-​
+
 		:param str name: name of the functions
 		:param Platform plat: (optional) platform
 		:param list(SymbolType) ordered_filter: (optional) an ordered filter based on SymbolType
 		:return: returns a list of Function objects or an empty list
 		:rtype: list(Function)
 		:Example:
-​
+
 			>>> bv.get_function_by_name("main"))
 			<func: x86_64@0x1587>
 			>>>
 		"""
+		if ordered_filter is not None:
+			ordered_filter = [SymbolType.FunctionSymbol,
+				SymbolType.ImportedFunctionSymbol,
+				SymbolType.LibraryFunctionSymbol]
 		if plat == None:
 			plat = self.platform
 		syms = self.get_symbols_by_name(name, ordered_filter=ordered_filter)
@@ -3980,7 +3980,7 @@ class BinaryView(object):
 			return None
 		return _types.Symbol(None, None, None, handle = sym)
 
-	def get_symbols_by_name(self, name, namespace=None, ordered_filter=[SymbolType.FunctionSymbol, SymbolType.ImportedFunctionSymbol, SymbolType.LibraryFunctionSymbol, SymbolType.DataSymbol, SymbolType.ImportedDataSymbol, SymbolType.ImportAddressSymbol, SymbolType.ExternalSymbol]):
+	def get_symbols_by_name(self, name, namespace=None, ordered_filter=None):
 		"""
 		``get_symbols_by_name`` retrieves a list of Symbol objects for the given symbol name and ordered filter
 
@@ -3996,6 +3996,14 @@ class BinaryView(object):
 			[<FunctionSymbol: "public: static enum Foobar::foo __cdecl Foobar::testf(enum Foobar::foo)" @ 0x10001100>]
 			>>>
 		"""
+		if ordered_filter is None:
+			ordered_filter = [SymbolType.FunctionSymbol,
+				SymbolType.ImportedFunctionSymbol,
+				SymbolType.LibraryFunctionSymbol,
+				SymbolType.DataSymbol,
+				SymbolType.ImportedDataSymbol,
+				SymbolType.ImportAddressSymbol,
+				SymbolType.ExternalSymbol]
 		if isinstance(namespace, str):
 			namespace = _types.NameSpace(namespace)
 		if isinstance(namespace, _types.NameSpace):
@@ -5259,9 +5267,9 @@ class BinaryView(object):
 			core.free_string(errors)
 			raise SyntaxError(error_str)
 
-		type_dict = {}
-		variables = {}
-		functions = {}
+		type_dict:Mapping[_types.QualifiedName, _types.Type] = {}
+		variables:Mapping[_types.QualifiedName, _types.Type] = {}
+		functions:Mapping[_types.QualifiedName, _types.Type] = {}
 		for i in range(0, parse.typeCount):
 			name = _types.QualifiedName._from_core_struct(parse.types[i].name)
 			type_dict[name] = _types.Type(core.BNNewTypeReference(parse.types[i].type), platform = self.platform)
@@ -6978,7 +6986,7 @@ class StructuredDataValue(object):
 		return ' '.join(["{:02x}".format(x) for x in struct.unpack(decode_str, self._value)])
 
 	def __repr__(self):
-		return "<StructuredDataValue type:{} value:{}>".format(str(self._type), str(self))
+		return f"<StructuredDataValue type:{self._type} value:{self}>"
 
 	def __int__(self):
 		if self._type.width == 1:

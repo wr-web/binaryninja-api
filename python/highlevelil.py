@@ -653,23 +653,25 @@ class HighLevelILFunction(object):
 		self._arch = arch
 		self._source_function = source_func
 		if handle is not None:
-			self.handle = core.handle_of_type(handle, core.BNHighLevelILFunction)
+			HLILHandle = ctypes.POINTER(core.BNHighLevelILFunction)
+			_handle = ctypes.cast(handle, HLILHandle)
 			if self._source_function is None:
-				self._source_function = function.Function(handle = core.BNGetHighLevelILOwnerFunction(self.handle))
+				self._source_function = function.Function(handle = core.BNGetHighLevelILOwnerFunction(_handle))
 			if self._arch is None:
 				self._arch = self._source_function.arch
 		else:
 			if self._source_function is None:
-				self.handle = None
 				raise ValueError("IL functions must be created with an associated function")
 			if self._arch is None:
 				self._arch = self._source_function.arch
 				if self._arch is None:
 					raise ValueError("IL functions must be created with an associated Architecture")
 			func_handle = self._source_function.handle
-			self.handle = core.BNCreateHighLevelILFunction(self._arch.handle, func_handle)
+			_handle = core.BNCreateHighLevelILFunction(self._arch.handle, func_handle)
 		assert self._source_function is not None
 		assert self._arch is not None
+		assert _handle is not None
+		self.handle = _handle
 
 	def __del__(self):
 		if self.handle is not None:
@@ -678,8 +680,6 @@ class HighLevelILFunction(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
-		assert self.handle is not None
-		assert other.handle is not None
 		return ctypes.addressof(self.handle.contents) == ctypes.addressof(other.handle.contents)
 
 	def __ne__(self, other):
@@ -968,7 +968,7 @@ class HighLevelILFunction(object):
 
 
 class HighLevelILBasicBlock(basicblock.BasicBlock):
-	def __init__(self, view:Optional['binaryview.BinaryView'], handle:core.BNBasicBlock, owner:HighLevelILFunction):
+	def __init__(self, view:Optional['binaryview.BinaryView'], handle:core.BNBasicBlockHandle, owner:HighLevelILFunction):
 		super(HighLevelILBasicBlock, self).__init__(handle, view)
 		self._il_function = owner
 
@@ -985,7 +985,7 @@ class HighLevelILBasicBlock(basicblock.BasicBlock):
 		else:
 			return self.il_function[self.end + idx]
 
-	def _create_instance(self, handle:core.BNBasicBlock, view:'binaryview.BinaryView'):
+	def _create_instance(self, handle:core.BNBasicBlockHandle, view:'binaryview.BinaryView'):
 		"""Internal method by super to instantiate child instances"""
 		return HighLevelILBasicBlock(view, handle, self.il_function)
 

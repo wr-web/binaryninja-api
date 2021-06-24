@@ -841,7 +841,8 @@ class MediumLevelILFunction(object):
 		_arch = arch
 		_source_function = source_func
 		if handle is not None:
-			_handle = core.handle_of_type(handle, core.BNMediumLevelILFunction)
+			MLILHandle = ctypes.POINTER(core.BNMediumLevelILFunction)
+			_handle = ctypes.cast(handle, MLILHandle)
 			if _source_function is None:
 				_source_function = function.Function(handle = core.BNGetMediumLevelILOwnerFunction(_handle))
 			if _arch is None:
@@ -1267,7 +1268,7 @@ class MediumLevelILFunction(object):
 
 
 class MediumLevelILBasicBlock(basicblock.BasicBlock):
-	def __init__(self, handle:core.BNBasicBlock, owner:MediumLevelILFunction, view:Optional['binaryview.BinaryView']=None):
+	def __init__(self, handle:core.BNBasicBlockHandle, owner:MediumLevelILFunction, view:Optional['binaryview.BinaryView']=None):
 		super(MediumLevelILBasicBlock, self).__init__(handle, view)
 		self._il_function = owner
 
@@ -1302,7 +1303,7 @@ class MediumLevelILBasicBlock(basicblock.BasicBlock):
 		else:
 			return False
 
-	def _create_instance(self, handle:core.BNBasicBlock, view:'binaryview.BinaryView') -> 'MediumLevelILBasicBlock':
+	def _create_instance(self, handle:core.BNBasicBlockHandle, view:'binaryview.BinaryView') -> 'MediumLevelILBasicBlock':
 		"""Internal method by super to instantiate child instances"""
 		return MediumLevelILBasicBlock(handle, self.il_function, view)
 

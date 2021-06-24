@@ -1211,10 +1211,10 @@ class LowLevelILFunction(object):
 		self._arch = arch
 		self._source_function = source_func
 		if handle is not None:
-			self.handle = core.handle_of_type(handle, core.BNLowLevelILFunction)
-			assert self.handle is not None
+			LLILHandle = ctypes.POINTER(core.BNLowLevelILFunction)
+			_handle = ctypes.cast(handle, LLILHandle)
 			if self._source_function is None:
-				source_handle = core.BNGetLowLevelILOwnerFunction(self.handle)
+				source_handle = core.BNGetLowLevelILOwnerFunction(_handle)
 				if source_handle:
 					self._source_function = function.Function(handle = source_handle)
 				else:
@@ -1233,8 +1233,9 @@ class LowLevelILFunction(object):
 				func_handle = None
 			else:
 				func_handle = self._source_function.handle
-			self.handle = core.BNCreateLowLevelILFunction(self._arch.handle, func_handle)
-			assert self.handle is not None
+			_handle = core.BNCreateLowLevelILFunction(self._arch.handle, func_handle)
+		assert _handle is not None
+		self.handle = _handle
 		assert self._arch is not None
 		assert self._source_function is not None
 
@@ -1258,8 +1259,6 @@ class LowLevelILFunction(object):
 	def __eq__(self, other):
 		if not isinstance(other, self.__class__):
 			return NotImplemented
-		assert self.handle is not None
-		assert other.handle is not None
 		return ctypes.addressof(self.handle.contents) == ctypes.addressof(other.handle.contents)
 
 	def __ne__(self, other):
@@ -1268,7 +1267,6 @@ class LowLevelILFunction(object):
 		return not (self == other)
 
 	def __hash__(self):
-		assert self.handle is not None
 		return hash(ctypes.addressof(self.handle.contents))
 
 	def __getitem__(self, i):
@@ -3018,7 +3016,7 @@ class LowLevelILFunction(object):
 
 
 class LowLevelILBasicBlock(basicblock.BasicBlock):
-	def __init__(self, view:Optional['binaryview.BinaryView'], handle:core.BNBasicBlock, owner:'LowLevelILFunction'):
+	def __init__(self, view:Optional['binaryview.BinaryView'], handle:core.BNBasicBlockHandle, owner:'LowLevelILFunction'):
 		super(LowLevelILBasicBlock, self).__init__(handle, view)
 		self._il_function = owner
 
