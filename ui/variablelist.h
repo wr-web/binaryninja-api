@@ -71,7 +71,7 @@ class BINARYNINJAUIAPI VariableListModel : public QAbstractListModel {
     ViewFrame* m_view;
     BinaryViewRef m_data;
     FunctionRef m_func;
-    std::vector<VariableListItem> m_vars;
+    std::vector<VariableListItem> m_items;
 
     QItemSelectionModel* m_selModel;
 
@@ -130,7 +130,7 @@ class BINARYNINJAUIAPI VariableListView : public QWidget, public DockContextHand
 public:
     VariableListView(ViewFrame* view, BinaryViewRef data);
 
-    void updateContent();
+    void refresh();
 
     // Get the VariableListItem corresponding to the current selection.
     VariableListItem* selectedItem() const;
