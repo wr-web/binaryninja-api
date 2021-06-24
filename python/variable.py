@@ -810,7 +810,7 @@ class ParameterVariables(object):
 		return self._func
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class AddressRange(object):
 	start:int
 	end:int
