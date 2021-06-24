@@ -125,10 +125,13 @@ public:
     VariableListItem* selectedItem() const;
 
     //! Show the rename dialog for the seleected variable.
-    void renameSelectedVariable();
+    void changeSelectedVariableName();
 
     //! Show the new type dialog for the seleected variable.
-    void retypeSelectedVariable();
+    void changeSelectedVariableType();
+
+    //! Clear the selected variable's name.
+    void clearSelectedVariableName();
 
     //! Navigate to the first usage of the selected variable.
     void showSelectedVariableFirstUsage();
