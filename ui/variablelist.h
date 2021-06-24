@@ -121,8 +121,18 @@ public:
 
     void updateContent();
 
+    // Get the VariableListItem corresponding to the current selection.
     VariableListItem* selectedItem() const;
 
-    void renameVariable();
-    void retypeVariable();
+    //! Show the rename dialog for the seleected variable.
+    void renameSelectedVariable();
+
+    //! Show the new type dialog for the seleected variable.
+    void retypeSelectedVariable();
+
+    //! Navigate to the first usage of the selected variable.
+    void showSelectedVariableFirstUsage();
+
+    //! Navigate to the definition of the selected data variable.
+    void showSelectedDataVariableDefinition();
 };
