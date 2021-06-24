@@ -68,12 +68,13 @@ class RegisterValue:
 
 	def __eq__(self, other):
 		if isinstance(other, int):
-			return self.value == other
+			return int(self) == other
 		elif isinstance(other, bool):
 			return bool(self) == other
 		elif isinstance(other, self.__class__):
 			return (self.type, self.offset, self.type, self.confidence) == \
 				(other.type, other.offset, other.type, other.confidence)
+		assert False, f"no comparison for types {repr(self)} and {repr(other)}"
 
 	@classmethod
 	def from_BNRegisterValue(cls, reg_value:Union[core.BNRegisterValue, core.BNRegisterValueWithConfidence],
@@ -104,7 +105,7 @@ class RegisterValue:
 		assert False, f"RegisterValueType {reg_value.state} not handled"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Undetermined(RegisterValue):
 	value:int = 0
 	offset:int = 0
@@ -114,7 +115,7 @@ class Undetermined(RegisterValue):
 		return "<undetermined>"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class ConstantRegisterValue(RegisterValue):
 	offset:int = 0
 	type:RegisterValueType = RegisterValueType.ConstantValue
@@ -123,7 +124,7 @@ class ConstantRegisterValue(RegisterValue):
 		return f"<const {self.value:#x}>"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class ConstantPointerRegisterValue(RegisterValue):
 	offset:int = 0
 	type:RegisterValueType = RegisterValueType.ConstantPointerValue
@@ -132,7 +133,7 @@ class ConstantPointerRegisterValue(RegisterValue):
 		return f"<const ptr {self.value:#x}>"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class ImportedAddressRegisterValue(RegisterValue):
 	offset:int = 0
 	type:RegisterValueType = RegisterValueType.ImportedAddressValue
@@ -141,7 +142,7 @@ class ImportedAddressRegisterValue(RegisterValue):
 		return f"<imported address from entry {self.value:#x}>"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class ReturnAddressRegisterValue(RegisterValue):
 	offset:int = 0
 	type:RegisterValueType = RegisterValueType.ReturnAddressValue
@@ -150,7 +151,7 @@ class ReturnAddressRegisterValue(RegisterValue):
 		return "<return address>"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class EntryRegisterValue(RegisterValue):
 	value:int = 0
 	offset:int = 0
@@ -163,7 +164,7 @@ class EntryRegisterValue(RegisterValue):
 		return f"<entry {self.value}>"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class StackFrameOffsetRegisterValue(RegisterValue):
 	offset:int = 0
 	type:RegisterValueType = RegisterValueType.StackFrameOffset
@@ -172,7 +173,7 @@ class StackFrameOffsetRegisterValue(RegisterValue):
 		return f"<stack frame offset {self.value:#x}>"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class ExternalPointerRegisterValue(RegisterValue):
 	type:RegisterValueType = RegisterValueType.ExternalPointerValue
 
