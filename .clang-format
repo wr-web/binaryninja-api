@@ -46,7 +46,7 @@ BreakInheritanceList: AfterColon
 ColumnLimit: '100'
 CompactNamespaces: 'true'
 ConstructorInitializerAllOnOneLineOrOnePerLine: 'false'
-Cpp11BracedListStyle: 'false'
+Cpp11BracedListStyle: 'true'
 DerivePointerAlignment: 'false'
 DisableFormat: 'false'
 FixNamespaceComments: 'true'

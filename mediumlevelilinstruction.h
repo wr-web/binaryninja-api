@@ -25,6 +25,7 @@
 #include <vector>
 #ifdef BINARYNINJACORE_LIBRARY
 	#include "variable.h"
+	#include "lowlevelilinstruction.h"
 #else
 	#include "binaryninjaapi.h"
 #endif

@@ -4,6 +4,7 @@
 #include <QtGui/QPainter>
 #include <QtWidgets/QLabel>
 
+#include "uitypes.h"
 
 class BINARYNINJAUIAPI ClickableLabel : public QLabel
 {
