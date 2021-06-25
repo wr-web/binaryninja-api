@@ -483,7 +483,7 @@ class MediumLevelILInstruction:
 		expr = self._function.get_low_level_il_expr_index(self._expr_index)
 		if expr is None or self._function.low_level_il is None:
 			return None
-		return lowlevelil.LowLevelILInstruction(self._function.low_level_il.ssa_form, expr)
+		return lowlevelil.LowLevelILInstruction.create(self._function.low_level_il.ssa_form, expr, None)
 
 	@property
 	def llil(self) -> Optional['lowlevelil.LowLevelILInstruction']:
@@ -497,7 +497,7 @@ class MediumLevelILInstruction:
 			return []
 		result = []
 		for expr in exprs:
-			result.append(lowlevelil.LowLevelILInstruction(self._function.low_level_il.ssa_form, expr))
+			result.append(lowlevelil.LowLevelILInstruction.create(self._function.low_level_il.ssa_form, expr, None))
 		return result
 
 	@property

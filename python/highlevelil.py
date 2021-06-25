@@ -411,7 +411,7 @@ class HighLevelILInstruction:
 		result = [HighLevelILOperationAndSize(self._operation, self._size)]
 		for operand in self._operands:
 			if isinstance(operand, HighLevelILInstruction):
-				result += operand.prefix_operands
+				result.extend(operand.prefix_operands)
 			else:
 				result.append(operand)
 		return result
@@ -422,7 +422,7 @@ class HighLevelILInstruction:
 		result = []
 		for operand in self._operands:
 			if isinstance(operand, HighLevelILInstruction):
-				result += operand.postfix_operands
+				result.extend(operand.postfix_operands)
 			else:
 				result.append(operand)
 		result.append(HighLevelILOperationAndSize(self._operation, self._size))
@@ -566,7 +566,7 @@ class HighLevelILInstruction:
 		return self.low_level_il
 
 	@property
-	def llils(self) -> List['lowlevelil.LowLevelILExpr']:
+	def llils(self) -> List['lowlevelil.ExpressionIndex']:
 		result = set()
 		for mlil_expr in self.mlils:
 			for llil_expr in mlil_expr.llils:
