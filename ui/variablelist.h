@@ -25,12 +25,13 @@ class VariableListItem {
 
     BinaryNinja::Variable m_var;
     BinaryNinja::PossibleValueSet m_pvs;
+    bool m_hasUidf;
     BinaryNinja::DataVariable m_dataVar;
 
 public:
     //! Create a new VariableListItem of the LocalVariable type.
     VariableListItem(FunctionRef func, BinaryNinja::Variable var,
-        BinaryNinja::PossibleValueSet pvs, std::string name);
+        BinaryNinja::PossibleValueSet pvs, bool hasUidf, std::string name);
 
     //! Create a new VariableListItem of the DataVariable type.
     VariableListItem(FunctionRef func, BinaryNinja::DataVariable dataVar,
@@ -47,6 +48,9 @@ public:
 
     //! Get the variable possible value set; use with local variable items only.
     BinaryNinja::PossibleValueSet possibleValueSet() const;
+
+    //! Is the PVS user-provided? Use with local variable items only.
+    bool hasUidf() const;
 
     std::vector<BinaryNinja::InstructionTextToken> tokensBeforeName() const;
     std::vector<BinaryNinja::InstructionTextToken> tokensAfterName() const;
