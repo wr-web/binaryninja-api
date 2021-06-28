@@ -144,6 +144,9 @@ public:
     //! Clear the selected variable's name.
     void clearSelectedVariableName();
 
+    //! Clear the selected variable's type.
+    void clearSelectedVariableType();
+
     //! Navigate to the first usage of the selected variable.
     void showSelectedVariableFirstUsage();
 
