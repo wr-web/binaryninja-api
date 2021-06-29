@@ -20,13 +20,13 @@
 
 import ctypes
 import struct
-from typing import Optional, List, Any, Union, Mapping, Generator, NewType
+from typing import Optional, List, Union, Mapping, Generator, NewType
 from dataclasses import dataclass
 
 # Binary Ninja components
 from . import _binaryninjacore as core
 from .enums import MediumLevelILOperation, ILBranchDependence, DataFlowQueryOption
-from . import basicblock #required for MediumLevelILBasicBlock argument
+from . import basicblock
 from . import function
 from . import types
 from . import lowlevelil
@@ -670,7 +670,7 @@ class UnaryOperation(MediumLevelILInstruction):
 	operand_names  = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 
@@ -679,11 +679,11 @@ class BinaryOperation(MediumLevelILInstruction):
 	operand_names = ["left", "right"]
 
 	@property
-	def left(self):
+	def left(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def right(self):
+	def right(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 
@@ -692,15 +692,15 @@ class Carry(Arithmetic):
 	operand_names = ["left", "right", "carry"]
 
 	@property
-	def left(self):
+	def left(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def right(self):
+	def right(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 	@property
-	def carry(self):
+	def carry(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 
@@ -834,7 +834,7 @@ class MediumLevelILLoad(Load):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 
@@ -843,7 +843,7 @@ class MediumLevelILVar(MediumLevelILInstruction):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> variable.Variable:
 		return self.get_var(0)
 
 
@@ -852,7 +852,7 @@ class MediumLevelILAddress_of(MediumLevelILInstruction):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> variable.Variable:
 		return self.get_var(0)
 
 
@@ -861,7 +861,7 @@ class MediumLevelILConst(Constant):
 	operand_names = ["constant"]
 
 	@property
-	def constant(self):
+	def constant(self) -> int:
 		return self.get_int(0)
 
 
@@ -870,7 +870,7 @@ class MediumLevelILConst_ptr(Constant):
 	operand_names = ["constant"]
 
 	@property
-	def constant(self):
+	def constant(self) -> int:
 		return self.get_int(0)
 
 
@@ -879,7 +879,7 @@ class MediumLevelILFloat_const(Constant, FloatingPoint):
 	operand_names  = ["constant"]
 
 	@property
-	def constant(self):
+	def constant(self) -> float:
 		return self.get_float(0)
 
 
@@ -888,7 +888,7 @@ class MediumLevelILImport(Constant):
 	operand_names = ["constant"]
 
 	@property
-	def constant(self):
+	def constant(self) -> int:
 		return self.get_int(0)
 
 
@@ -922,7 +922,7 @@ class MediumLevelILJump(Terminal):
 	operand_names = ["dest"]
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 
@@ -931,7 +931,7 @@ class MediumLevelILRet_hint(ControlFlow):
 	operand_names = ["dest"]
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 
@@ -953,7 +953,7 @@ class MediumLevelILCall_param(MediumLevelILInstruction):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> List[variable.Variable]:
 		return self.get_var_list(0, 1)
 
 
@@ -962,7 +962,7 @@ class MediumLevelILRet(Return):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(0, 1)
 
 
@@ -971,7 +971,7 @@ class MediumLevelILGoto(Terminal):
 	operand_names = ["dest"]
 
 	@property
-	def dest(self):
+	def dest(self) -> int:
 		return self.get_int(0)
 
 
@@ -980,7 +980,7 @@ class MediumLevelILBool_to_int(MediumLevelILInstruction):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 
@@ -989,7 +989,7 @@ class MediumLevelILFree_var_slot(RegisterStack):
 	operand_names = ["dest"]
 
 	@property
-	def dest(self):
+	def dest(self) -> variable.Variable:
 		return self.get_var(0)
 
 
@@ -998,7 +998,7 @@ class MediumLevelILTrap(Terminal):
 	operand_names = ["vector"]
 
 	@property
-	def vector(self):
+	def vector(self) -> int:
 		return self.get_int(0)
 
 
@@ -1007,11 +1007,11 @@ class MediumLevelILFree_var_slot_ssa(RegisterStack):
 	operand_names = ["dest", "prev"]
 
 	@property
-	def dest(self):
+	def dest(self) -> SSAVariable:
 		return self.get_var_ssa_dest_and_src(0, 1)
 
 	@property
-	def prev(self):
+	def prev(self) -> SSAVariable:
 		return self.get_var_ssa_dest_and_src(0, 2)
 
 
@@ -1020,7 +1020,7 @@ class MediumLevelILUnimpl_mem(Memory):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 
@@ -1078,7 +1078,7 @@ class MediumLevelILVar_ssa(SSA):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> SSAVariable:
 		return self.get_var_ssa(0, 1)
 
 
@@ -1087,7 +1087,7 @@ class MediumLevelILVar_aliased(SSA):
 	operand_names = ["src"]
 
 	@property
-	def src(self):
+	def src(self) -> SSAVariable:
 		return self.get_var_ssa(0, 1)
 
 
@@ -1096,11 +1096,11 @@ class MediumLevelILSet_var(SetVar):
 	operand_names = ["dest", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> variable.Variable:
 		return self.get_var(0)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 
@@ -1109,11 +1109,11 @@ class MediumLevelILLoad_struct(Load):
 	operand_names = ["src", "offset"]
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(1)
 
 
@@ -1122,11 +1122,11 @@ class MediumLevelILStore(Store):
 	operand_names = ["dest", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 
@@ -1135,11 +1135,11 @@ class MediumLevelILVar_field(MediumLevelILInstruction):
 	operand_names = ["src", "offset"]
 
 	@property
-	def src(self):
+	def src(self) -> variable.Variable:
 		return self.get_var(0)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(1)
 
 
@@ -1148,11 +1148,11 @@ class MediumLevelILVar_split(MediumLevelILInstruction):
 	operand_names = ["high", "low"]
 
 	@property
-	def high(self):
+	def high(self) -> variable.Variable:
 		return self.get_var(0)
 
 	@property
-	def low(self):
+	def low(self) -> variable.Variable:
 		return self.get_var(1)
 
 
@@ -1161,11 +1161,11 @@ class MediumLevelILAddress_of_field(MediumLevelILInstruction):
 	operand_names = ["src", "offset"]
 
 	@property
-	def src(self):
+	def src(self) -> variable.Variable:
 		return self.get_var(0)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(1)
 
 
@@ -1174,11 +1174,11 @@ class MediumLevelILExtern_ptr(Constant):
 	operand_names = ["constant", "offset"]
 
 	@property
-	def constant(self):
+	def constant(self) -> int:
 		return self.get_int(0)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(1)
 
 
@@ -1344,11 +1344,11 @@ class MediumLevelILAdd_overflow(BinaryOperation, Arithmetic):
 	operand_names = ["left", "right"]
 
 	@property
-	def left(self):
+	def left(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def right(self):
+	def right(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 
@@ -1357,11 +1357,11 @@ class MediumLevelILSyscall(Syscall):
 	operand_names = ["output", "params"]
 
 	@property
-	def output(self):
+	def output(self) -> List[variable.Variable]:
 		return self.get_var_list(0, 1)
 
 	@property
-	def params(self):
+	def params(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(2, 3)
 
 
@@ -1370,11 +1370,11 @@ class MediumLevelILVar_ssa_field(SSA):
 	operand_names = ["src", "offset"]
 
 	@property
-	def src(self):
+	def src(self) -> SSAVariable:
 		return self.get_var_ssa(0, 1)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(2)
 
 
@@ -1383,11 +1383,11 @@ class MediumLevelILVar_aliased_field(SSA):
 	operand_names = ["src", "offset"]
 
 	@property
-	def src(self):
+	def src(self) -> SSAVariable:
 		return self.get_var_ssa(0, 1)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(2)
 
 
@@ -1396,11 +1396,11 @@ class MediumLevelILVar_split_ssa(SSA):
 	operand_names = ["high", "low"]
 
 	@property
-	def high(self):
+	def high(self) -> SSAVariable:
 		return self.get_var_ssa(0, 1)
 
 	@property
-	def low(self):
+	def low(self) -> SSAVariable:
 		return self.get_var_ssa(2, 3)
 
 
@@ -1409,7 +1409,7 @@ class MediumLevelILCall_output_ssa(SSA):
 	operand_names = ["dest_memory", "dest"]
 
 	@property
-	def dest_memory(self):
+	def dest_memory(self) -> int:
 		return self.get_int(0)
 
 	@property
@@ -1426,11 +1426,11 @@ class MediumLevelILCall_param_ssa(SSA):
 	operand_names = ["src_memory", "src"]
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> int:
 		return self.get_int(0)
 
 	@property
-	def src(self):
+	def src(self) -> List[SSAVariable]:
 		return self.get_var_ssa_list(1, 2)
 
 
@@ -1439,11 +1439,11 @@ class MediumLevelILLoad_ssa(Load, SSA):
 	operand_names = ["src", "src_memory"]
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> int:
 		return self.get_int(1)
 
 
@@ -1452,11 +1452,11 @@ class MediumLevelILVar_phi(Phi, SetVar, SSA):
 	operand_names = ["dest", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> SSAVariable:
 		return self.get_var_ssa(0, 1)
 
 	@property
-	def src(self):
+	def src(self) -> List[SSAVariable]:
 		return self.get_var_ssa_list(2, 3)
 
 
@@ -1465,11 +1465,11 @@ class MediumLevelILMem_phi(Memory, Phi):
 	operand_names = ["dest_memory", "src_memory"]
 
 	@property
-	def dest_memory(self):
+	def dest_memory(self) -> int:
 		return self.get_int(0)
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> List[int]:
 		return self.get_int_list(1)
 
 
@@ -1478,11 +1478,11 @@ class MediumLevelILSet_var_ssa(SetVar):
 	operand_names = ["dest", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> SSAVariable:
 		return self.get_var_ssa(0, 1)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 
@@ -1551,7 +1551,7 @@ class MediumLevelILJump_to(Terminal):
 	operand_names = ["dest", "targets"]
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
@@ -1564,15 +1564,15 @@ class MediumLevelILSet_var_aliased(SetVar, SSA):
 	operand_names = ["dest", "prev", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> SSAVariable:
 		return self.get_var_ssa_dest_and_src(0, 1)
 
 	@property
-	def prev(self):
+	def prev(self) -> SSAVariable:
 		return self.get_var_ssa_dest_and_src(0, 2)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(3)
 
 
@@ -1587,7 +1587,7 @@ class MediumLevelILSyscall_untyped(Syscall):
 		return inst.dest
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 	@property
@@ -1597,7 +1597,7 @@ class MediumLevelILSyscall_untyped(Syscall):
 		return inst.src
 
 	@property
-	def stack(self):
+	def stack(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 
@@ -1606,15 +1606,15 @@ class MediumLevelILIntrinsic(MediumLevelILInstruction):
 	operand_names = ["output", "intrinsic", "params"]
 
 	@property
-	def output(self):
+	def output(self) -> List[variable.Variable]:
 		return self.get_var_list(0, 1)
 
 	@property
-	def intrinsic(self):
+	def intrinsic(self) -> 'lowlevelil.ILIntrinsic':
 		return self.get_intrinsic(2)
 
 	@property
-	def params(self):
+	def params(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(3, 4)
 
 	@property
@@ -1633,15 +1633,15 @@ class MediumLevelILIntrinsic_ssa(SSA):
 	operand_names = ["output", "intrinsic", "params"]
 
 	@property
-	def output(self):
+	def output(self) -> List[SSAVariable]:
 		return self.get_var_ssa_list(0, 1)
 
 	@property
-	def intrinsic(self):
+	def intrinsic(self) -> 'lowlevelil.ILIntrinsic':
 		return self.get_intrinsic(2)
 
 	@property
-	def params(self):
+	def params(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(3, 4)
 
 	@property
@@ -1659,19 +1659,19 @@ class MediumLevelILSet_var_ssa_field(SetVar):
 	operand_names = ["dest", "prev", "offset", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> SSAVariable:
 		return self.get_var_ssa_dest_and_src(0, 1)
 
 	@property
-	def prev(self):
+	def prev(self) -> SSAVariable:
 		return self.get_var_ssa_dest_and_src(0, 2)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(3)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(4)
 
 	@property
@@ -1684,15 +1684,15 @@ class MediumLevelILSet_var_split_ssa(SetVar):
 	operand_names = ["high", "low", "src"]
 
 	@property
-	def high(self):
+	def high(self) -> SSAVariable:
 		return self.get_var_ssa(0, 1)
 
 	@property
-	def low(self):
+	def low(self) -> SSAVariable:
 		return self.get_var_ssa(2, 3)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(4)
 
 	@property
@@ -1705,19 +1705,19 @@ class MediumLevelILSet_var_aliased_field(SetVar, SSA):
 	operand_names = ["dest", "prev", "offset", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> SSAVariable:
 		return self.get_var_ssa_dest_and_src(0, 1)
 
 	@property
-	def prev(self):
+	def prev(self) -> SSAVariable:
 		return self.get_var_ssa_dest_and_src(0, 2)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(3)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(4)
 
 	@property
@@ -1730,23 +1730,23 @@ class MediumLevelILSyscall_ssa(Syscall, SSA):
 	operand_names = ["output", "params", "src_memory"]
 
 	@property
-	def output(self):
+	def output(self) -> List[SSAVariable]:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILSyscall_ssa return bad type for output"
 		return inst.dest
 
 	@property
-	def output_dest_memory(self):
+	def output_dest_memory(self) -> int:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILSyscall_ssa return bad type for output"
 		return inst.dest_memory
 
 	@property
-	def params(self):
+	def params(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(1, 2)
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> int:
 		return self.get_int(3)
 
 
@@ -1755,31 +1755,31 @@ class MediumLevelILSyscall_untyped_ssa(Syscall, SSA):
 	operand_names = ["output", "params", "stack"]
 
 	@property
-	def output(self):
+	def output(self) -> List[SSAVariable]:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILSyscall_untyped_ssa return bad type for 'output'"
 		return inst.dest
 
 	@property
-	def output_dest_memory(self):
+	def output_dest_memory(self) -> int:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILSyscall_untyped_ssa return bad type for 'output_dest_memory'"
 		return inst.dest_memory
 
 	@property
-	def params(self):
+	def params(self) -> List[SSAVariable]:
 		inst = self.get_expr(1)
 		assert isinstance(inst, MediumLevelILCall_param_ssa), "MediumLevelILSyscall_untyped_ssa return bad type for 'params'"
 		return inst.src
 
 	@property
-	def params_src_memory(self):
+	def params_src_memory(self) -> int:
 		inst = self.get_expr(1)
 		assert isinstance(inst, MediumLevelILCall_param_ssa), "MediumLevelILSyscall_untyped_ssa return bad type for 'params_src_memory'"
 		return inst.src_memory
 
 	@property
-	def stack(self):
+	def stack(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 
@@ -1788,15 +1788,15 @@ class MediumLevelILLoad_struct_ssa(Load, SSA):
 	operand_names = ["src", "offset", "src_memory"]
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(1)
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> int:
 		return self.get_int(2)
 
 
@@ -1805,15 +1805,15 @@ class MediumLevelILSet_var_field(SetVar):
 	operand_names = ["dest", "offset", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> variable.Variable:
 		return self.get_var(0)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(1)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 
@@ -1822,15 +1822,15 @@ class MediumLevelILSet_var_split(SetVar):
 	operand_names = ["high", "low", "src"]
 
 	@property
-	def high(self):
+	def high(self) -> variable.Variable:
 		return self.get_var(0)
 
 	@property
-	def low(self):
+	def low(self) -> variable.Variable:
 		return self.get_var(1)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 	@property
@@ -1843,15 +1843,15 @@ class MediumLevelILStore_struct(Store):
 	operand_names = ["dest", "offset", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(1)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 
@@ -1880,15 +1880,15 @@ class MediumLevelILCall(Call):
 	operand_names = ["output", "dest", "params"]
 
 	@property
-	def output(self):
+	def output(self) -> List[variable.Variable]:
 		return self.get_var_list(0, 1)
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 	@property
-	def params(self):
+	def params(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(3, 4)
 
 
@@ -1897,15 +1897,15 @@ class MediumLevelILIf(Terminal):
 	operand_names = ["condition", "true", "false"]
 
 	@property
-	def condition(self):
+	def condition(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def true(self):
+	def true(self) -> int:
 		return self.get_int(1)
 
 	@property
-	def false(self):
+	def false(self) -> int:
 		return self.get_int(2)
 
 
@@ -1914,23 +1914,23 @@ class MediumLevelILTailcall_untyped(Tailcall):
 	operand_names = ["output", "dest", "params", "stack"]
 
 	@property
-	def output(self):
+	def output(self) -> List[variable.Variable]:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output), "MediumLevelILTailcall_untyped return bad type for 'output'"
 		return inst.dest
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 	@property
-	def params(self):
+	def params(self) -> List[variable.Variable]:
 		inst = self.get_expr(2)
 		assert isinstance(inst, MediumLevelILCall_param), "MediumLevelILTailcall_untyped return bad type for 'params'"
 		return inst.src
 
 	@property
-	def stack(self):
+	def stack(self) -> MediumLevelILInstruction:
 		return self.get_expr(3)
 
 
@@ -1939,27 +1939,27 @@ class MediumLevelILCall_ssa(Call, SSA):
 	operand_names = ["output", "dest", "params", "src_memory"]
 
 	@property
-	def output(self):
+	def output(self) -> List[SSAVariable]:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILCall_ssa return bad type for output"
 		return inst.dest
 
 	@property
-	def output_dest_memory(self):
+	def output_dest_memory(self) -> int:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILCall_ssa return bad type for output"
 		return inst.dest_memory
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 	@property
-	def params(self):
+	def params(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(2, 3)
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> int:
 		return self.get_int(4)
 
 
@@ -1968,23 +1968,23 @@ class MediumLevelILCall_untyped_ssa(Call, SSA):
 	operand_names = ["output", "dest", "params", "stack"]
 
 	@property
-	def output(self):
+	def output(self) -> List[SSAVariable]:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILCall_untyped_ssa return bad type for output"
 		return inst.dest
 
 	@property
-	def output_dest_memory(self):
+	def output_dest_memory(self) -> int:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILCall_untyped_ssa return bad type for output"
 		return inst.dest_memory
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 	@property
-	def params(self):
+	def params(self) -> List[SSAVariable]:
 		inst = self.get_expr(2)
 		assert isinstance(inst, MediumLevelILCall_param_ssa), "MediumLevelILCall_untyped_ssa return bad type for 'params'"
 		return inst.src
@@ -1996,7 +1996,7 @@ class MediumLevelILCall_untyped_ssa(Call, SSA):
 		return inst.src_memory
 
 	@property
-	def stack(self):
+	def stack(self) -> MediumLevelILInstruction:
 		return self.get_expr(3)
 
 
@@ -2005,15 +2005,15 @@ class MediumLevelILTailcall(Tailcall):
 	operand_names = ["output", "dest", "params"]
 
 	@property
-	def output(self):
+	def output(self) -> List[variable.Variable]:
 		return self.get_var_list(0, 1)
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 	@property
-	def params(self):
+	def params(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(3, 4)
 
 
@@ -2022,27 +2022,27 @@ class MediumLevelILTailcall_ssa(Tailcall, SSA):
 	operand_names = ["output", "dest", "params", "src_memory"]
 
 	@property
-	def output(self):
+	def output(self) -> List[SSAVariable]:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILTailcall_ssa return bad type for output"
 		return inst.dest
 
 	@property
-	def output_dest_memory(self):
+	def output_dest_memory(self) -> int:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILTailcall_ssa return bad type for output"
 		return inst.dest_memory
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 	@property
-	def params(self):
+	def params(self) -> List[MediumLevelILInstruction]:
 		return self.get_expr_list(2, 3)
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> int:
 		return self.get_int(4)
 
 
@@ -2051,27 +2051,27 @@ class MediumLevelILTailcall_untyped_ssa(Tailcall, SSA):
 	operand_names = ["output", "dest", "params", "stack"]
 
 	@property
-	def output(self):
+	def output(self) -> List[SSAVariable]:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILTailcall_untyped_ssa return bad type for 'output'"
 		return inst.dest
 
 	@property
-	def output_dest_memory(self):
+	def output_dest_memory(self) -> int:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output_ssa), "MediumLevelILTailcall_untyped_ssa return bad type for 'output'"
 		return inst.dest_memory
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 	@property
-	def params(self):
+	def params(self) -> MediumLevelILInstruction:
 		return self.get_expr(2)
 
 	@property
-	def stack(self):
+	def stack(self) -> MediumLevelILInstruction:
 		return self.get_expr(3)
 
 
@@ -2080,19 +2080,19 @@ class MediumLevelILStore_ssa(Store, SSA):
 	operand_names = ["dest", "dest_memory", "src_memory", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def dest_memory(self):
+	def dest_memory(self) -> int:
 		return self.get_int(1)
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> int:
 		return self.get_int(2)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(3)
 
 
@@ -2101,23 +2101,23 @@ class MediumLevelILCall_untyped(Call):
 	operand_names = ["output", "dest", "params", "stack"]
 
 	@property
-	def output(self):
+	def output(self) -> List[variable.Variable]:
 		inst = self.get_expr(0)
 		assert isinstance(inst, MediumLevelILCall_output), "MediumLevelILCall_untyped return bad type for 'output'"
 		return inst.dest
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(1)
 
 	@property
-	def params(self):
+	def params(self) -> List[variable.Variable]:
 		inst = self.get_expr(2)
 		assert isinstance(inst, MediumLevelILCall_param), "MediumLevelILCall_untyped return bad type for 'params'"
 		return inst.src
 
 	@property
-	def stack(self):
+	def stack(self) -> MediumLevelILInstruction:
 		return self.get_expr(3)
 
 
@@ -2126,23 +2126,23 @@ class MediumLevelILStore_struct_ssa(Store, SSA):
 	operand_names = ["dest", "offset", "dest_memory", "src_memory", "src"]
 
 	@property
-	def dest(self):
+	def dest(self) -> MediumLevelILInstruction:
 		return self.get_expr(0)
 
 	@property
-	def offset(self):
+	def offset(self) -> int:
 		return self.get_int(1)
 
 	@property
-	def dest_memory(self):
+	def dest_memory(self) -> int:
 		return self.get_int(2)
 
 	@property
-	def src_memory(self):
+	def src_memory(self) -> int:
 		return self.get_int(3)
 
 	@property
-	def src(self):
+	def src(self) -> MediumLevelILInstruction:
 		return self.get_expr(4)
 
 ILInstruction = {
@@ -2751,7 +2751,7 @@ class MediumLevelILBasicBlock(basicblock.BasicBlock):
 		for idx in range(self.start, self.end):
 			yield self._il_function[idx]
 
-	def __getitem__(self, idx):
+	def __getitem__(self, idx) -> 'MediumLevelILInstruction':
 		size = self.end - self.start
 		if idx > size or idx < -size:
 			raise IndexError("list index is out of range")
