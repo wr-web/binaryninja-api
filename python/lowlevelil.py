@@ -290,7 +290,7 @@ class CoreLowLevelILInstruction:
 
 	@classmethod
 	def from_BNLowLevelILInstruction(cls, instr:core.BNLowLevelILInstruction) -> 'CoreLowLevelILInstruction':
-		operands = [ExpressionIndex(i) for i in instr.operands]
+		operands = [ExpressionIndex(instr.operands[i]) for i in range(4)]
 		return cls(LowLevelILOperation(instr.operation), instr.size, instr.flags, instr.sourceOperand, operands, instr.address)
 
 @dataclass(frozen=True)
@@ -426,7 +426,7 @@ class LowLevelILInstruction:
 			return None
 		mlil_func = self.function.medium_level_il
 		assert mlil_func is not None, "self.function.medium_level_il is None"
-		return mediumlevelil.MediumLevelILInstruction(mlil_func, expr)
+		return mediumlevelil.MediumLevelILInstruction.create(mlil_func, expr)
 
 	@property
 	def mlil(self) -> Optional['mediumlevelil.MediumLevelILInstruction']:
@@ -436,7 +436,7 @@ class LowLevelILInstruction:
 	def mlils(self) -> List['mediumlevelil.MediumLevelILInstruction']:
 		result = []
 		for expr in self.function.get_medium_level_il_expr_indexes(self.expr_index):
-			result.append(mediumlevelil.MediumLevelILInstruction(self.function.medium_level_il, expr))
+			result.append(mediumlevelil.MediumLevelILInstruction.create(self.function.medium_level_il, expr))
 		return result
 
 	@property
@@ -445,7 +445,7 @@ class LowLevelILInstruction:
 		expr = self.function.get_mapped_medium_level_il_expr_index(self.expr_index)
 		if expr is None:
 			return None
-		return mediumlevelil.MediumLevelILInstruction(self.function.mapped_medium_level_il, expr)
+		return mediumlevelil.MediumLevelILInstruction.create(self.function.mapped_medium_level_il, expr)
 
 	@property
 	def mmlil(self) -> Optional['mediumlevelil.MediumLevelILInstruction']:

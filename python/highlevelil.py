@@ -536,7 +536,7 @@ class HighLevelILInstruction:
 			return None
 		ssa_func = mlil.ssa_form
 		assert ssa_func is not None, "medium_level_il.ssa_form is None"
-		return mediumlevelil.MediumLevelILInstruction(ssa_func, expr)
+		return mediumlevelil.MediumLevelILInstruction.create(ssa_func, expr)
 
 	@property
 	def mlil(self) -> Optional['mediumlevelil.MediumLevelILInstruction']:
@@ -551,7 +551,7 @@ class HighLevelILInstruction:
 				return
 			ssa_func = mlil.ssa_form
 			assert ssa_func is not None, "medium_level_il.ssa_form is None"
-			yield mediumlevelil.MediumLevelILInstruction(ssa_func, expr)
+			yield mediumlevelil.MediumLevelILInstruction.create(ssa_func, expr)
 
 	@property
 	def low_level_il(self) -> Optional['lowlevelil.LowLevelILInstruction']:
