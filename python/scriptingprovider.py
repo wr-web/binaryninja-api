@@ -368,10 +368,10 @@ class ScriptingProvider(metaclass=_ScriptingProviderMetaclass):
 			return None
 		return ScriptingInstance(self, handle = result)
 
-	def _load_module(self, ctx, repo_path:str, plugin_path:str, force:bool) -> bool:
+	def _load_module(self, ctx, repo_path:bytes, plugin_path:bytes, force:bool) -> bool:
 		return False
 
-	def _install_modules(self, ctx, modules:str) -> bool:
+	def _install_modules(self, ctx, modules:bytes) -> bool:
 		return False
 
 	def _module_installed(self, ctx, module:str) -> bool:
@@ -798,10 +798,10 @@ class PythonScriptingProvider(ScriptingProvider):
 		python_bin, status = self._get_executable_for_libpython(python_lib, python_bin_override)
 		return python_bin
 
-	def _load_module(self, ctx, repo_path, module, force):
+	def _load_module(self, ctx, _repo_path:bytes, _module:bytes, force:bool):
 		try:
-			repo_path = repo_path.decode("utf-8")
-			module = module.decode("utf-8")
+			repo_path = _repo_path.decode("utf-8")
+			module = _module.decode("utf-8")
 			repo = RepositoryManager()[repo_path]
 			plugin = repo[module]
 
@@ -913,9 +913,10 @@ class PythonScriptingProvider(ScriptingProvider):
 
 		return (python_bin, "Success")
 
-	def _install_modules(self, ctx, modules: str) -> bool:
+	def _install_modules(self, ctx, _modules: bytes) -> bool:
 		# This callback should not be called directly it is indirectly
 		# executed binary ninja is executed with --pip option
+		modules = _modules.decode("utf-8")
 		if len(modules.strip()) == 0:
 			return True
 		python_lib = settings.Settings().get_string("python.interpreter")
@@ -941,7 +942,7 @@ class PythonScriptingProvider(ScriptingProvider):
 			log.log_error(f"Python Binary Setting {python_bin_version} incompatible with python library {python_lib_version}")
 			return False
 
-		args = [str(python_bin), "-m", "pip", "--isolated", "--disable-pip-version-check"]
+		args:List[str] = [str(python_bin), "-m", "pip", "--isolated", "--disable-pip-version-check"]
 		proxy_settings = settings.Settings().get_string("network.httpsProxy")
 		if proxy_settings:
 			args.extend(["--proxy", proxy_settings])
