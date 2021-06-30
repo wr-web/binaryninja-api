@@ -293,6 +293,7 @@ class CoreLowLevelILInstruction:
 		operands = [ExpressionIndex(instr.operands[i]) for i in range(4)]
 		return cls(LowLevelILOperation(instr.operation), instr.size, instr.flags, instr.sourceOperand, operands, instr.address)
 
+
 @dataclass(frozen=True)
 class LowLevelILInstruction:
 	"""
@@ -834,12 +835,14 @@ class LowLevelILInstruction:
 		finally:
 			core.BNLowLevelILFreeOperandList(operand_list)
 
+
 @dataclass(frozen=True, repr=False)
-class Terminal:
+class Terminal(LowLevelILInstruction):
+	"""This class indicates that the instruction ends a BasicBlock"""
 	pass
 
 @dataclass(frozen=True, repr=False)
-class BinaryInstruction(LowLevelILInstruction):
+class BinaryOperation(LowLevelILInstruction):
 	operand_names = ['left', 'right']
 
 	@property
@@ -852,7 +855,7 @@ class BinaryInstruction(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class UnaryInstruction(LowLevelILInstruction):
+class UnaryOperation(LowLevelILInstruction):
 	operand_names = ['src']
 
 	@property
@@ -861,17 +864,29 @@ class UnaryInstruction(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class Arithmetic(BinaryInstruction):
+class Arithmetic(LowLevelILInstruction):
 	pass
 
 
 @dataclass(frozen=True, repr=False)
-class Comparison(BinaryInstruction):
+class Signed(LowLevelILInstruction):
+	"""The operation is a signed operation"""
 	pass
 
 
 @dataclass(frozen=True, repr=False)
-class Constant(LowLevelILInstruction, Terminal):
+class Carry(LowLevelILInstruction):
+	"""Arithmetic with carry operation"""
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class Comparison(BinaryOperation):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class Constant(LowLevelILInstruction):
 	operand_names = ['constant']
 
 	def __int__(self):
@@ -904,528 +919,301 @@ class Constant(LowLevelILInstruction, Terminal):
 
 
 @dataclass(frozen=True, repr=False)
-class FloatingPoint(BinaryInstruction):
+class FloatingPoint(LowLevelILInstruction):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class ControlFlow(LowLevelILInstruction):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class Memory(LowLevelILInstruction):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class Return(Terminal):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class RegisterStack(LowLevelILInstruction):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class SSA(LowLevelILInstruction):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class StackOperation(LowLevelILInstruction):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class SetReg(LowLevelILInstruction):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class DoublePrecision(LowLevelILInstruction):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class Store(Memory):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class Load(Memory):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class Call(LowLevelILInstruction):
 	pass
 
 
 @dataclass(frozen=True, repr=False)
 class LowLevelILNop(LowLevelILInstruction):
-	pass
+	operand_names = []
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILAdd(Arithmetic):
-	pass
+class LowLevelILPop(StackOperation):
+	operand_names = []
 
 
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSub(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILAnd(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILOr(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILXor(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILLsl(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILLsr(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILAsr(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILRol(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILRor(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILMul(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILMulu_dp(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILMuls_dp(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILDivu(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILDivu_dp(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILDivs(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILDivs_dp(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILModu(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILModu_dp(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILMods(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILMods_dp(Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_e(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_ne(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_slt(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_ult(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_sle(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_ule(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_sge(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_uge(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_sgt(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCmp_ugt(Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILTest_bit(FloatingPoint):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILAdd_overflow(FloatingPoint):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFsub(FloatingPoint, Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFadd(FloatingPoint, Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFmul(FloatingPoint, Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFdiv(FloatingPoint, Arithmetic):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFcmp_e(FloatingPoint, Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFcmp_ne(FloatingPoint, Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFcmp_lt(FloatingPoint, Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFcmp_le(FloatingPoint, Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFcmp_ge(FloatingPoint, Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFcmp_gt(FloatingPoint, Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFcmp_o(FloatingPoint, Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFcmp_uo(FloatingPoint, Comparison):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSet_reg(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
-	@property
-	def dest(self) -> ILRegister:
-		return self.get_reg(0)
-
-	@property
-	def src(self) -> LowLevelILInstruction:
-		return self.get_expr(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSet_reg_split(LowLevelILInstruction):
-	operand_names = ['hi', 'lo', 'src']
-
-	@property
-	def hi(self) -> ILRegister:
-		return self.get_reg(0)
-
-	@property
-	def lo(self) -> ILRegister:
-		return self.get_reg(1)
-
-	@property
-	def src(self) -> LowLevelILInstruction:
-		return self.get_expr(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_free_rel(LowLevelILInstruction):
-	operand_names = ['stack', 'dest', 'src']
-
-	@property
-	def stack(self) -> ILRegisterStack:
-		return self.get_reg_stack(0)
-
-	@property
-	def dest(self) -> LowLevelILInstruction:
-		return self.get_expr(1)
-
-	@property
-	def src(self) -> LowLevelILInstruction:
-		return self.get_expr(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSet_reg_stack_rel(LowLevelILInstruction):
-	operand_names = ['stack', 'dest']
-
-	@property
-	def stack(self) -> ILRegisterStack:
-		return self.get_reg_stack(0)
-
-	@property
-	def dest(self) -> LowLevelILInstruction:
-		return self.get_expr(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_push(LowLevelILInstruction):
-	operand_names = ['stack', 'src']
-
-	@property
-	def stack(self) -> ILRegisterStack:
-		return self.get_reg_stack(0)
-
-	@property
-	def src(self) -> LowLevelILInstruction:
-		return self.get_expr(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSet_flag(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
-
-	@property
-	def dest(self) -> ILFlag:
-		return self.get_flag(0)
-
-	@property
-	def src(self) -> LowLevelILInstruction:
-		return self.get_expr(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILStore(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
-
-	@property
-	def dest(self) -> LowLevelILInstruction:
-		return self.get_expr(0)
-
-	@property
-	def src(self) -> LowLevelILInstruction:
-		return self.get_expr(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILPush(UnaryInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILNeg(UnaryInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILNot(UnaryInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSx(UnaryInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILZx(UnaryInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILLow_part(UnaryInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class SourceInstruction(LowLevelILInstruction):
-	operand_names = ['src']
-
-	@property
-	def src(self) -> LowLevelILInstruction:
-		return self.get_expr(0)
-
-
-@dataclass(frozen=True, repr=False)
-class DestinationInstruction(LowLevelILInstruction):
-	operand_names = ['dest']
-
-	@property
-	def dest(self) -> LowLevelILInstruction:
-		return self.get_expr(0)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILBool_to_int(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILUnimpl_mem(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFsqrt(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFneg(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFabs(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFloat_to_int(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILInt_to_float(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFloat_conv(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILRound_to_int(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFloor(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCeil(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFtrunc(SourceInstruction):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILPop(LowLevelILInstruction):
-	pass
-
-
 @dataclass(frozen=True, repr=False)
-class LowLevelILNoret(LowLevelILInstruction):
-	pass
+class LowLevelILNoret(Terminal):
+	operand_names = []
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILSyscall(LowLevelILInstruction):
-	pass
+class LowLevelILSyscall(Call):
+	operand_names = []
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILBp(LowLevelILInstruction):
-	pass
+class LowLevelILBp(Terminal):
+	operand_names = []
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILUndef(LowLevelILInstruction):
-	pass
+class LowLevelILUndef(Terminal):
+	operand_names = []
 
 
 @dataclass(frozen=True, repr=False)
 class LowLevelILUnimpl(LowLevelILInstruction):
+	operand_names = []
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILNeg(UnaryOperation, Arithmetic):
 	pass
 
 
 @dataclass(frozen=True, repr=False)
+class LowLevelILNot(UnaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSx(UnaryOperation, Arithmetic):
+	pass
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILZx(UnaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILLow_part(UnaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILJump(ControlFlow, Terminal):
+	operand_names = ["dest"]
+
+	@property
+	def dest(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCall(Call):
+	operand_names = ["dest"]
+
+	@property
+	def dest(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILTailcall(Call):
+	operand_names = ["dest"]
+
+	@property
+	def dest(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILRet(Return):
+	operand_names = ["dest"]
+
+	@property
+	def dest(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILUnimpl_mem(Memory):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFsqrt(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFneg(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFabs(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFloat_to_int(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILInt_to_float(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFloat_conv(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILRound_to_int(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFloor(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCeil(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFtrunc(FloatingPoint, Arithmetic):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILLoad(Memory):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILPush(StackOperation):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
 class LowLevelILReg(LowLevelILInstruction):
-	operand_names = ['src']
+	operand_names = ["src"]
 
 	@property
-	def src(self) -> ILRegister:
+	def src(self):
 		return self.get_reg(0)
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILReg_split(LowLevelILInstruction):
-	operand_names = ['hi', 'lo']
+class LowLevelILReg_stack_pop(RegisterStack):
+	operand_names = ["stack"]
 
 	@property
-	def hi(self) -> ILRegister:
-		return self.get_reg(0)
-
-	@property
-	def lo(self) -> ILRegister:
-		return self.get_reg(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_rel(LowLevelILInstruction):
-	operand_names = ['stack', 'src']
-
-	@property
-	def stack(self) -> ILRegisterStack:
-		return self.get_reg_stack(0)
-
-	@property
-	def src(self) -> LowLevelILInstruction:
-		return self.get_expr(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_pop(LowLevelILInstruction):
-	operand_names = ['stack']
-
-	@property
-	def stack(self) -> ILRegisterStack:
+	def stack(self):
 		return self.get_reg_stack(0)
 
 
-
 @dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_free_reg(LowLevelILInstruction):
-	operand_names = ['dest']
+class LowLevelILReg_stack_free_reg(RegisterStack):
+	operand_names = ["dest"]
 
 	@property
-	def dest(self) -> ILRegister:
+	def dest(self):
 		return self.get_reg(0)
 
 
@@ -1440,17 +1228,7 @@ class LowLevelILConst_ptr(Constant):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILExtern_ptr(Constant):
-	operand_names = ['offset']
-
-	@property
-	def offset(self) -> int:
-		return self.get_int(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFloat_const(LowLevelILInstruction):
-	operand_names = ['constant']
+class LowLevelILFloat_const(Constant, FloatingPoint):
 
 	@property
 	def constant(self) -> float:
@@ -1459,133 +1237,460 @@ class LowLevelILFloat_const(LowLevelILInstruction):
 
 @dataclass(frozen=True, repr=False)
 class LowLevelILFlag(LowLevelILInstruction):
-	operand_names = ['src']
+	operand_names = ["src"]
 
 	@property
-	def src(self) -> ILFlag:
+	def src(self):
 		return self.get_flag(0)
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILFlag_bit(LowLevelILInstruction):
-	operand_names = ['src', 'bit']
+class LowLevelILGoto(Terminal):
+	operand_names = ["dest"]
 
 	@property
-	def src(self) -> ILFlag:
-		return self.get_flag(0)
-
-	@property
-	def bit(self) -> int:
-		return self.get_int(1)
-
-
-@dataclass(frozen=True, repr=False)
-class ArithmeticCarry(Arithmetic):
-	operand_names = ['left', 'right', 'carry']
-
-	@property
-	def carry(self) -> LowLevelILInstruction:
-		return self.get_expr(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILAdc(ArithmeticCarry):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSbb(ArithmeticCarry):
-	pass
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILRlc(ArithmeticCarry):
-	pass
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILRrc(ArithmeticCarry):
-	pass
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILJump(DestinationInstruction):
-	pass
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILJump_to(DestinationInstruction):
-	operand_names = ['dest', 'targets']
-
-	@property
-	def targets(self) -> Mapping[int, int]:
-		return self.get_target_map(1)
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCall(DestinationInstruction):
-	pass
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCall_stack_adjust(DestinationInstruction):
-	operand_names = ['dest', 'stack_adjustment', 'get_reg_stack']
-
-	@property
-	def stack_adjustment(self):
-		return self.get_int(1)
-
-	@property
-	def get_reg_stack(self):
-		return self.get_reg_stack_adjust(2)
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILTailcall(DestinationInstruction):
-	pass
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILRet(DestinationInstruction):
-	pass
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILStore_ssa(DestinationInstruction):
-	operand_names = ['dest', 'dest_memory', 'src_memory', 'src']
-
-	@property
-	def dest_memory(self) -> int:
-		return self.get_int(1)
-
-	@property
-	def src_memory(self) -> int:
-		return self.get_int(2)
-
-	@property
-	def src(self) -> 'LowLevelILInstruction':
-		return self.get_expr(3)
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILIf(LowLevelILInstruction):
-	operand_names = ['condition', 'true', 'false']
-
-	@property
-	def condition(self) -> 'LowLevelILInstruction':
-		return self.get_expr(0)
-
-	@property
-	def true(self) -> int:
-		return self.get_int(1)
-
-	@property
-	def false(self) -> int:
-		return self.get_int(2)
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILGoto(LowLevelILInstruction):
-	operand_names = ['dest']
-
-	@property
-	def dest(self) -> int:
+	def dest(self):
 		return self.get_int(0)
 
 
 @dataclass(frozen=True, repr=False)
+class LowLevelILFlag_group(LowLevelILInstruction):
+	operand_names = ["semantic_group"]
+
+	@property
+	def semantic_group(self):
+		return self.get_sem_group(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILBool_to_int(LowLevelILInstruction):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILTrap(Terminal):
+	operand_names = ["vector"]
+
+	@property
+	def vector(self):
+		return self.get_int(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_split_dest_ssa(SSA):
+	operand_names = ["dest"]
+
+	@property
+	def dest(self):
+		return self.get_reg_ssa(0, 1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_stack_dest_ssa(RegisterStack, SSA):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_reg_stack_ssa(0, 1)
+
+	@property
+	def src(self):
+		return self.get_reg_stack_ssa(0, 2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_ssa(SSA):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_reg_ssa(0, 1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFlag_ssa(SSA):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_flag_ssa(0, 1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCall_param(SSA):
+	operand_names = ["src"]
+
+	@property
+	def src(self):
+		return self.get_expr_list(0)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILMem_phi(Memory, SSA):
+	operand_names = ["dest_memory", "src_memory"]
+
+	@property
+	def dest_memory(self):
+		return self.get_int(0)
+
+	@property
+	def src_memory(self):
+		return self.get_int_list(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSet_reg(SetReg):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_reg(0)
+
+	@property
+	def src(self):
+		return self.get_expr(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_stack_push(RegisterStack):
+	operand_names = ["stack", "src"]
+
+	@property
+	def stack(self):
+		return self.get_reg_stack(0)
+
+	@property
+	def src(self):
+		return self.get_expr(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSet_flag(LowLevelILInstruction):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_flag(0)
+
+	@property
+	def src(self):
+		return self.get_expr(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILStore(Memory):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_expr(0)
+
+	@property
+	def src(self):
+		return self.get_expr(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_split(LowLevelILInstruction):
+	operand_names = ["hi", "lo"]
+
+	@property
+	def hi(self):
+		return self.get_reg(0)
+
+	@property
+	def lo(self):
+		return self.get_reg(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_stack_rel(RegisterStack):
+	operand_names = ["stack", "src"]
+
+	@property
+	def stack(self):
+		return self.get_reg_stack(0)
+
+	@property
+	def src(self):
+		return self.get_expr(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_stack_free_rel(RegisterStack):
+	operand_names = ["stack", "dest"]
+
+	@property
+	def stack(self):
+		return self.get_reg_stack(0)
+
+	@property
+	def dest(self):
+		return self.get_expr(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILExtern_ptr(Constant):
+	operand_names = ["constant", "offset"]
+
+	@property
+	def constant(self):
+		return self.get_int(0)
+
+	@property
+	def offset(self):
+		return self.get_int(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFlag_bit(LowLevelILInstruction):
+	operand_names = ["src", "bit"]
+
+	@property
+	def src(self):
+		return self.get_flag(0)
+
+	@property
+	def bit(self):
+		return self.get_int(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILAdd(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSub(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILAnd(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILOr(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILXor(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILLsl(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILLsr(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILAsr(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILRol(BinaryOperation, Arithmetic):
+	pass
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILRor(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILMul(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILMulu_dp(BinaryOperation, DoublePrecision):
+	pass
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILMuls_dp(BinaryOperation, DoublePrecision):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILDivu(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILDivu_dp(BinaryOperation, DoublePrecision):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILDivs(BinaryOperation, Arithmetic, Signed):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILDivs_dp(BinaryOperation, DoublePrecision, Signed):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILModu(BinaryOperation, Arithmetic):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILModu_dp(BinaryOperation, DoublePrecision):
+	pass
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILMods(BinaryOperation, Arithmetic, Signed):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILMods_dp(BinaryOperation, DoublePrecision, Signed):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_e(Comparison):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_ne(Comparison):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_slt(Comparison, Signed):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_ult(Comparison):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_sle(Comparison,Signed):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_ule(Comparison):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_sge(Comparison, Signed):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_uge(Comparison):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_sgt(Comparison, Signed):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCmp_ugt(Comparison):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILTest_bit(BinaryOperation, Arithmetic, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFadd(BinaryOperation, Arithmetic, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFsub(BinaryOperation, Arithmetic, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFmul(BinaryOperation, Arithmetic, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFdiv(BinaryOperation, Arithmetic, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFcmp_e(Comparison, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFcmp_ne(Comparison, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFcmp_lt(Comparison, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFcmp_le(Comparison, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFcmp_ge(Comparison, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFcmp_gt(Comparison, FloatingPoint):
+	pass
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFcmp_o(Comparison, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFcmp_uo(Comparison, FloatingPoint):
+	pass
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILJump_to(LowLevelILInstruction):
+	operand_names = ["dest", "targets"]
+
+	@property
+	def dest(self):
+		return self.get_expr(0)
+
+	@property
+	def targets(self):
+		return self.get_target_map(1)
+
+
+@dataclass(frozen=True, repr=False)
 class LowLevelILFlag_cond(LowLevelILInstruction):
-	operand_names = ['condition', 'semantic_class']
+	operand_names = ["condition", "semantic_class"]
 
 	@property
 	def condition(self):
@@ -1597,17 +1702,326 @@ class LowLevelILFlag_cond(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILFlag_group(LowLevelILInstruction):
-	operand_names = ['semantic_group']
+class LowLevelILAdd_overflow(BinaryOperation, Arithmetic):
+	operand_names = ["left", "right"]
 
 	@property
-	def semantic_group(self):
-		return self.get_sem_group(0)
+	def left(self):
+		return self.get_expr(0)
+
+	@property
+	def right(self):
+		return self.get_expr(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSet_reg_ssa(SetReg, SSA):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_reg_ssa(0, 1)
+
+	@property
+	def src(self):
+		return self.get_expr(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_ssa_partial(SetReg, SSA):
+	operand_names = ["full_reg", "src"]
+
+	@property
+	def full_reg(self):
+		return self.get_reg_ssa(0, 1)
+
+	@property
+	def src(self):
+		return self.get_reg(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_split_ssa(SetReg, SSA):
+	operand_names = ["hi", "lo"]
+
+	@property
+	def hi(self):
+		return self.get_reg_ssa(0, 1)
+
+	@property
+	def lo(self):
+		return self.get_reg_ssa(2, 3)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_stack_abs_ssa(RegisterStack, SSA):
+	operand_names = ["stack", "src"]
+
+	@property
+	def stack(self):
+		return self.get_reg_stack_ssa(0, 1)
+
+	@property
+	def src(self):
+		return self.get_reg(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_stack_free_abs_ssa(RegisterStack):
+	operand_names = ["stack", "dest"]
+
+	@property
+	def stack(self):
+		return self.get_expr(0)
+
+	@property
+	def dest(self):
+		return self.get_reg(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSet_flag_ssa(SSA):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_flag_ssa(0, 1)
+
+	@property
+	def src(self):
+		return self.get_expr(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFlag_bit_ssa(SSA):
+	operand_names = ["src", "bit"]
+
+	@property
+	def src(self):
+		return self.get_flag_ssa(0, 1)
+
+	@property
+	def bit(self):
+		return self.get_int(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCall_output_ssa(SSA):
+	operand_names = ["dest_memory", "dest"]
+
+	@property
+	def dest_memory(self):
+		return self.get_int(0)
+
+	@property
+	def dest(self):
+		return self.get_reg_ssa_list(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCall_stack_ssa(SSA):
+	operand_names = ["src", "src_memory"]
+
+	@property
+	def src(self):
+		return self.get_reg_ssa(0, 1)
+
+	@property
+	def src_memory(self):
+		return self.get_int(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILLoad_ssa(Load, SSA):
+	operand_names = ["src", "src_memory"]
+
+	@property
+	def src(self):
+		return self.get_expr(0)
+
+	@property
+	def src_memory(self):
+		return self.get_int(1)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_phi(SSA):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_reg_ssa(0, 1)
+
+	@property
+	def src(self):
+		return self.get_reg_ssa_list(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILReg_stack_phi(RegisterStack, SSA):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_reg_stack_ssa(0, 1)
+
+	@property
+	def src(self):
+		return self.get_reg_stack_ssa_list(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILFlag_phi(SSA):
+	operand_names = ["dest", "src"]
+
+	@property
+	def dest(self):
+		return self.get_flag_ssa(0, 1)
+
+	@property
+	def src(self):
+		return self.get_flag_ssa_list(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSet_reg_split(SetReg):
+	operand_names = ["hi", "lo", "src"]
+
+	@property
+	def hi(self):
+		return self.get_reg(0)
+
+	@property
+	def lo(self):
+		return self.get_reg(1)
+
+	@property
+	def src(self):
+		return self.get_expr(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSet_reg_stack_rel(RegisterStack):
+	operand_names = ["stack", "dest", "src"]
+
+	@property
+	def stack(self):
+		return self.get_reg_stack(0)
+
+	@property
+	def dest(self):
+		return self.get_expr(1)
+
+	@property
+	def src(self):
+		return self.get_expr(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSbb(Carry):
+	operand_names = ["left", "right", "carry"]
+
+	@property
+	def left(self):
+		return self.get_expr(0)
+
+	@property
+	def right(self):
+		return self.get_expr(1)
+
+	@property
+	def carry(self):
+		return self.get_expr(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILAdc(Carry):
+	operand_names = ["left", "right", "carry"]
+
+	@property
+	def left(self):
+		return self.get_expr(0)
+
+	@property
+	def right(self):
+		return self.get_expr(1)
+
+	@property
+	def carry(self):
+		return self.get_expr(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILRlc(Carry):
+	operand_names = ["left", "right", "carry"]
+
+	@property
+	def left(self):
+		return self.get_expr(0)
+
+	@property
+	def right(self):
+		return self.get_expr(1)
+
+	@property
+	def carry(self):
+		return self.get_expr(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILRrc(Carry):
+	operand_names = ["left", "right", "carry"]
+
+	@property
+	def left(self):
+		return self.get_expr(0)
+
+	@property
+	def right(self):
+		return self.get_expr(1)
+
+	@property
+	def carry(self):
+		return self.get_expr(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILCall_stack_adjust(Call):
+	operand_names = ["dest", "stack_adjustment", "reg_stack_adjustments"]
+
+	@property
+	def dest(self):
+		return self.get_expr(0)
+
+	@property
+	def stack_adjustment(self):
+		return self.get_int(1)
+
+	@property
+	def reg_stack_adjustments(self):
+		return self.get_reg_stack_adjust(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILIf(Terminal):
+	operand_names = ["condition", "true", "false"]
+
+	@property
+	def condition(self):
+		return self.get_expr(0)
+
+	@property
+	def true(self):
+		return self.get_int(1)
+
+	@property
+	def false(self):
+		return self.get_int(2)
 
 
 @dataclass(frozen=True, repr=False)
 class LowLevelILIntrinsic(LowLevelILInstruction):
-	operand_names = ['output', 'intrinsic', 'param']
+	operand_names = ["output", "intrinsic", "param"]
 
 	@property
 	def output(self):
@@ -1623,8 +2037,8 @@ class LowLevelILIntrinsic(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILIntrinsic_ssa(LowLevelILInstruction):
-	operand_names = ['output', 'intrinsic', 'param']
+class LowLevelILIntrinsic_ssa(SSA):
+	operand_names = ["output", "intrinsic", "param"]
 
 	@property
 	def output(self):
@@ -1640,30 +2054,8 @@ class LowLevelILIntrinsic_ssa(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILTrap(LowLevelILInstruction):
-	operand_names = ['vector']
-
-	@property
-	def vector(self):
-		return self.get_int(0)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSet_reg_ssa(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
-
-	@property
-	def dest(self):
-		return self.get_reg_ssa(0, 1)
-
-	@property
-	def src(self):
-		return self.get_expr(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSet_reg_ssa_partial(LowLevelILInstruction):
-	operand_names = ['full_reg', 'dest', 'src']
+class LowLevelILSet_reg_ssa_partial(SetReg, SSA):
+	operand_names = ["full_reg", "dest", "src"]
 
 	@property
 	def full_reg(self):
@@ -1679,8 +2071,8 @@ class LowLevelILSet_reg_ssa_partial(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILSet_reg_split_ssa(LowLevelILInstruction):
-	operand_names = ['hi', 'lo', 'src']
+class LowLevelILSet_reg_split_ssa(SetReg, SSA):
+	operand_names = ["hi", "lo", "src"]
 
 	@property
 	def hi(self):
@@ -1696,29 +2088,8 @@ class LowLevelILSet_reg_split_ssa(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILSet_reg_stack_rel_ssa(LowLevelILInstruction):
-	operand_names = ['stack', 'dest', 'top', 'src']
-
-	@property
-	def stack(self):
-		return self.get_expr(0)
-
-	@property
-	def dest(self):
-		return self.get_expr(1)
-
-	@property
-	def top(self):
-		return self.get_expr(2)
-
-	@property
-	def src(self):
-		return self.get_expr(3)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSet_reg_stack_abs_ssa(LowLevelILInstruction):
-	operand_names = ['stack', 'dest', 'src']
+class LowLevelILSet_reg_stack_abs_ssa(RegisterStack, SSA):
+	operand_names = ["stack", "dest", "src"]
 
 	@property
 	def stack(self):
@@ -1734,62 +2105,8 @@ class LowLevelILSet_reg_stack_abs_ssa(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILReg_split_dest_ssa(LowLevelILInstruction):
-	operand_names = ['dest']
-
-	@property
-	def dest(self):
-		return self.get_reg_ssa(0, 1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_dest_ssa(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
-
-	@property
-	def dest(self):
-		return self.get_reg_stack_ssa(0, 1)
-
-	@property
-	def src(self):
-		return self.get_reg_stack_ssa(0, 2)
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_ssa(LowLevelILInstruction):
-	operand_names = ['src']
-
-	@property
-	def src(self):
-		return self.get_reg_ssa(0, 1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_ssa_partial(LowLevelILInstruction):
-	@property
-	def full_reg(self):
-		return self.get_reg_ssa(0, 1)
-
-	@property
-	def src(self):
-		return self.get_reg(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_split_ssa(LowLevelILInstruction):
-	operand_names = ['hi', 'lo']
-
-	@property
-	def hi(self):
-		return self.get_reg_ssa(0, 1)
-
-	@property
-	def lo(self):
-		return self.get_reg_ssa(2, 3)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_rel_ssa(LowLevelILInstruction):
-	operand_names = ['stack', 'src', 'top']
+class LowLevelILReg_stack_rel_ssa(RegisterStack, SSA):
+	operand_names = ["stack", "src", "top"]
 
 	@property
 	def stack(self):
@@ -1805,21 +2122,8 @@ class LowLevelILReg_stack_rel_ssa(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_abs_ssa(LowLevelILInstruction):
-	operand_names = ['stack', 'src']
-
-	@property
-	def stack(self):
-		return self.get_reg_stack_ssa(0, 1)
-
-	@property
-	def src(self):
-		return self.get_reg(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_free_rel_ssa(LowLevelILInstruction):
-	operand_names = ['stack', 'dest', 'top']
+class LowLevelILReg_stack_free_rel_ssa(RegisterStack, SSA):
+	operand_names = ["stack", "dest", "top"]
 
 	@property
 	def stack(self):
@@ -1835,8 +2139,25 @@ class LowLevelILReg_stack_free_rel_ssa(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_free_abs_ssa(LowLevelILInstruction):
-	operand_names = ['stack', 'dest']
+class LowLevelILSyscall_ssa(Call, SSA):
+	operand_names = ["output", "stack", "param"]
+
+	@property
+	def output(self):
+		return self.get_expr(0)
+
+	@property
+	def stack(self):
+		return self.get_expr(1)
+
+	@property
+	def param(self):
+		return self.get_expr(2)
+
+
+@dataclass(frozen=True, repr=False)
+class LowLevelILSet_reg_stack_rel_ssa(RegisterStack, SSA):
+	operand_names = ["stack", "dest", "top", "src"]
 
 	@property
 	def stack(self):
@@ -1844,47 +2165,20 @@ class LowLevelILReg_stack_free_abs_ssa(LowLevelILInstruction):
 
 	@property
 	def dest(self):
-		return self.get_reg(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILSet_flag_ssa(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
+		return self.get_expr(1)
 
 	@property
-	def dest(self):
-		return self.get_flag_ssa(0, 1)
-
-	@property
-	def src(self):
+	def top(self):
 		return self.get_expr(2)
 
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFlag_ssa(LowLevelILInstruction):
-	operand_names = ['src']
-
 	@property
 	def src(self):
-		return self.get_flag_ssa(0, 1)
+		return self.get_expr(3)
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILFlag_bit_ssa(LowLevelILInstruction):
-	operand_names = ['src', 'bit']
-
-	@property
-	def src(self):
-		return self.get_flag_ssa(0, 1)
-
-	@property
-	def bit(self):
-		return self.get_int(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCall_ssa(LowLevelILInstruction):
-	operand_names = ['output', 'dest', 'stack', 'param']
+class LowLevelILCall_ssa(Call, SSA):
+	operand_names = ["output", "dest", "stack", "param"]
 
 	@property
 	def output(self):
@@ -1904,25 +2198,8 @@ class LowLevelILCall_ssa(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILSyscall_ssa(LowLevelILInstruction):
-	operand_names = ['output', 'stack', 'param']
-
-	@property
-	def output(self):
-		return self.get_expr(0)
-
-	@property
-	def stack(self):
-		return self.get_expr(1)
-
-	@property
-	def param(self):
-		return self.get_expr(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILTailcall_ssa(LowLevelILInstruction):
-	operand_names = ['output', 'dest', 'stack', 'param']
+class LowLevelILTailcall_ssa(Call, SSA, Terminal):
+	operand_names = ["output", "dest", "stack", "param"]
 
 	@property
 	def output(self):
@@ -1942,112 +2219,27 @@ class LowLevelILTailcall_ssa(LowLevelILInstruction):
 
 
 @dataclass(frozen=True, repr=False)
-class LowLevelILCall_output_ssa(LowLevelILInstruction):
-	operand_names = ['dest_memory', 'dest']
+class LowLevelILStore_ssa(Store, SSA):
+	operand_names = ["dest", "dest_memory", "src_memory", "src"]
+
+	@property
+	def dest(self):
+		return self.get_expr(0)
 
 	@property
 	def dest_memory(self):
-		return self.get_int(0)
-
-	@property
-	def dest(self):
-		return self.get_reg_ssa_list(1)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCall_stack_ssa(LowLevelILInstruction):
-	operand_names = ['src', 'src_memory']
-
-	@property
-	def src(self):
-		return self.get_reg_ssa(0, 1)
-
-	@property
-	def src_memory(self):
-		return self.get_int(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILCall_param(LowLevelILInstruction):
-	operand_names = ['src']
-
-	@property
-	def src(self):
-		return self.get_expr_list(0)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILLoad_ssa(LowLevelILInstruction):
-	operand_names = ['src', 'src_memory']
-
-	@property
-	def src(self):
-		return self.get_expr(0)
-
-	@property
-	def src_memory(self):
 		return self.get_int(1)
 
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILLoad(LowLevelILInstruction):
-	operand_names = ['src']
-
-	@property
-	def src(self):
-		return self.get_expr(0)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_phi(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
-
-	@property
-	def dest(self):
-		return self.get_reg_ssa(0, 1)
-
-	@property
-	def src(self):
-		return self.get_reg_ssa_list(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILReg_stack_phi(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
-
-	@property
-	def dest(self):
-		return self.get_reg_stack_ssa(0, 1)
-
-	@property
-	def src(self):
-		return self.get_reg_stack_ssa_list(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILFlag_phi(LowLevelILInstruction):
-	operand_names = ['dest', 'src']
-
-	@property
-	def dest(self):
-		return self.get_flag_ssa(0, 1)
-
-	@property
-	def src(self):
-		return self.get_flag_ssa_list(2)
-
-
-@dataclass(frozen=True, repr=False)
-class LowLevelILMem_phi(LowLevelILInstruction):
-	operand_names = ['dest_memory', 'src_memory']
-
-	@property
-	def dest_memory(self):
-		return self.get_int(0)
-
 	@property
 	def src_memory(self):
-		return self.get_int_list(1)
+		return self.get_int(2)
+
+	@property
+	def src(self):
+		return self.get_expr(3)
+
+
+
 
 
 ILInstruction:Mapping[LowLevelILOperation, LowLevelILInstruction] = {  # type: ignore
