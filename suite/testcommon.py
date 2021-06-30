@@ -320,7 +320,7 @@ class BinaryViewTestBuilder(Builder):
                             varlist.append(f"Function: {func.source_function.start:x} Instruction {instruction.address:x} SSA var uses:  {list(map(lambda instr: instr.instr_index, func.get_ssa_var_uses(var)))}")
                             varlist.append(f"Function: {func.source_function.start:x} Instruction {instruction.address:x} SSA var value: {func.get_ssa_var_value(var)}")
                             varlist.append(f"Function: {func.source_function.start:x} Instruction {instruction.address:x} SSA var possible values: {fixSet(str(instruction.get_ssa_var_possible_values(var)))}")
-                            varlist.append(f"Function: {func.source_function.start:x} Instruction {instruction.address:x} SSA var version: {instruction.get_ssa_var_version}")
+                            varlist.append(f"Function: {func.source_function.start:x} Instruction {instruction.address:x} SSA var version: {instruction.get_ssa_var_version(var.var)}")
         return fixOutput(varlist)
 
     def test_function_stack(self):
