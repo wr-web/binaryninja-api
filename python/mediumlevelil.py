@@ -1341,15 +1341,7 @@ class MediumLevelILTest_bit(Comparison):
 
 @dataclass(frozen=True, repr=False)
 class MediumLevelILAdd_overflow(BinaryOperation, Arithmetic):
-	operand_names = ["left", "right"]
-
-	@property
-	def left(self) -> MediumLevelILInstruction:
-		return self.get_expr(0)
-
-	@property
-	def right(self) -> MediumLevelILInstruction:
-		return self.get_expr(1)
+	pass
 
 
 @dataclass(frozen=True, repr=False)
