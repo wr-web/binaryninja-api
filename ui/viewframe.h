@@ -417,6 +417,8 @@ public:
 	void nextCrossReference();
 	void prevCrossReference();
 
+	void updateStackView();
+
 	void showTags();
 	void editTag(TagRef tag);
 	void nextTag();
