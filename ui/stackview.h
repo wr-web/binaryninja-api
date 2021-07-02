@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtWidgets/QAbstractScrollArea>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QDialog>
 #include <QtWidgets/QLineEdit>
@@ -26,7 +27,7 @@ public:
         FunctionRef func);
 };
 
-class BINARYNINJAUIAPI StackView : public QWidget, public DockContextHandler {
+class BINARYNINJAUIAPI StackView : public QAbstractScrollArea, public View, public DockContextHandler {
     Q_OBJECT
     Q_INTERFACES(DockContextHandler)
 
@@ -35,15 +36,27 @@ class BINARYNINJAUIAPI StackView : public QWidget, public DockContextHandler {
     FunctionRef m_func;
     RenderContext m_renderer;
 
-    //! Get a list of DisassemblyTextLines that represent the stack layout.
-    std::vector<BinaryNinja::DisassemblyTextLine> lines();
+    std::vector<BinaryNinja::DisassemblyTextLine> m_lines;
+    HighlightTokenState m_highlight;
+
+    void rebuildLines();
 
 protected:
     void paintEvent(QPaintEvent* event);
+    void mousePressEvent(QMouseEvent* event);
 
 public:
     StackView(ViewFrame* view, BinaryViewRef data);
 
     //! Refresh the stack view's content.
     void refresh();
+
+    void moveCursorToMouse(QMouseEvent* event, bool isSelecting);
+
+    // --- View Interface ---
+    BinaryViewRef getData();
+    uint64_t getCurrentOffset();
+    void setSelectionOffsets(BNAddressRange range);
+    bool navigate(uint64_t offset);
+    QFont getFont();
 };
