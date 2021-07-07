@@ -38,6 +38,8 @@ class BINARYNINJAUIAPI StackView : public QAbstractScrollArea, public View, publ
 
     std::vector<BinaryNinja::DisassemblyTextLine> m_lines;
     HighlightTokenState m_highlight;
+    size_t m_cursorLine = 0;
+    size_t m_cursorIndex = 0;
 
     void rebuildLines();
 
