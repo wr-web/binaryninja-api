@@ -27,7 +27,29 @@ public:
         FunctionRef func);
 };
 
-class BINARYNINJAUIAPI StackView : public QAbstractScrollArea, public View, public DockContextHandler {
+class StackViewLine {
+public:
+    enum class Type {
+        Variable,
+        Fill
+    };
+
+    StackViewLine(StackViewLine::Type type, int64_t offset,
+        BinaryNinja::DisassemblyTextLine content);
+
+    StackViewLine::Type type() const;
+    int64_t offset() const;
+    BinaryNinja::DisassemblyTextLine content() const;
+
+private:
+    StackViewLine::Type m_type;
+    int64_t m_offset;
+    BinaryNinja::DisassemblyTextLine m_content;
+};
+
+class BINARYNINJAUIAPI StackView : public QAbstractScrollArea,
+                                   public View,
+                                   public DockContextHandler {
     Q_OBJECT
     Q_INTERFACES(DockContextHandler)
 
@@ -36,7 +58,7 @@ class BINARYNINJAUIAPI StackView : public QAbstractScrollArea, public View, publ
     FunctionRef m_func;
     RenderContext m_renderer;
 
-    std::vector<BinaryNinja::DisassemblyTextLine> m_lines;
+    std::vector<StackViewLine> m_lines;
     HighlightTokenState m_highlight;
     size_t m_cursorLine = 0;
     size_t m_cursorIndex = 0;
