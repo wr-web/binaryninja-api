@@ -52,8 +52,10 @@ public:
 
     //! Refresh the stack view's content.
     void refresh();
-
     void moveCursorToMouse(QMouseEvent* event, bool isSelecting);
+
+    void showCreateVariableDialog();
+    void quickCreateVariable(int64_t offset, size_t size);
 
     // --- View Interface ---
     BinaryViewRef getData();
