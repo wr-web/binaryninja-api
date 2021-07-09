@@ -31,7 +31,8 @@ class StackViewLine {
 public:
     enum class Type {
         Variable,
-        Fill
+        Fill,
+        Annotation
     };
 
     StackViewLine(StackViewLine::Type type, int64_t offset,
