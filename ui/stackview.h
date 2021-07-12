@@ -19,12 +19,14 @@ class BINARYNINJAUIAPI CreateStackVariableDialog : public QDialog {
     QLineEdit* m_nameField;
     QComboBox* m_typeDropdown;
 
+    void autoFillFields();
+
 protected:
     void accept();
 
 public:
     CreateStackVariableDialog(QWidget* parent, BinaryViewRef data,
-        FunctionRef func);
+        FunctionRef func, int64_t initialOffset = 0);
 };
 
 class StackViewLine {
