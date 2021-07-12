@@ -40,7 +40,9 @@ public:
 
     StackViewLine::Type type() const;
     int64_t offset() const;
+
     BinaryNinja::DisassemblyTextLine content() const;
+    void setContent(BinaryNinja::DisassemblyTextLine line);
 
 private:
     StackViewLine::Type m_type;
