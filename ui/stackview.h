@@ -68,6 +68,8 @@ class BINARYNINJAUIAPI StackView : public QAbstractScrollArea,
     size_t m_cursorLine = 0;
     size_t m_cursorIndex = 0;
 
+    void setupActions();
+
     void rebuildLines();
 
 protected:
@@ -82,7 +84,7 @@ public:
     void moveCursorToMouse(QMouseEvent* event, bool isSelecting);
 
     void showCreateVariableDialog();
-    void quickCreateVariable(int64_t offset, size_t size);
+    void quickCreateVariableAtCursor(size_t size);
 
     // --- View Interface ---
     BinaryViewRef getData();
