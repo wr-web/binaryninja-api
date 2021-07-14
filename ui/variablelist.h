@@ -79,6 +79,9 @@ class BINARYNINJAUIAPI VariableListModel : public QAbstractListModel {
 
     QItemSelectionModel* m_selModel;
 
+    size_t m_prevVariableCount;
+    uint64_t m_prevSelectionId;
+
 public:
     VariableListModel(QWidget* parent, ViewFrame* view, BinaryViewRef data);
 
