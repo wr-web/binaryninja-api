@@ -155,6 +155,9 @@ public:
     //! Clear the selected variable's type.
     void clearSelectedVariableType();
 
+    //! Undefine the selected variable's user symbol.
+    void undefineSelectedUserVariable();
+
     //! Navigate to the first usage of the selected variable.
     void showSelectedVariableFirstUsage();
 
