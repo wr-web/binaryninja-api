@@ -4,6 +4,7 @@
 #include <QtWidgets/QStyledItemDelegate>
 #include <QtWidgets/QWidget>
 
+#include "binaryninjacore.h"
 #include "dockhandler.h"
 #include "uitypes.h"
 #include "viewframe.h"
@@ -159,4 +160,7 @@ public:
 
     //! Navigate to the definition of the selected data variable.
     void showSelectedDataVariableDefinition();
+
+    //! Set the selected variable's DSE policy.
+    void setSelectedVariableDeadStoreElimination(BNDeadStoreElimination dse);
 };
