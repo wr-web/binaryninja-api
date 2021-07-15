@@ -96,7 +96,7 @@ public:
     void setFunction(FunctionRef func, BNFunctionGraphType il,
         HighlightTokenState hts);
 
-    //! Set the selection model, should correspond ot the parent widget's.
+    //! Set the selection model, should correspond to the parent widget's.
     void setSelectionModel(QItemSelectionModel* model);
 
     // -- QAbstractListModel --
@@ -143,7 +143,7 @@ public:
     // Get the VariableListItem corresponding to the current selection.
     VariableListItem* selectedItem() const;
 
-    //! Show the rename dialog for the seleected variable.
+    //! Show the rename dialog for the selected variable.
     void changeSelectedVariableName();
 
     //! Show the new type dialog for the seleected variable.
