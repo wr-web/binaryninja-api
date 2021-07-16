@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QTimer>
 #include <QtWidgets/QListView>
 #include <QtWidgets/QStyledItemDelegate>
 #include <QtWidgets/QWidget>
@@ -134,6 +135,11 @@ class BINARYNINJAUIAPI VariableListView : public QWidget, public DockContextHand
 
     VariableListModel* m_listModel;
     QListView* m_list;
+
+    uint64_t m_lastOffset;
+    QTimer* m_refreshTimer;
+
+    void processRefresh();
 
 public:
     VariableListView(ViewFrame* view, BinaryViewRef data);
